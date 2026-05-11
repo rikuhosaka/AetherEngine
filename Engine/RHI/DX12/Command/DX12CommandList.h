@@ -1,0 +1,60 @@
+#pragma once
+
+#include "Engine/RHI/Interface/RHICommandList.h"
+
+class DX12Device;
+class CommandListImpl;
+
+class DX12CommandList : public RHICommandList
+{
+public:
+	~DX12CommandList() override;
+	void Reset() override;
+	void Close() override;
+
+	// Pipeline
+	void SetPipelineState(const RHIPipelineState* pso) override;
+	void SetRootSignature(const RHIRootSignature* rootSig) override;
+
+	// Descriptor / Resource
+	void SetDescriptorHeaps(std::span<const RHIDescriptorAllocator*> heaps) override;
+	void SetGraphicsRootDescriptorTable(uint32_t index, uint64_t baseDescriptor) override;
+
+	// Input Assembler
+	void IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBuffer*> views) override;
+	void IASetIndexBuffer(const RHIIndexBuffer* view) override;
+	void IASetPrimitiveTopology(uint32_t topology) override;
+
+	// Rasterizer
+	void RSSetViewports(float x, float y, float w, float h) override;
+	void RSSetScissorRects(int l, int t, int r, int b) override;
+
+	// Output Merger
+	void OMSetRenderTargets(uint32_t numRTs, const RtvHandle rtvs, bool singleHandle, const DsvHandle dsv) override;
+
+	// Clear
+	void ClearRenderTargetView(const RtvHandle rtv, const float color[4]) override;
+	void ClearDepthStencilView(const DsvHandle dsv, float depth, uint8_t stencil) override;
+
+	// Draw
+	void DrawIndexedInstanced(
+		uint32_t indexCount,
+		uint32_t instanceCount,
+		uint32_t startIndex,
+		int32_t baseVertex,
+		uint32_t startInstance) override;
+
+	// Barrier
+	void ResourceBarrier(RHIResource* resource, ERHIResourceState stateAfter) override;
+
+private:
+	DX12CommandList(const DX12Device* dxDevice);
+
+	std::unique_ptr<CommandListImpl> m_impl = nullptr;
+
+	CommandListImpl* GetImpl() const;
+
+	friend class DX12Device;
+	friend class DX12CommandQueue;
+	friend class RHIResource;
+};

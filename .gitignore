@@ -1,0 +1,47 @@
+# === ビルド生成物 ===
+build/
+Engine/**/Debug/
+*.obj
+*.lib
+*.pdb
+*.exe
+*.dll
+*.exp
+*.log
+*.tlog
+*.tmp
+*.cache
+
+# === CMake 関連 ===
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# === VS / VSCode 関連 ===
+.vscode/
+*.suo
+*.user
+*.vcxproj.*
+*.VC.db
+*.idb
+*.opensdf
+*.sdf
+*.ipch
+
+# === デバッグ/中間生成物 ===
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
+# === IDE & OS固有のファイル ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Git LFSで管理予定の重いファイル拡張子（任意）===
+*.dds
+*.fbx
+*.hdr
+*.mp4
