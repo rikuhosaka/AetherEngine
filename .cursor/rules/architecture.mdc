@@ -1,0 +1,6 @@
+# Architecture Rules
+
+- Use PImpl for DX12 classes
+- RHI must not expose DirectX types
+- Avoid Singleton
+- Use RAII
