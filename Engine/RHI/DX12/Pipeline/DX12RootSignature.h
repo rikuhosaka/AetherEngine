@@ -17,7 +17,7 @@ private:
 
 	static std::unique_ptr<DX12RootSignature> Create(const DX12Device* dxDevice)
 	{
-		return std::make_unique<DX12RootSignature>(dxDevice);
+		return std::unique_ptr<DX12RootSignature>(new DX12RootSignature(dxDevice));
 	}
 
 	std::unique_ptr<RootSignatureImpl> m_impl = nullptr;

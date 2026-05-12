@@ -9,7 +9,7 @@ class RHIResource
 public:
 	virtual ~RHIResource() = default;
 
-	virtual void TransitionResource(ERHIResourceState newState, const RHICommandList* commandList);
+	virtual void TransitionResource(ERHIResourceState newState, const RHICommandList* commandList) = 0;
 	ERHIResourceState GetState() const { return m_currentState; }
 
 protected:

@@ -30,7 +30,7 @@ D3D12_RESOURCE_STATES ConvertToD3D12ResourceState(ERHIResourceState state)
 	}
 }
 
-void RHIResource::TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList)
+void ResourceImpl::TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList)
 {
 	const DX12CommandList* dxCommandList = static_cast<const DX12CommandList*>(rhiCommandList);
 	ID3D12GraphicsCommandList* commandList = dxCommandList->GetImpl()->commandList.Get();

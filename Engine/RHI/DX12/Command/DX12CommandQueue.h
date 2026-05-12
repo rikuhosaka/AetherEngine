@@ -19,7 +19,7 @@ protected:
 
 	static std::unique_ptr<DX12CommandQueue> Create(const DX12Device* dxDevice)
 	{
-		return std::make_unique<DX12CommandQueue>(dxDevice);
+		return std::unique_ptr<DX12CommandQueue>(new DX12CommandQueue(dxDevice));
 	}
 
 	std::unique_ptr<CommandQueueImpl> m_impl = nullptr;

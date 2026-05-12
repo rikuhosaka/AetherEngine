@@ -26,13 +26,10 @@ private:
 
 	static std::unique_ptr<DX12Texture> Create(const RHITextureDesc& desc, const DX12Device* dxDevice)
 	{
-		return std::make_unique<DX12Texture>(desc, dxDevice);
+		return std::unique_ptr<DX12Texture>(new DX12Texture(desc, dxDevice));
 	}
 
-	static std::unique_ptr<DX12Texture> Create(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource)
-	{
-		return std::make_unique<DX12Texture>(desc, std::move(resource));
-	}
+	static std::unique_ptr<DX12Texture> Create(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource);
 
 	RHITextureDesc m_desc;
 

@@ -15,6 +15,10 @@ public:
 
 private:
 	DX12Fence(const DX12Device* dxDevice);
+	static std::unique_ptr<DX12Fence> Create(const DX12Device* dxDevice)
+	{
+		return std::unique_ptr<DX12Fence>(new DX12Fence(dxDevice));
+	}
 
 	std::unique_ptr<FenceImpl> m_impl = nullptr;
 	

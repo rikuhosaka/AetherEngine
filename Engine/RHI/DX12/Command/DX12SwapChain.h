@@ -32,7 +32,7 @@ protected:
 		const DX12CommandQueue* commandQueue,
 		const DX12Device* dxDevice)
 	{
-		return std::make_unique<DX12SwapChain>(hwnd, width, height, commandQueue, dxDevice);
+		return std::unique_ptr<DX12SwapChain>(new DX12SwapChain(hwnd, width, height, commandQueue, dxDevice));
 	}
 
 	class Impl;

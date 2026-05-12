@@ -36,11 +36,11 @@ DX12Device::~DX12Device()
 
 void DX12Device::Initialize()
 {
-	// DirectX 12ƒfƒoƒCƒX‚Ì‰Šú‰»ƒR[ƒh‚ğ‚±‚±‚É‹Lq
-	// —á‚¦‚ÎAD3D12CreateDeviceŠÖ”‚ğg—p‚µ‚ÄƒfƒoƒCƒX‚ğì¬‚µ‚Ü‚·B
+	// DirectX 12ï¿½fï¿½oï¿½Cï¿½Xï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Rï¿½[ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É‹Lï¿½q
+	// ï¿½á‚¦ï¿½ÎAD3D12CreateDeviceï¿½Öï¿½ï¿½ï¿½ï¿½gï¿½pï¿½ï¿½ï¿½Äƒfï¿½oï¿½Cï¿½Xï¿½ï¿½ï¿½ì¬ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½B
 	UINT flagsDXGI = 0;
-	//DirectX12‚Ü‚í‚è‰Šú‰»
-	//ƒtƒB[ƒ`ƒƒƒŒƒxƒ‹—ñ‹“
+	//DirectX12ï¿½Ü‚ï¿½è‰ï¿½ï¿½ï¿½ï¿½
+	//ï¿½tï¿½Bï¿½[ï¿½`ï¿½ï¿½ï¿½ï¿½ï¿½xï¿½ï¿½ï¿½ï¿½
 	D3D_FEATURE_LEVEL levels[] = {
 		D3D_FEATURE_LEVEL_12_1,
 		D3D_FEATURE_LEVEL_12_0,
@@ -68,7 +68,7 @@ void DX12Device::Initialize()
 		}
 	}
 
-	//Direct3DƒfƒoƒCƒX‚Ì‰Šú‰»
+	//Direct3Dï¿½fï¿½oï¿½Cï¿½Xï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½
 	ComPtr<ID3D12Device> device;
 	D3D_FEATURE_LEVEL featureLevel;
 	for (auto l : levels) {
@@ -155,12 +155,12 @@ std::unique_ptr<RHIRootSignature> DX12Device::CreateRootSignature()
 std::unique_ptr<RHIPipelineState>
 DX12Device::CreatePipelineState(const RHIPipelineDesc& pipelineDesc)
 {
-	return std::make_unique<DX12PipelineState>(pipelineDesc, this);
+	return DX12PipelineState::Create(pipelineDesc, this);
 }
 
 // Sync Creation
 std::unique_ptr<RHIFence> 
 DX12Device::CreateFence()
 {
-	return std::make_unique<DX12Fence>(this);
+	return DX12Fence::Create(this);
 }

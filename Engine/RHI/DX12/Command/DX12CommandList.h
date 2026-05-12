@@ -4,6 +4,7 @@
 
 class DX12Device;
 class CommandListImpl;
+class ResourceImpl;
 
 class DX12CommandList : public RHICommandList
 {
@@ -62,4 +63,5 @@ private:
 	friend class DX12Device;
 	friend class DX12CommandQueue;
 	friend class RHIResource;
+	friend class ResourceImpl;
 };

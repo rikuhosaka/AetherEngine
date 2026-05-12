@@ -9,4 +9,6 @@ public:
 	ResourceImpl() = default;
 	~ResourceImpl() override = default;
 	ComPtr<ID3D12Resource> resource;
+
+	void TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList) override;
 };

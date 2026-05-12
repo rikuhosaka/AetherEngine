@@ -18,7 +18,7 @@ private:
 
 	static std::unique_ptr<DX12DSVAllocator> Create(uint32_t numDescriptors, const DX12Device* dxDevice)
 	{
-		return std::make_unique<DX12DSVAllocator>(numDescriptors, dxDevice);
+		return std::unique_ptr<DX12DSVAllocator>(new DX12DSVAllocator(numDescriptors, dxDevice));
 	}
 
 	uint32_t m_descriptorSize;

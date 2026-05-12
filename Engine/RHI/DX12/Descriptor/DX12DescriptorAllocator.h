@@ -17,14 +17,14 @@ public:
 		if (m_frameAllocations.find(descriptorIndex) != m_frameAllocations.end()) {
 			return m_frameAllocations[descriptorIndex].cpu;
 		}
-		return { 0 }; // ƒGƒ‰[ˆ—: ƒfƒXƒNƒŠƒvƒ^‚ªŒ©‚Â‚©‚ç‚È‚¢
+		return { 0 }; // ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½: ï¿½fï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½Â‚ï¿½ï¿½ï¿½È‚ï¿½
 	}
 
 	GpuDescHandle GetGpuHandle(uint32_t descriptorIndex) override {
 		if (m_frameAllocations.find(descriptorIndex) != m_frameAllocations.end()) {
 			return m_frameAllocations[descriptorIndex].gpu;
 		}
-		return { 0 }; // ƒGƒ‰[ˆ—: ƒfƒXƒNƒŠƒvƒ^‚ªŒ©‚Â‚©‚ç‚È‚¢
+		return { 0 }; // ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½: ï¿½fï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½Â‚ï¿½ï¿½ï¿½È‚ï¿½
 	}
 
 private:
@@ -33,7 +33,7 @@ private:
 
 	static std::unique_ptr<DX12DescriptorAllocator> Create(uint32_t numDescriptors, const DX12Device* dxDevice)
 	{
-		return std::make_unique<DX12DescriptorAllocator>(numDescriptors, dxDevice);
+		return std::unique_ptr<DX12DescriptorAllocator>(new DX12DescriptorAllocator(numDescriptors, dxDevice));
 	}
 
 	std::unordered_map<uint32_t, CbvSrvUavHandle> m_frameAllocations;
