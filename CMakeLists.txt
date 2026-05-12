@@ -62,6 +62,34 @@ file(GLOB_RECURSE HLSL_SHADERS "${CMAKE_SOURCE_DIR}/Assets/Shaders/*.hlsl")
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/CompiledShaders")
 file(MAKE_DIRECTORY ${SHADER_OUTPUT_DIR})
 
+# CSO output dir must not be confused with the HLSL compiler: dxc comes from Windows SDK or PATH.
+if(WIN32)
+    find_program(DXC_EXECUTABLE NAMES dxc
+        HINTS
+            "$ENV{WindowsSdkDir}bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
+            "$ENV{WindowsSdkDir}Bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
+    )
+    if(NOT DXC_EXECUTABLE)
+        file(GLOB _DXC_SDK_CANDIDATES "C:/Program Files (x86)/Windows Kits/10/bin/*/x64/dxc.exe")
+        if(_DXC_SDK_CANDIDATES)
+            list(SORT _DXC_SDK_CANDIDATES ORDER ASCENDING COMPARE STRING)
+            list(GET _DXC_SDK_CANDIDATES -1 DXC_EXECUTABLE)
+        endif()
+    endif()
+    if(NOT DXC_EXECUTABLE)
+        message(FATAL_ERROR "dxc.exe not found (Windows SDK HLSL compiler). Install the Windows 10/11 SDK with the Desktop C++ workload, or add dxc to PATH and re-configure.")
+    endif()
+    message(STATUS "HLSL compiler: ${DXC_EXECUTABLE}")
+
+    #region agent log
+    file(APPEND "${CMAKE_SOURCE_DIR}/debug-4f4115.log"
+        "{\"sessionId\":\"4f4115\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H1\",\"location\":\"CMakeLists.txt:shader-config\",\"message\":\"Resolved DXC path\",\"data\":{\"DXC_EXECUTABLE\":\"${DXC_EXECUTABLE}\",\"SHADER_OUTPUT_DIR\":\"${SHADER_OUTPUT_DIR}\",\"CMAKE_BINARY_DIR\":\"${CMAKE_BINARY_DIR}\"},\"timestamp\":$ENV{SOURCE_DATE_EPOCH}}\n"
+    )
+    #endregion
+else()
+    message(FATAL_ERROR "HLSL compilation via dxc is only supported on Windows in this project.")
+endif()
+
 set(COMPILED_SHADERS "")
 
 foreach(HLSL_FILE IN LISTS HLSL_SHADERS)
@@ -83,10 +111,15 @@ foreach(HLSL_FILE IN LISTS HLSL_SHADERS)
 
     set(OUTPUT_FILE "${SHADER_OUTPUT_DIR}/${FILE_NAME_WE}.cso")
 
-    set(DXC_PATH "${CMAKE_SOURCE_DIR}/build/CompiledShaders/bin/dxc.exe")
+    #region agent log
+    file(APPEND "${CMAKE_SOURCE_DIR}/debug-4f4115.log"
+        "{\"sessionId\":\"4f4115\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H3\",\"location\":\"CMakeLists.txt:shader-loop\",\"message\":\"Shader compile parameters\",\"data\":{\"HLSL_FILE\":\"${HLSL_FILE}\",\"FILENAME\":\"${FILENAME}\",\"ENTRY\":\"${FILE_NAME_WE}\",\"TARGET\":\"${SHADER_TARGET}\",\"OUTPUT\":\"${OUTPUT_FILE}\"},\"timestamp\":$ENV{SOURCE_DATE_EPOCH}}\n"
+    )
+    #endregion
+
     add_custom_command(
         OUTPUT ${OUTPUT_FILE}
-        COMMAND ${DXC_PATH}
+        COMMAND "${DXC_EXECUTABLE}"
             -T ${SHADER_TARGET}
             -E ${FILE_NAME_WE}
             -Fo ${OUTPUT_FILE}

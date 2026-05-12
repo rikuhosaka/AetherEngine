@@ -16,6 +16,11 @@ private:
 
 	DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12PipelineState> Create(const RHIPipelineDesc& pipelineDesc, const DX12Device* dxDevice)
+	{
+		return std::make_unique<DX12PipelineState>(pipelineDesc, dxDevice);
+	}
+
 	std::unique_ptr<PipelineStateImpl> m_impl = nullptr;
 
 	PipelineStateImpl* GetImpl() const;

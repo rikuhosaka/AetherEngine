@@ -43,6 +43,11 @@ private:
 
 	DX12VertexBuffer(const RHIBufferDesc& bufferDesc, uint32_t stride, const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12VertexBuffer> Create(const RHIBufferDesc& bufferDesc, uint32_t stride, const DX12Device* dxDevice) 
+	{ 
+		return std::make_unique<DX12VertexBuffer>(bufferDesc, stride, dxDevice); 
+	}
+
 	std::unique_ptr<DX12Buffer> m_buffer;
 
 	uint32_t m_stride;
@@ -64,6 +69,11 @@ private:
 
 	DX12IndexBuffer(const RHIBufferDesc& bufferDesc, IndexFormat indexFormat, const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12IndexBuffer> Create(const RHIBufferDesc& bufferDesc, IndexFormat indexFormat, const DX12Device* dxDevice) 
+	{ 
+		return std::make_unique<DX12IndexBuffer>(bufferDesc, indexFormat, dxDevice); 
+	}
+
 	std::unique_ptr<DX12Buffer> m_buffer;
 	IndexFormat m_indexFormat;
 
@@ -84,6 +94,11 @@ private:
 
 	DX12ConstantBuffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12ConstantBuffer> Create(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice) 
+	{ 
+		return std::make_unique<DX12ConstantBuffer>(bufferDesc, dxDevice); 
+	}
+
 	std::unique_ptr<DX12Buffer> m_buffer;
 
 	friend class DX12Device;
@@ -103,6 +118,11 @@ public:
 private:
 
 	DX12StructuredBuffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice);
+
+	static std::unique_ptr<DX12StructuredBuffer> Create(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice) 
+	{ 
+		return std::make_unique<DX12StructuredBuffer>(bufferDesc, dxDevice); 
+	}
 
 	std::unique_ptr<DX12Buffer> m_buffer;
 

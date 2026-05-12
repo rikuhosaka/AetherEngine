@@ -25,6 +25,16 @@ protected:
 		const DX12CommandQueue* commandQueue,
 		const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12SwapChain> Create(
+		HWND hwnd,
+		uint32_t width,
+		uint32_t height,
+		const DX12CommandQueue* commandQueue,
+		const DX12Device* dxDevice)
+	{
+		return std::make_unique<DX12SwapChain>(hwnd, width, height, commandQueue, dxDevice);
+	}
+
 	class Impl;
 	std::unique_ptr<Impl> m_impl = nullptr;
 

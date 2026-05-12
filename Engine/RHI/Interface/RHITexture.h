@@ -1,8 +1,6 @@
 #pragma once
 #include "Engine/RHI/Interface/RHIResource.h"
 
-class RHIDevice;
-
 class RHITexture : public RHIResource
 {
 public:

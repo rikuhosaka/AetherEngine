@@ -18,19 +18,23 @@
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-	// ƒEƒBƒ“ƒhƒE‚Ìì¬
+	// ï¿½Eï¿½Bï¿½ï¿½ï¿½hï¿½Eï¿½Ìì¬
 	g_hwnd = CreateGameWindow(hInstance);
 	if (!g_hwnd)
 		return -1;
 
-	// DirectX 12ƒfƒoƒCƒX‚Ì‰Šú‰»
+	// DirectX 12ï¿½fï¿½oï¿½Cï¿½Xï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½
 	std::unique_ptr<RHIDevice> device = std::make_unique<DX12Device>();
 	device->Initialize();
+	
+	std::unique_ptr<RHICommandList> commandList = device->CreateCommandList();
+	std::unique_ptr<RHICommandQueue> commandQueue = device->CreateCommandQueue();
+
+	std::unique_ptr<RHISwapChain> swapChain = device->CreateSwapChain(g_hwnd, 1920, 1080, commandQueue.get());
+
 
 	
 
-	// ƒXƒƒbƒvƒ`ƒF[ƒ“‚Ì‰Šú‰»
-	std::unique_ptr<RHICommandQueue> commandQueue = device->CreateCommandQueue();
 	MSG msg = {};
 	while (msg.message != WM_QUIT)
 	{

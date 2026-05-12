@@ -50,6 +50,11 @@ public:
 private:
 	DX12CommandList(const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12CommandList> Create(const DX12Device* dxDevice)
+	{
+		return std::unique_ptr<DX12CommandList>(new DX12CommandList(dxDevice));
+	}
+
 	std::unique_ptr<CommandListImpl> m_impl = nullptr;
 
 	CommandListImpl* GetImpl() const;

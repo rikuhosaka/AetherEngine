@@ -3,6 +3,7 @@
 
 
 class DX12Device;
+class DX12SwapChain;
 class ResourceImpl;
 
 class DX12Texture : public RHITexture
@@ -23,6 +24,16 @@ private:
 	DX12Texture(const RHITextureDesc& desc, const DX12Device* dxDevice);
 	DX12Texture(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource);
 
+	static std::unique_ptr<DX12Texture> Create(const RHITextureDesc& desc, const DX12Device* dxDevice)
+	{
+		return std::make_unique<DX12Texture>(desc, dxDevice);
+	}
+
+	static std::unique_ptr<DX12Texture> Create(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource)
+	{
+		return std::make_unique<DX12Texture>(desc, std::move(resource));
+	}
+
 	RHITextureDesc m_desc;
 
 	std::unique_ptr<ResourceImpl> m_impl = nullptr;
@@ -32,5 +43,6 @@ private:
 		return m_impl.get();
 	}
 
+	friend class DX12SwapChain;
 	friend class DX12Device;
 };

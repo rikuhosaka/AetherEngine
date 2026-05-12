@@ -16,6 +16,11 @@ private:
 
 	DX12RTVAllocator(uint32_t numDescriptors, const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12RTVAllocator> Create(uint32_t numDescriptors, const DX12Device* dxDevice)
+	{
+		return std::make_unique<DX12RTVAllocator>(numDescriptors, dxDevice);
+	}
+
 	uint32_t m_descriptorSize;
 	uint32_t m_currentOffset;
 	size_t m_cpuStart;

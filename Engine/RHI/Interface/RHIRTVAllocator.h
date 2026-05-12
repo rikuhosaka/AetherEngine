@@ -8,5 +8,5 @@ public:
 
 	virtual RtvHandle Allocate(uint32_t numDescriptors = 1) = 0;
 protected:
-	RHIRTVAllocator() = default
+	RHIRTVAllocator() = default;
 };

@@ -31,6 +31,11 @@ private:
 
 	DX12DescriptorAllocator(uint32_t numDescriptors, const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12DescriptorAllocator> Create(uint32_t numDescriptors, const DX12Device* dxDevice)
+	{
+		return std::make_unique<DX12DescriptorAllocator>(numDescriptors, dxDevice);
+	}
+
 	std::unordered_map<uint32_t, CbvSrvUavHandle> m_frameAllocations;
 
     uint32_t m_descriptorSize = 0;

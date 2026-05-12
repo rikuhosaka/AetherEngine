@@ -90,65 +90,65 @@ void DX12Device::Initialize()
 // Resource Command Creation
 std::unique_ptr<RHICommandList> DX12Device::CreateCommandList()
 {
-	return std::make_unique<DX12CommandList>(this);
+	return DX12CommandList::Create(this);
 }
 
 std::unique_ptr<RHICommandQueue> DX12Device::CreateCommandQueue()
 {
-	return std::make_unique<DX12CommandQueue>(this);
+	return DX12CommandQueue::Create(this);
 }
 
 std::unique_ptr<RHISwapChain> DX12Device::CreateSwapChain(HWND hwnd, uint32_t width, uint32_t height, const RHICommandQueue* commandQueue)
 {
-	return std::make_unique<DX12SwapChain>(hwnd, width, height, static_cast<const DX12CommandQueue*>(commandQueue), this);
+	return DX12SwapChain::Create(hwnd, width, height, static_cast<const DX12CommandQueue*>(commandQueue), this);
 }
 
 // Resource Creation
 std::unique_ptr<RHIVertexBuffer> DX12Device::CreateVertexBuffer(const RHIBufferDesc& desc, uint32_t stride)
 {
-	return std::make_unique<DX12VertexBuffer>(desc, stride, this);
+	return DX12VertexBuffer::Create(desc, stride, this);
 }
 
 std::unique_ptr<RHIIndexBuffer> DX12Device::CreateIndexBuffer(const RHIBufferDesc& desc, IndexFormat indexFormat)
 {
-	return std::make_unique<DX12IndexBuffer>(desc, indexFormat, this);
+	return DX12IndexBuffer::Create(desc, indexFormat, this);
 }
 
 std::unique_ptr<RHIConstantBuffer> DX12Device::CreateConstantBuffer(const RHIBufferDesc& desc)
 {
-	return std::make_unique<DX12ConstantBuffer>(desc, this);
+	return DX12ConstantBuffer::Create(desc, this);
 }
 
 std::unique_ptr<RHIStructuredBuffer> DX12Device::CreateStructuredBuffer(const RHIBufferDesc& desc)
 {
-	return std::make_unique<DX12StructuredBuffer>(desc, this);
+	return DX12StructuredBuffer::Create(desc, this);
 }
 
 std::unique_ptr<RHITexture> DX12Device::CreateTexture(const RHITextureDesc& desc)
 {
-	return std::make_unique<DX12Texture>(desc, this);
+	return DX12Texture::Create(desc, this);
 }
 
 // Descriptor Creation
 std::unique_ptr<RHIDescriptorAllocator> DX12Device::CreateDescriptorAllocator(uint32_t numDescriptors)
 {
-	return std::make_unique<DX12DescriptorAllocator>(numDescriptors, this);
+	return DX12DescriptorAllocator::Create(numDescriptors, this);
 }
 
 std::unique_ptr<RHIDSVAllocator> DX12Device::CreateDSVAllocator(uint32_t numDescriptors)
 {
-	return std::make_unique<DX12DSVAllocator>(numDescriptors, this);
+	return DX12DSVAllocator::Create(numDescriptors, this);
 }
 
 std::unique_ptr<RHIRTVAllocator> DX12Device::CreateRTVAllocator(uint32_t numDescriptors)
 {
-	return std::make_unique<DX12RTVAllocator>(numDescriptors, this);
+	return DX12RTVAllocator::Create(numDescriptors, this);
 }
 
 // Pipeline Creation
 std::unique_ptr<RHIRootSignature> DX12Device::CreateRootSignature()
 {
-	return std::make_unique<DX12RootSignature>(this);
+	return DX12RootSignature::Create(this);
 }
 
 

@@ -17,6 +17,11 @@ protected:
 
 	DX12CommandQueue(const DX12Device* dxDevice);
 
+	static std::unique_ptr<DX12CommandQueue> Create(const DX12Device* dxDevice)
+	{
+		return std::make_unique<DX12CommandQueue>(dxDevice);
+	}
+
 	std::unique_ptr<CommandQueueImpl> m_impl = nullptr;
 
 	CommandQueueImpl* GetImpl() const { return m_impl.get(); }
