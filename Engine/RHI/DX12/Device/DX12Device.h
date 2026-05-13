@@ -25,8 +25,11 @@ public:
 
 	// Descriptor Creation
 	std::unique_ptr<RHIDescriptorAllocator> CreateDescriptorAllocator(uint32_t numDescriptors) override;
+	std::unique_ptr<RHITransientDescriptorAllocator> CreateTransientDescriptorAllocator(uint32_t numDescriptors) override;
 	std::unique_ptr<RHIDSVAllocator> CreateDSVAllocator(uint32_t numDescriptors) override;
 	std::unique_ptr<RHIRTVAllocator> CreateRTVAllocator(uint32_t numDescriptors) override;
+
+	std::unique_ptr<RHIUploadBuffer> CreateUploadBuffer(size_t capacityInBytes) override;
 
 	// Pipeline Creation
 	std::unique_ptr<RHIRootSignature> CreateRootSignature() override;
@@ -46,9 +49,11 @@ protected:
 	friend class DX12Buffer;
 	friend class DX12Texture;
 	friend class DX12DescriptorAllocator;
+	friend class DX12TransientDescriptorAllocator;
 	friend class DX12DSVAllocator;
 	friend class DX12RTVAllocator;
 	friend class DX12RootSignature;
 	friend class DX12PipelineState;
 	friend class DX12Fence;
+	friend class DX12UploadBuffer;
 };

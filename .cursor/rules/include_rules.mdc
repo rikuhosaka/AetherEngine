@@ -1,0 +1,14 @@
+# Include Rules
+
+- Engine/Core/pch.h is the global precompiled header.
+- Do not include headers already included by pch.h.
+- Avoid redundant STL includes.
+- Avoid redundant Windows or DirectX includes.
+- Only include headers required for symbols not provided by pch.h.
+- Keep public headers lightweight.
+- Prefer forward declarations when possible.
+- Avoid unnecessary transitive includes.
+- Never include d3d12.h outside DX12 backend implementation files.
+- Never expose DirectX12 types in public headers.
+- DirectX12 headers may only exist inside DX12 backend cpp files.
+- Keep DirectX includes inside cpp files whenever possible.

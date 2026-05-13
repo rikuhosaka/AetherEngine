@@ -1,0 +1,10 @@
+# Safety Rules
+
+- Do not rewrite large systems unless requested.
+- Preserve existing architecture unless improvement is necessary.
+- Avoid introducing breaking API changes unnecessarily.
+- Minimize unrelated modifications.
+- Prefer incremental refactoring.
+- Explain architectural tradeoffs clearly.
+- Avoid speculative abstractions.
+- Avoid premature optimization.

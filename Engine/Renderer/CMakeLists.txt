@@ -26,7 +26,9 @@ target_include_directories(Renderer
 # 依存する内部モジュール・外部ライブラリ
 target_link_libraries(Renderer
     PUBLIC
-        Graphics
+        RHI
+        RHI_Interface
+        DX12
 )
 
 target_precompile_headers(Renderer PRIVATE ${COMMON_PCH})

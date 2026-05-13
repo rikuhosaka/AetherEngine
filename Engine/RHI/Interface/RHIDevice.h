@@ -11,8 +11,10 @@ class RHIConstantBuffer;
 class RHIStructuredBuffer;
 class RHITexture;
 class RHIDescriptorAllocator;
+class RHITransientDescriptorAllocator;
 class RHIDSVAllocator;
 class RHIRTVAllocator;
+class RHIUploadBuffer;
 class RHIRootSignature;
 class RHIPipelineState;
 class RHIFence;
@@ -38,8 +40,12 @@ public:
 
 	// Descriptor Creation
 	virtual std::unique_ptr<RHIDescriptorAllocator> CreateDescriptorAllocator(uint32_t numDescriptors) = 0;
+	virtual std::unique_ptr<RHITransientDescriptorAllocator> CreateTransientDescriptorAllocator(uint32_t numDescriptors) = 0;
 	virtual std::unique_ptr<RHIDSVAllocator> CreateDSVAllocator(uint32_t numDescriptors) = 0;
 	virtual std::unique_ptr<RHIRTVAllocator> CreateRTVAllocator(uint32_t numDescriptors) = 0;
+
+	// Upload / frame-local buffers
+	virtual std::unique_ptr<RHIUploadBuffer> CreateUploadBuffer(size_t capacityInBytes) = 0;
 
 	// Pipeline Creation
 	virtual std::unique_ptr<RHIRootSignature> CreateRootSignature() = 0;
