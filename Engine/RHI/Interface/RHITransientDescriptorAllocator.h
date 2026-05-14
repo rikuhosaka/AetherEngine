@@ -1,8 +1,5 @@
 #pragma once
-
-#include <cstdint>
-
-#include <Engine/RHI/Interface/RHICommon.h>
+#include "Engine/RHI/Interface/RHICommon.h"
 
 class RHITransientDescriptorAllocator
 {

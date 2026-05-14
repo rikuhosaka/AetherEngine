@@ -1,0 +1,10 @@
+- Use CMake as primary build system.
+- Keep compile_commands.json generation enabled.
+- Prefer target-based CMake configuration.
+- Avoid global include_directories.
+- Prefer target_include_directories.
+- Prefer target_compile_definitions.
+- Keep build configuration modular.
+- Minimize unnecessary dependencies.
+- Prefer reproducible builds.
+- Maintain cross-platform compatibility where practical.

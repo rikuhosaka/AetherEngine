@@ -1,0 +1,13 @@
+# Memory Rules
+
+- Prefer RAII everywhere.
+- Avoid raw new/delete.
+- Prefer std::unique_ptr for ownership.
+- Use std::shared_ptr only when ownership is truly shared.
+- Prefer stack allocation when practical.
+- Minimize heap allocations in hot paths.
+- Avoid memory leaks.
+- Avoid hidden ownership transfer.
+- Prefer move semantics where appropriate.
+- Keep ownership semantics explicit.
+- Avoid unnecessary copies.

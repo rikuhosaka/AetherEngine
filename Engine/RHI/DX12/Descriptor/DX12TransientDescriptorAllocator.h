@@ -1,9 +1,5 @@
 #pragma once
-
-#include <Engine/RHI/Interface/RHITransientDescriptorAllocator.h>
-
-#include <cstdint>
-#include <memory>
+#include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
 
 class DX12Device;
 class HeapImpl;

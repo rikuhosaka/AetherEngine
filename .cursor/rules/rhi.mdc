@@ -1,0 +1,12 @@
+# RHI Rules
+
+- RHI must remain backend-agnostic.
+- Do not expose DirectX-specific enums or structures.
+- Abstract GPU resources through interfaces.
+- Keep RHI interfaces minimal.
+- Prefer explicit resource transitions.
+- Resource state tracking should be centralized.
+- Use backend-specific implementations internally only.
+- Avoid leaking backend assumptions into higher layers.
+- Keep RHI extensible for future Vulkan or Metal support.
+- Favor clean abstraction boundaries.

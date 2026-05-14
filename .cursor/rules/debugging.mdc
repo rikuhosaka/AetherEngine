@@ -1,0 +1,11 @@
+# Debugging Rules
+
+- Prefer assertions for invalid states.
+- Fail fast on critical engine errors.
+- Use meaningful log messages.
+- Avoid silent failures.
+- Prefer explicit error handling.
+- Keep debugging utilities isolated from shipping builds.
+- Use GPU debug layers during development.
+- Add debug names to GPU resources.
+- Prefer deterministic behavior when debugging.

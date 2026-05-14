@@ -1,0 +1,13 @@
+# C++20 Rules
+
+- Prefer modern C++20 features when beneficial.
+- Use concepts when they improve readability.
+- Prefer std::span over raw pointer + size pairs.
+- Prefer std::array over C arrays.
+- Use std::optional for nullable return values.
+- Use std::variant where appropriate.
+- Prefer constexpr and consteval where useful.
+- Use ranges carefully and only when readability improves.
+- Avoid overengineering with templates.
+- Avoid unnecessary metaprogramming.
+- Prefer readable code over clever code.

@@ -1,12 +1,6 @@
 #pragma once
+#include "Engine/RHI/Interface/RHIUploadBuffer.h"
 
-#include <Engine/RHI/Interface/RHIUploadBuffer.h>
-
-#include <d3d12.h>
-#include <memory>
-#include <wrl.h>
-
-using Microsoft::WRL::ComPtr;
 
 class DX12Device;
 
@@ -26,7 +20,13 @@ private:
 		return std::unique_ptr<DX12UploadBuffer>(new DX12UploadBuffer(capacityInBytes, dxDevice));
 	}
 
+<<<<<<< HEAD
 	ComPtr<ID3D12Resource> m_resource;
+=======
+	std::unique_ptr<ResourceImpl> m_impl;
+
+	ResourceImpl* GetImpl() const { return m_impl.get(); }
+>>>>>>> c0092d2 (shaderSystemのヘッダーファイルを追加)
 	void* m_mappedBase = nullptr;
 	uint64_t m_gpuVirtualAddress = 0;
 	size_t m_capacity = 0;

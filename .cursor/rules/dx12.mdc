@@ -1,0 +1,18 @@
+# DirectX12 Backend Rules
+
+- Never expose DirectX12 types outside backend layer.
+- Never expose ComPtr outside DX12 implementation.
+- Use PImpl for DX12-facing classes when beneficial.
+- Encapsulate descriptor heap management.
+- Encapsulate resource state transitions.
+- Prefer RAII for GPU resource lifetime.
+- Validate resource states carefully.
+- Minimize CPU/GPU synchronization.
+- Avoid redundant resource barriers.
+- Prefer explicit state tracking.
+- Keep command list lifecycle clear and predictable.
+- Separate upload resources from GPU-only resources.
+- Avoid hidden synchronization.
+- Use descriptive debug names for GPU resources.
+- Prefer fence-based synchronization abstractions.
+- Keep backend implementation isolated from gameplay systems.

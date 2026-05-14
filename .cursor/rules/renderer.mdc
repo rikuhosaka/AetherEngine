@@ -1,0 +1,13 @@
+# Renderer Rules
+
+- Renderer depends only on RHI abstraction.
+- Avoid exposing backend-specific rendering details.
+- Separate rendering logic from resource management.
+- Keep frame graph logic isolated.
+- Avoid mixing scene logic with rendering logic.
+- Prefer explicit render passes.
+- Avoid unnecessary renderer state mutation.
+- Use clear ownership for render resources.
+- Prefer data-oriented rendering structures when beneficial.
+- Minimize renderer-global mutable state.
+- Avoid hidden rendering side effects.

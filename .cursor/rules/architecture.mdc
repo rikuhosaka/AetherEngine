@@ -1,6 +1,18 @@
 # Architecture Rules
 
-- Use PImpl for DX12 classes
-- RHI must not expose DirectX types
-- Avoid Singleton
-- Use RAII
+- Keep architecture modular and layered.
+- Renderer depends only on RHI interfaces.
+- Engine core must never directly depend on DirectX 12 APIs.
+- DX12 implementation details belong only in backend layer.
+- Avoid tight coupling between systems.
+- Prefer composition over inheritance unless polymorphism is required.
+- Keep public interfaces minimal and stable.
+- Avoid cyclic dependencies.
+- Use dependency inversion where beneficial.
+- Avoid Singleton unless explicitly requested.
+- Favor explicit ownership semantics.
+- Avoid global mutable state.
+- Design systems for long-term maintainability.
+- Think carefully before changing architecture.
+- Avoid unnecessary abstractions.
+- Prefer simple and understandable solutions.
