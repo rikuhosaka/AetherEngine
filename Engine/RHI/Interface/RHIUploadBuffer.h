@@ -1,5 +1,11 @@
 #pragma once
+<<<<<<< HEAD
+
+#include <cstddef>
+#include <cstdint>
+=======
 #include "Engine/RHI/Interface/RHIResource.h"
+>>>>>>> c0092d2 (shaderSystemのヘッダーファイルを追加)
 
 struct RHIUploadAllocation
 {

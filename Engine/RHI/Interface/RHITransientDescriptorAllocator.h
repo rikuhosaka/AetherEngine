@@ -1,5 +1,12 @@
 #pragma once
+
+<<<<<<< HEAD
+#include <cstdint>
+
+#include <Engine/RHI/Interface/RHICommon.h>
+=======
 #include "Engine/RHI/Interface/RHICommon.h"
+>>>>>>> c0092d2 (shaderSystemのヘッダーファイルを追加)
 
 class RHITransientDescriptorAllocator
 {

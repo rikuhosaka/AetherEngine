@@ -1,9 +1,22 @@
 #pragma once
+<<<<<<< HEAD
+
+#include <Engine/RHI/Interface/RHIUploadBuffer.h>
+
+#include <d3d12.h>
+#include <memory>
+#include <wrl.h>
+
+using Microsoft::WRL::ComPtr;
+
+class DX12Device;
+
+=======
 #include "Engine/RHI/Interface/RHIUploadBuffer.h"
 
 
 class DX12Device;
-
+>>>>>>> c0092d2 (shaderSystemのヘッダーファイルを追加)
 class DX12UploadBuffer final : public RHIUploadBuffer
 {
 public:

@@ -1,5 +1,13 @@
 #pragma once
+<<<<<<< HEAD
+
+#include <Engine/RHI/Interface/RHITransientDescriptorAllocator.h>
+
+#include <cstdint>
+#include <memory>
+=======
 #include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
+>>>>>>> c0092d2 (shaderSystemのヘッダーファイルを追加)
 
 class DX12Device;
 class HeapImpl;
