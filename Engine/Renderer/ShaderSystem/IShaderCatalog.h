@@ -1,8 +1,8 @@
 #pragma once
 
-#include <Engine/Renderer/ShaderSystem/ShaderId.h>
-#include <Engine/Renderer/ShaderSystem/ShaderMacro.h>
-#include <Engine/Renderer/ShaderSystem/ShaderPermutationHash.h>
+#include "Engine/Renderer/ShaderSystem/ShaderId.h"
+#include "Engine/Renderer/ShaderSystem/ShaderMacro.h"
+#include "Engine/Renderer/ShaderSystem/ShaderPermutationHash.h"
 
 #include <span>
 

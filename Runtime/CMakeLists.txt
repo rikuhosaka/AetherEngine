@@ -40,6 +40,4 @@ if (MSVC)
   # ↑ Debugなら "MultiThreadedDebugDLL" (/MDd)、それ以外は "MultiThreadedDLL" (/MD)
 endif()
 
-target_precompile_headers(Runtime PRIVATE ${COMMON_PCH})
-
-target_compile_options(Runtime PRIVATE /FI"Engine/Core/pch.h")
+target_precompile_headers(Runtime PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

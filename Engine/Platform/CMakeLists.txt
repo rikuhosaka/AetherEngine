@@ -25,6 +25,4 @@ target_include_directories(Platform
 # Visual Studio 等での仮想フォルダ分け（任意）
 set_target_properties(Platform PROPERTIES FOLDER "Engine/Platform")
 
-target_precompile_headers(Platform PRIVATE ${COMMON_PCH})
-
-target_compile_options(Platform PRIVATE /FI"Engine/Core/pch.h")
+target_precompile_headers(Platform PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Engine/Renderer/ShaderSystem/ShaderCompileDiagnostics.h>
+#include "Engine/Renderer/ShaderSystem/ShaderCompileDiagnostics.h"
 
 #include <cstddef>
 #include <vector>

@@ -24,6 +24,4 @@ target_include_directories(Game
 target_link_libraries(Game PRIVATE Engine)
 
 
-target_precompile_headers(Game PRIVATE ${COMMON_PCH})
-
-target_compile_options(Game PRIVATE /FI"Engine/Core/pch.h")
+target_precompile_headers(Game PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

@@ -1,11 +1,5 @@
 #pragma once
-<<<<<<< HEAD
-
-#include <cstddef>
-#include <cstdint>
-=======
 #include "Engine/RHI/Interface/RHIResource.h"
->>>>>>> c0092d2 (shaderSystemのヘッダーファイルを追加)
 
 struct RHIUploadAllocation
 {
@@ -15,11 +9,7 @@ struct RHIUploadAllocation
 	size_t size = 0;
 };
 
-<<<<<<< HEAD
-class RHIUploadBuffer
-=======
 class RHIUploadBuffer : public RHIResource
->>>>>>> c0092d2 (shaderSystemのヘッダーファイルを追加)
 {
 public:
 	virtual ~RHIUploadBuffer() = default;

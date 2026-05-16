@@ -31,8 +31,7 @@ target_link_libraries(Renderer
         DX12
 )
 
-target_precompile_headers(Renderer PRIVATE ${COMMON_PCH})
+target_precompile_headers(Renderer PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
 
-target_compile_options(Renderer PRIVATE /FI"Engine/Core/pch.h")
 # Visual Studio 等での仮想フォルダ分け（任意）
 set_target_properties(Renderer PROPERTIES FOLDER "Engine/Renderer")

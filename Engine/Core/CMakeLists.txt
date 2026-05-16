@@ -23,9 +23,7 @@ target_include_directories(Core
         ${CMAKE_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_precompile_headers(Core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/pch.h)
-
-target_compile_options(Core PRIVATE /FI"Engine/Core/pch.h")
+target_precompile_headers(Core PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
 
 set_target_properties(Core PROPERTIES FOLDER "Engine/Core")
 

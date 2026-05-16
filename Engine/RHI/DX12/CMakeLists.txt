@@ -36,9 +36,8 @@ target_link_libraries(DX12
         DirectXTex
 )
 
-target_precompile_headers(DX12 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/pch.h)
+target_precompile_headers(DX12 PRIVATE "${CMAKE_SOURCE_DIR}/Engine/RHI/DX12/pch.h")
 
-target_compile_options(DX12 PRIVATE /FI"Engine/RHI/DX12/pch.h")
 
 # Visual Studio 等での仮想フォルダ分け（任意）
 set_target_properties(DX12 PROPERTIES FOLDER "Engine/RHI/")
