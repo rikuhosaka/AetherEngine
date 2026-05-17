@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/RHI/Interface/RHICommon.h"
+#include "Engine/RHI/Common/RHIDescriptor.h"
 
 
 class RHIRTVAllocator

@@ -1,7 +1,8 @@
 #pragma once
 
-#include <Engine/RHI/Interface/RHIBuffer.h>
-
+#include "Engine/RHI/Common/RHIResource.h"
+#include "Engine/RHI/Common/RHIInput.h"
+#include "Engine/RHI/Interface/RHIBuffer.h"
 
 class DX12Device;
 class ResourceImpl;

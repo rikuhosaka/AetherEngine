@@ -1,0 +1,17 @@
+CompileFlags:
+  Add: [-std=c++20]
+
+Diagnostics:
+  Suppress: ["-Wunused-parameter"]
+
+Index:
+  Background: Build
+
+Completion:
+  AllScopes: true
+
+InlayHints:
+  Enabled: true
+
+Hover:
+  ShowAKA: true

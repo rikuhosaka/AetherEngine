@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Engine/RHI/Interface/RHICommon.h>
+#include "Engine/RHI/Common/RHIDescriptor.h"
 
 struct RHIDescriptorHandle {
 	uint64_t cpu;

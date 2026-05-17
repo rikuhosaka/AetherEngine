@@ -1,0 +1,15 @@
+#pragma once
+
+
+enum class RTV_FORMAT
+{
+	R8G8B8A8_UNORM,
+	R16G16B16A16_FLOAT,
+	R32G32B32A32_FLOAT
+};
+
+enum class DSV_FORMAT
+{
+	D24_UNORM_S8_UINT,
+	D32_FLOAT
+};

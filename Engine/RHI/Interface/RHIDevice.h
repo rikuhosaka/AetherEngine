@@ -1,6 +1,13 @@
 #pragma once
 
-#include <Engine/RHI/Interface/RHICommon.h>
+#include "Engine/RHI/Common/RHIResource.h"
+#include "Engine/RHI/Common/RHITexture.h"
+#include "Engine/RHI/Common/RHIPipeline.h"
+#include "Engine/RHI/Common/RHIDescriptor.h"
+#include "Engine/RHI/Common/RHIShaderBinding.h"
+#include "Engine/RHI/Common/RHIInput.h"
+#include "Engine/RHI/Common/RHIState.h"
+#include "Engine/RHI/Common/RHIFormat.h"
 
 class RHISwapChain;
 class RHICommandList;

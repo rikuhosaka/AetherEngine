@@ -1,5 +1,7 @@
 add_library(RHI INTERFACE)
 
+add_subdirectory(Common)
+
 add_subdirectory(Interface)
 
 add_subdirectory(DX12)

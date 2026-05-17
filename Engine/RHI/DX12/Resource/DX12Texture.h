@@ -1,5 +1,7 @@
 #pragma once
-#include <Engine/RHI/Interface/RHITexture.h>
+
+#include "Engine/RHI/Common/RHITexture.h"
+#include "Engine/RHI/Interface/RHITexture.h"
 
 
 class DX12Device;

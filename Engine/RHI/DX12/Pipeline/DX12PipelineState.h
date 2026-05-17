@@ -1,6 +1,6 @@
 #pragma once
 #include "Engine/RHI/Interface/RHIPipelineState.h"
-#include "Engine/RHI/Interface/RHICommon.h"
+#include "Engine/RHI/Common/RHIPipeline.h"
 
 
 class DX12Device;
