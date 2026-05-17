@@ -3,7 +3,7 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <d3dx12.h> // •K—v‚È‚çd3dx12.hiƒwƒ‹ƒp[j‚à
+#include <d3dx12.h> // ï¿½Kï¿½vï¿½È‚ï¿½d3dx12.hï¿½iï¿½wï¿½ï¿½ï¿½pï¿½[ï¿½jï¿½ï¿½
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
 #include <DirectXMath.h>
@@ -15,8 +15,9 @@
 #include <memory>
 #include <unordered_map>
 #include <span>
+#include <optional>
 
 #include <Engine/Core/Log/LogMacros.h>
 
-using namespace Microsoft::WRL; // ComPtr‚ğŠÈ’P‚Ég‚¦‚é‚æ‚¤‚É‚·‚é‚½‚ß
+using namespace Microsoft::WRL; // ComPtrï¿½ï¿½ï¿½È’Pï¿½Égï¿½ï¿½ï¿½ï¿½æ‚¤ï¿½É‚ï¿½ï¿½é‚½ï¿½ï¿½
 

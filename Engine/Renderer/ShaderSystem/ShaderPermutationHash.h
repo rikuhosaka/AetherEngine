@@ -1,8 +1,5 @@
 #pragma once
 
-#include <compare>
-#include <cstdint>
-
 struct ShaderPermutationHash
 {
 	std::uint64_t Value{};

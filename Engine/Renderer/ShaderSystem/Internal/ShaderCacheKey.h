@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 struct ShaderCacheKey
 {
 	std::uint64_t SourceContentFingerprint{};

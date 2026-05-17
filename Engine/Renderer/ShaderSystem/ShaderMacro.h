@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string_view>
-
 struct ShaderMacro
 {
 	std::string_view Name{};

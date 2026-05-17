@@ -10,7 +10,7 @@ DX12PixelShader::DX12PixelShader(const std::filesystem::path& filePath)
 	HRESULT result = D3DReadFileToBlob(filePath.c_str(), &vs);
 	if (FAILED(result))
 	{
-		LOG_ERROR("Failed to read pixel shader file: %s", filePath.string().c_str());
+		LOG_ERROR("Failed to read pixel shader file: %s");
 		return;
 	}
 	m_impl->blob = vs;

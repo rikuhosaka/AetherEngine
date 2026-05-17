@@ -4,8 +4,6 @@
 #include "Engine/Renderer/ShaderSystem/ShaderMacro.h"
 #include "Engine/Renderer/ShaderSystem/ShaderPermutationHash.h"
 
-#include <span>
-
 class IShaderCatalog
 {
 public:

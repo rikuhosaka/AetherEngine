@@ -1,5 +1,5 @@
 #pragma once
-#include "Log.h"
+#include "Engine/Core/Log/Log.h"
 
 #define LOG_INFO(msg)    Log(LogLevel::Info, msg)
 #define LOG_WARN(msg)    Log(LogLevel::Warning, msg)

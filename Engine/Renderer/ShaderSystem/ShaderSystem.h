@@ -3,6 +3,7 @@
 #include "Engine/Renderer/ShaderSystem/IShaderCatalog.h"
 #include "Engine/Renderer/ShaderSystem/IShaderSystem.h"
 #include "Engine/Renderer/ShaderSystem/ShaderBytecodeView.h"
+#include "Engine/Renderer/ShaderSystem/ShaderCatalog.h"
 #include "Engine/Renderer/ShaderSystem/ShaderCompileDiagnostics.h"
 #include "Engine/Renderer/ShaderSystem/ShaderId.h"
 #include "Engine/Renderer/ShaderSystem/ShaderMacro.h"
@@ -10,3 +11,5 @@
 #include "Engine/Renderer/ShaderSystem/ShaderPipelineShaderIdentity.h"
 #include "Engine/Renderer/ShaderSystem/ShaderProgramBundle.h"
 #include "Engine/Renderer/ShaderSystem/ShaderStage.h"
+#include "Engine/Renderer/ShaderSystem/ShaderSystemFactory.h"
+#include "Engine/Renderer/ShaderSystem/ShaderSystemSettings.h"

@@ -1,5 +1,3 @@
-#pragma once
-
 #include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
 
 class DX12Device;

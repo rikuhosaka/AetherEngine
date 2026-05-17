@@ -2,10 +2,6 @@
 
 #include "Engine/Renderer/ShaderSystem/ShaderStage.h"
 
-#include <string>
-#include <utility>
-#include <vector>
-
 struct ShaderCompileJob
 {
 	ShaderStage Stage{};

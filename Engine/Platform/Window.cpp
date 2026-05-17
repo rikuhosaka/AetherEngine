@@ -1,13 +1,13 @@
 #include "Window.h"
 
 //---------------------------------------------
-// ƒEƒBƒ“ƒhƒEƒvƒƒV[ƒWƒƒ
+// ï¿½Eï¿½Bï¿½ï¿½ï¿½hï¿½Eï¿½vï¿½ï¿½ï¿½Vï¿½[ï¿½Wï¿½ï¿½
 //---------------------------------------------
 LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
-    case WM_DESTROY: // ~ƒ{ƒ^ƒ“‚ª‰Ÿ‚³‚ê‚½
+    case WM_DESTROY: // ï¿½~ï¿½{ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê‚½ï¿½ï¿½
         PostQuitMessage(0);
         return 0;
 
@@ -17,31 +17,32 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpar
 }
 
 //---------------------------------------------
-// ƒEƒBƒ“ƒhƒEì¬ŠÖ”
+// ï¿½Eï¿½Bï¿½ï¿½ï¿½hï¿½Eï¿½ì¬ï¿½Öï¿½
 //---------------------------------------------
 HWND CreateGameWindow(HINSTANCE hInstance)
 {
-    // ƒEƒBƒ“ƒhƒEƒNƒ‰ƒXî•ñ‚ğ‰Šú‰»
+    
+    // ï¿½Eï¿½Bï¿½ï¿½ï¿½hï¿½Eï¿½Nï¿½ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = CS_HREDRAW | CS_VREDRAW; // Ä•`‰æƒXƒ^ƒCƒ‹
+    wc.style = CS_HREDRAW | CS_VREDRAW; // ï¿½Ä•`ï¿½ï¿½Xï¿½^ï¿½Cï¿½ï¿½
     wc.lpfnWndProc = WindowProcedure;
     wc.hInstance = hInstance;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = _T("DirectXEngine");
 
-    // ƒNƒ‰ƒX“o˜^
+    // ï¿½Nï¿½ï¿½ï¿½Xï¿½oï¿½^
     if (!RegisterClassEx(&wc))
     {
-        MessageBox(NULL, _T("ƒEƒBƒ“ƒhƒEƒNƒ‰ƒX‚Ì“o˜^‚É¸”s‚µ‚Ü‚µ‚½"), _T("ƒGƒ‰["), MB_OK);
+        MessageBox(NULL, _T("ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚¯ãƒ©ã‚¹ã®ç™»éŒ²ã«å¤±æ•—ã—ã¾ã—ãŸ"), _T("ã‚¨ãƒ©ãƒ¼"), MB_OK);
         return nullptr;
     }
 
-    // ƒEƒBƒ“ƒhƒEƒTƒCƒY‚ğ•â³
+    // ï¿½Eï¿½Bï¿½ï¿½ï¿½hï¿½Eï¿½Tï¿½Cï¿½Yï¿½ï¿½â³
     RECT wrc = { 0, 0, (LONG)g_windowWidth, (LONG)g_windowHeight };
     AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, FALSE);
 
-    // ƒEƒBƒ“ƒhƒE¶¬
+    //windowç”Ÿæˆ
     HWND hwnd = CreateWindow(
         wc.lpszClassName,
         _T("DX12MyGameEngine"),
@@ -53,7 +54,7 @@ HWND CreateGameWindow(HINSTANCE hInstance)
 
     if (!hwnd)
     {
-        MessageBox(NULL, _T("ƒEƒBƒ“ƒhƒE‚Ìì¬‚É¸”s‚µ‚Ü‚µ‚½"), _T("ƒGƒ‰["), MB_OK);
+        MessageBox(NULL, _T("ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®ä½œæˆã«å¤±æ•—ã—ã¾ã—ãŸ"), _T("ã‚¨ãƒ©ãƒ¼"), MB_OK);
         return nullptr;
     }
 
@@ -64,6 +65,5 @@ HWND CreateGameWindow(HINSTANCE hInstance)
 }
 
 void Terminate() {
-    //‚à‚¤ƒNƒ‰ƒXg‚í‚ñ‚©‚ç“o˜^‰ğœ‚µ‚Ä‚â
     UnregisterClass(wc.lpszClassName, wc.hInstance);
 }
