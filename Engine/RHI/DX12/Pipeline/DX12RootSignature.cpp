@@ -1,8 +1,60 @@
 #include "DX12RootSignature.h"
-#include "Engine/RHI/DX12/Pipeline/PipelineImpl.h"
+
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
+#include "Engine/RHI/DX12/Pipeline/PipelineImpl.h"
 
+namespace
+{
+	[[nodiscard]] D3D12_DESCRIPTOR_RANGE_TYPE ToDescriptorRangeType(RHIRootParamType type)
+	{
+		switch (type)
+		{
+		case RHIRootParamType::CBV_Table:
+			return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		case RHIRootParamType::SRV_Table:
+			return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		case RHIRootParamType::UAV_Table:
+			return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+		default:
+			return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		}
+	}
+
+	void InitStaticSampler(CD3DX12_STATIC_SAMPLER_DESC& samplerDesc, RHISamplerBinding binding)
+	{
+		switch (binding)
+		{
+		case RHISamplerBinding::Linear:
+			samplerDesc.Init(0);
+			break;
+		case RHISamplerBinding::Aniso:
+			samplerDesc.Init(
+				1,
+				D3D12_FILTER_ANISOTROPIC,
+				D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+				D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+			break;
+		case RHISamplerBinding::Wrap:
+			samplerDesc.Init(
+				2,
+				D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+				D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+				D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+			break;
+		}
+	}
+
+	[[nodiscard]] D3D12_ROOT_SIGNATURE_FLAGS ToRootSignatureFlags(RHIRootSignatureFlags flags)
+	{
+		D3D12_ROOT_SIGNATURE_FLAGS d3dFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+		if ((static_cast<uint32_t>(flags) & static_cast<uint32_t>(RHIRootSignatureFlags::AllowInputAssembler)) != 0)
+		{
+			d3dFlags |= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		}
+		return d3dFlags;
+	}
+}
 
 RootSignatureImpl*
 DX12RootSignature::GetImpl() const
@@ -10,84 +62,100 @@ DX12RootSignature::GetImpl() const
 	return m_impl.get();
 }
 
-DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice)
+DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSignatureLayout& layout)
 	: m_impl(std::make_unique<RootSignatureImpl>())
 {
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
-	using Range = CD3DX12_DESCRIPTOR_RANGE;
-	using RootParam = CD3DX12_ROOT_PARAMETER;
-	using SamplerDesc = CD3DX12_STATIC_SAMPLER_DESC;
+	if (device == nullptr)
+	{
+		LOG_FATAL("DX12 device is null.");
+		return;
+	}
 
-	constexpr uint32_t ROOT_PARAM_COUNT = 7;
-	constexpr uint32_t SAMPLER_COUNT = 3;
-	constexpr uint32_t textureCount = 8; // 可変数テクスチャの数
+	std::vector<CD3DX12_DESCRIPTOR_RANGE> descriptorRanges;
+	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters;
+	descriptorRanges.reserve(layout.parameters.size());
+	rootParameters.resize(layout.parameters.size());
 
+	for (std::size_t parameterIndex = 0; parameterIndex < layout.parameters.size(); ++parameterIndex)
+	{
+		const RHIRootParameterDesc& parameter = layout.parameters[parameterIndex];
+		CD3DX12_ROOT_PARAMETER& rootParameter = rootParameters[parameterIndex];
 
-	Range cbvEntity;     cbvEntity.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 3, 0); // b0
-	Range cbvViewProj;   cbvViewProj.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1); // b1
-	Range srvWorldMat;   srvWorldMat.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0); // t0
-	Range srvBones;      srvBones.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1); // t1
-	Range srvMaterial;   srvMaterial.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2); // t2
-	// 可変数テクスチャ
-	Range srvTextures;
-	srvTextures.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, textureCount, 3); // t3?tN
+		switch (parameter.kind)
+		{
+		case RHIRootParamType::Constants:
+			rootParameter.InitAsConstants(
+				parameter.constants.num32BitValues,
+				parameter.constants.baseRegister,
+				parameter.constants.space);
+			break;
 
-	RootParam rootParams[ROOT_PARAM_COUNT] = {};
+		case RHIRootParamType::CBV_Table:
+		case RHIRootParamType::SRV_Table:
+		case RHIRootParamType::UAV_Table:
+		{
+			CD3DX12_DESCRIPTOR_RANGE range;
+			range.Init(
+				ToDescriptorRangeType(parameter.kind),
+				parameter.range.count,
+				parameter.range.baseRegister,
+				parameter.range.space);
+			descriptorRanges.push_back(range);
+			rootParameter.InitAsDescriptorTable(1, &descriptorRanges.back());
+			break;
+		}
 
-	rootParams[DRAW_INFO].InitAsConstants(3, 0);
-	rootParams[CBV_VIEWPROJ].InitAsDescriptorTable(1, &cbvViewProj);
-	rootParams[SRV_WORLD_MAT].InitAsDescriptorTable(1, &srvWorldMat);
-	rootParams[SRV_BONES].InitAsDescriptorTable(1, &srvBones);
-	rootParams[SRV_MATERIAL].InitAsDescriptorTable(1, &srvMaterial);
-	rootParams[SRV_TEXTURES].InitAsDescriptorTable(1, &srvTextures); // テクスチャ数を可変に
+		case RHIRootParamType::StaticSampler:
+			LOG_WARN("StaticSampler should be listed in RHIRootSignatureLayout::staticSamplers.");
+			break;
+		}
+	}
 
-	SamplerDesc samplers[SAMPLER_COUNT] = {};
-	samplers[SAMPLER_LINEAR].Init(0);
-	samplers[SAMPLER_ANISO].Init(1, D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
-	samplers[SAMPLER_WRAP].Init(2, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
+	std::vector<CD3DX12_STATIC_SAMPLER_DESC> staticSamplers(layout.staticSamplers.size());
+	for (std::size_t samplerIndex = 0; samplerIndex < layout.staticSamplers.size(); ++samplerIndex)
+	{
+		InitStaticSampler(staticSamplers[samplerIndex], layout.staticSamplers[samplerIndex].samplerBinding);
+	}
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootDesc = {};
 	rootDesc.Init(
-		ROOT_PARAM_COUNT,
-		rootParams,
-		SAMPLER_COUNT,
-		samplers,
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
-	);
+		static_cast<UINT>(rootParameters.size()),
+		rootParameters.empty() ? nullptr : rootParameters.data(),
+		static_cast<UINT>(staticSamplers.size()),
+		staticSamplers.empty() ? nullptr : staticSamplers.data(),
+		ToRootSignatureFlags(layout.flags));
 
-	ComPtr<ID3DBlob> rootSigBlob, errorBlob;
-
-	HRESULT result = D3D12SerializeRootSignature(
+	ComPtr<ID3DBlob> rootSigBlob;
+	ComPtr<ID3DBlob> errorBlob;
+	const HRESULT serializeResult = D3D12SerializeRootSignature(
 		&rootDesc,
 		D3D_ROOT_SIGNATURE_VERSION_1_0,
 		&rootSigBlob,
-		&errorBlob
-	);
-	if (FAILED(result)) {
-		if (errorBlob) OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+		&errorBlob);
+	if (FAILED(serializeResult))
+	{
+		if (errorBlob != nullptr)
+		{
+			OutputDebugStringA(static_cast<const char*>(errorBlob->GetBufferPointer()));
+		}
+		LOG_FATAL("Failed to serialize root signature.");
 		return;
 	}
 
 	ComPtr<ID3D12RootSignature> rootSignature;
-
-	result = device->CreateRootSignature(
+	const HRESULT createResult = device->CreateRootSignature(
 		0,
 		rootSigBlob->GetBufferPointer(),
 		rootSigBlob->GetBufferSize(),
-		IID_PPV_ARGS(rootSignature.ReleaseAndGetAddressOf())
-	);
-	if (FAILED(result)) {
-		LOG_FATAL("Failed to create root signature");
+		IID_PPV_ARGS(rootSignature.ReleaseAndGetAddressOf()));
+	if (FAILED(createResult))
+	{
+		LOG_FATAL("Failed to create root signature.");
 		return;
 	}
+
 	m_impl->rootSignature = rootSignature;
 }
 
-DX12RootSignature::~DX12RootSignature()
-{
-	if (m_impl->rootSignature)
-	{
-		m_impl->rootSignature->Release();
-		m_impl->rootSignature = nullptr;
-	}
-}
+DX12RootSignature::~DX12RootSignature() = default;

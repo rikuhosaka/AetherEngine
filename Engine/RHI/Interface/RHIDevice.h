@@ -3,11 +3,8 @@
 #include "Engine/RHI/Common/RHIResource.h"
 #include "Engine/RHI/Common/RHITexture.h"
 #include "Engine/RHI/Common/RHIPipeline.h"
-#include "Engine/RHI/Common/RHIDescriptor.h"
-#include "Engine/RHI/Common/RHIShaderBinding.h"
 #include "Engine/RHI/Common/RHIInput.h"
-#include "Engine/RHI/Common/RHIState.h"
-#include "Engine/RHI/Common/RHIFormat.h"
+#include "Engine/RHI/Common/RHIRootSignatureLayout.h"
 
 class RHISwapChain;
 class RHICommandList;
@@ -55,7 +52,7 @@ public:
 	virtual std::unique_ptr<RHIUploadBuffer> CreateUploadBuffer(size_t capacityInBytes) = 0;
 
 	// Pipeline Creation
-	virtual std::unique_ptr<RHIRootSignature> CreateRootSignature() = 0;
+	virtual std::unique_ptr<RHIRootSignature> CreateRootSignature(const RHIRootSignatureLayout& layout) = 0;
 	virtual std::unique_ptr<RHIPipelineState> CreatePipelineState(const RHIPipelineDesc& pipelineDesc) = 0;
 
 	// Sync Creation

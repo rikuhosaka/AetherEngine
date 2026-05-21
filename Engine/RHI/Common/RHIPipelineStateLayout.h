@@ -30,8 +30,6 @@ struct RHIPipelineStateLayout
     // --- Root（Layout 参照で PSO と RS の整合をコンパイル時に縛る）---
     RHIRootSignatureLayout rootSignature;
 
-    uint64_t Hash() const;
-    bool operator==(const RHIPipelineStateLayout&) const = default;
 };
 
 // 既存 RHIPipelineDesc からの移行用

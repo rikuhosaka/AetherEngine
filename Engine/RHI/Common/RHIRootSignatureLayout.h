@@ -2,8 +2,6 @@
 #include "Engine/RHI/Common/RHIShaderBinding.h"
 #include <cstdint>
 #include <vector>
-#include <array>
-
 enum class RHIRootParamType : uint8_t
 {
     Constants,
@@ -62,9 +60,6 @@ struct RHIRootSignatureLayout
     std::vector<RHIRootStaticSampler> staticSamplers;
     RHIRootSignatureFlags flags = RHIRootSignatureFlags::AllowInputAssembler;
 
-    // キャッシュ / unordered_map 用
-    uint64_t Hash() const;
-    bool operator==(const RHIRootSignatureLayout&) const = default;
 };
 
 // ビルダー（既存のハードコード RS を Layout 化する例）

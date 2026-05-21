@@ -12,8 +12,6 @@
 #include "Engine/RHI/DX12/Descriptor/DX12RTVAllocator.h"
 #include "Engine/RHI/DX12/Pipeline/DX12RootSignature.h"
 #include "Engine/RHI/DX12/Pipeline/DX12PipelineState.h"
-#include "Engine/RHI/DX12/Resource/DX12PixelShader.h"
-#include "Engine/RHI/DX12/Resource/DX12VertexShader.h"
 #include "Engine/RHI/DX12/Sync/DX12Fence.h"
 
 
@@ -158,9 +156,9 @@ std::unique_ptr<RHIRTVAllocator> DX12Device::CreateRTVAllocator(uint32_t numDesc
 }
 
 // Pipeline Creation
-std::unique_ptr<RHIRootSignature> DX12Device::CreateRootSignature()
+std::unique_ptr<RHIRootSignature> DX12Device::CreateRootSignature(const RHIRootSignatureLayout& layout)
 {
-	return DX12RootSignature::Create(this);
+	return DX12RootSignature::Create(this, layout);
 }
 
 

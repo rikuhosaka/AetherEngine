@@ -32,7 +32,7 @@ public:
 	std::unique_ptr<RHIUploadBuffer> CreateUploadBuffer(size_t capacityInBytes) override;
 
 	// Pipeline Creation
-	std::unique_ptr<RHIRootSignature> CreateRootSignature() override;
+	std::unique_ptr<RHIRootSignature> CreateRootSignature(const RHIRootSignatureLayout& layout) override;
 	std::unique_ptr<RHIPipelineState> CreatePipelineState(const RHIPipelineDesc& pipelineDesc) override;
 
 	// Sync Creation
