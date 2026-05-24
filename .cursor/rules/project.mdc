@@ -1,0 +1,23 @@
+# Project Rules
+
+You are working on a custom DirectX12 game engine.
+
+Allowed automatic commands:
+
+* cmake
+* ninja
+* git status
+* git diff
+* clang-format
+
+Never automatically execute:
+
+* git push
+* git reset --hard
+* rm -rf
+* del /s
+
+Use CMake + Ninja.
+Never use Visual Studio generator.
+
+Prefer small incremental edits.

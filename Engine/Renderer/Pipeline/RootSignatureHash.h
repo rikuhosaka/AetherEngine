@@ -3,8 +3,6 @@
 #include "Engine/Core/Hash/HashCombine.h"
 #include "Engine/RHI/Common/RHIRootSignatureLayout.h"
 
-#include <cstdint>
-
 inline void HashCombineRootConstants(std::size_t& seed, const RHIRootConstants& constants)
 {
 	HashCombine(seed, static_cast<std::size_t>(constants.num32BitValues));
@@ -18,26 +16,53 @@ inline void HashCombineRootDescriptorRange(std::size_t& seed, const RHIRootDescr
 	HashCombine(seed, static_cast<std::size_t>(range.count));
 	HashCombine(seed, static_cast<std::size_t>(range.baseRegister));
 	HashCombine(seed, static_cast<std::size_t>(range.space));
+	HashCombine(seed, static_cast<std::size_t>(range.offset));
+	HashCombine(seed, static_cast<std::size_t>(range.unbounded));
+}
+
+inline void HashCombineRootDescriptor(std::size_t& seed, const RHIRootDescriptor& descriptor)
+{
+	HashCombine(seed, static_cast<std::size_t>(descriptor.type));
+	HashCombine(seed, static_cast<std::size_t>(descriptor.shaderRegister));
+	HashCombine(seed, static_cast<std::size_t>(descriptor.space));
 }
 
 inline void HashCombineRootParameter(std::size_t& seed, const RHIRootParameterDesc& parameter)
 {
 	HashCombine(seed, static_cast<std::size_t>(parameter.kind));
-	HashCombine(seed, static_cast<std::size_t>(parameter.shaderBinding));
+	HashCombine(seed, static_cast<std::size_t>(parameter.visibility));
 
-	if (parameter.kind == RHIRootParamType::Constants)
+	switch (parameter.kind)
 	{
+	case RHIRootParameterKind::Constants:
 		HashCombineRootConstants(seed, parameter.constants);
-	}
-	else
-	{
-		HashCombineRootDescriptorRange(seed, parameter.range);
+		break;
+
+	case RHIRootParameterKind::DescriptorTable:
+		HashCombine(seed, parameter.ranges.size());
+		for (const RHIRootDescriptorRange& range : parameter.ranges)
+		{
+			HashCombineRootDescriptorRange(seed, range);
+		}
+		break;
+
+	case RHIRootParameterKind::RootCBV:
+	case RHIRootParameterKind::RootSRV:
+	case RHIRootParameterKind::RootUAV:
+		HashCombineRootDescriptor(seed, parameter.descriptor);
+		break;
 	}
 }
 
 inline void HashCombineStaticSampler(std::size_t& seed, const RHIRootStaticSampler& sampler)
 {
-	HashCombine(seed, static_cast<std::size_t>(sampler.samplerBinding));
+	HashCombine(seed, static_cast<std::size_t>(sampler.shaderRegister));
+	HashCombine(seed, static_cast<std::size_t>(sampler.space));
+	HashCombine(seed, static_cast<std::size_t>(sampler.filter));
+	HashCombine(seed, static_cast<std::size_t>(sampler.addressU));
+	HashCombine(seed, static_cast<std::size_t>(sampler.addressV));
+	HashCombine(seed, static_cast<std::size_t>(sampler.addressW));
+	HashCombine(seed, static_cast<std::size_t>(sampler.visibility));
 }
 
 [[nodiscard]] inline std::uint64_t HashRootSignatureLayout(const RHIRootSignatureLayout& layout)

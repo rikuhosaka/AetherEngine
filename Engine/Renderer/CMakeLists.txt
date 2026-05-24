@@ -32,6 +32,7 @@ target_link_libraries(Renderer
         DX12
     PRIVATE
         dxgi
+        dxcompiler
 )
 
 target_precompile_headers(Renderer PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
