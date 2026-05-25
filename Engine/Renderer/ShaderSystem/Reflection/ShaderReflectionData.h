@@ -15,6 +15,4 @@ struct ShaderReflectionData
     std::vector<ShaderInputElement> InputElements{};
 
     ComputeShaderReflection Compute{};
-
-    std::uint64_t Hash = 0;
 };
