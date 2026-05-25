@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Engine/Renderer/ShaderSystem/ShaderCompileDesc.h"
-#include "Engine/Renderer/ShaderSystem/ShaderResult.h"
+#include "Engine/Renderer/ShaderSystem/Compiler/ShaderCompileDesc.h"
+#include "Engine/Renderer/ShaderSystem/Compiler/ShaderResult.h"
 
 class IShaderCompilerBackend
 {

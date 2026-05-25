@@ -1,10 +1,6 @@
-#include <dxcapi.h>
-#include <wrl/client.h>
+#include "Engine/Renderer/ShaderSystem/DXC/DxcShaderImpl.h"
 
-#include "Engine/Renderer/ShaderSystem/DXC/DxcShaderCompilerImpl.h"
-
-
-bool DxcShaderCompilerImpl::Initialize(std::string& outError)
+bool DxcShaderImpl::Initialize(std::string& outError)
 {
 	outError.clear();
 

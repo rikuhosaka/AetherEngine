@@ -1,6 +1,9 @@
 #pragma once
 
-class DxcShaderCompilerImpl
+#include <dxcapi.h>
+#include <wrl/client.h>
+
+class DxcShaderImpl
 {
 public:
 	[[nodiscard]] bool Initialize(std::string& outError);

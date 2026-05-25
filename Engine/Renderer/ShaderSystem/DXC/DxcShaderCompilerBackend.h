@@ -1,20 +1,16 @@
 #pragma once
 
-#include "Engine/Renderer/ShaderSystem/IShaderCompilerBackend.h"
+#include "Engine/Renderer/ShaderSystem/Compiler/IShaderCompilerBackend.h"
 
-
-class DxcShaderCompilerImpl;
+class DxcShaderContext;
 
 class DxcShaderCompilerBackend : public IShaderCompilerBackend
 {
 public:
-    DxcShaderCompilerBackend();
+	explicit DxcShaderCompilerBackend(DxcShaderContext* context);
 
-    ShaderCompileResult Compile(
-        const ShaderCompileDesc& desc) override;
+	ShaderCompileResult Compile(const ShaderCompileDesc& desc) override;
 
 private:
-    std::unique_ptr<DxcShaderCompilerImpl> m_impl;
-    DxcShaderCompilerImpl* GetImpl() const;
-
+	DxcShaderContext* m_context{};
 };

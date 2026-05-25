@@ -32,6 +32,7 @@ target_link_libraries(Renderer
         DX12
     PRIVATE
         dxgi
+        d3d12
         dxcompiler
 )
 

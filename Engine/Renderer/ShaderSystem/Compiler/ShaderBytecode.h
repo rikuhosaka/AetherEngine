@@ -14,14 +14,3 @@ struct ShaderBytecode
         return Data.size();
     }
 };
-
-struct ShaderCompileResult
-{
-    bool Succeeded = false;
-
-    ShaderBytecode Bytecode;
-
-    std::string Errors;
-
-    std::string Warnings;
-};

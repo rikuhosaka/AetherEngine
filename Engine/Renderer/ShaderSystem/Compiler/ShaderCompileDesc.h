@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Renderer/ShaderSystem/ShaderType.h"
+#include "Engine/Renderer/ShaderSystem/Compiler/ShaderType.h"
 
 
 struct ShaderCompileDesc

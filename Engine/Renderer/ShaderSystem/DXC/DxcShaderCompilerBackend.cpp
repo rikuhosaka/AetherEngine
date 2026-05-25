@@ -1,9 +1,10 @@
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderCompilerBackend.h"
+#include "Engine/Renderer/ShaderSystem/DXC/DxcShaderContext.h"
+#include "Engine/Renderer/ShaderSystem/DXC/DxcShaderImpl.h"
 
 #include <dxcapi.h>
 #include <wrl/client.h>
 
-#include "Engine/Renderer/ShaderSystem/DXC/DxcShaderCompilerImpl.h"
 
 
 using Microsoft::WRL::ComPtr;
@@ -119,27 +120,23 @@ namespace
 	};
 }
 
-DxcShaderCompilerBackend::DxcShaderCompilerBackend()
-	: m_impl(std::make_unique<DxcShaderCompilerImpl>())
+DxcShaderCompilerBackend::DxcShaderCompilerBackend(DxcShaderContext* context)
+	: m_context(context)
 {
-	std::string initError{};
-	if (!m_impl->Initialize(initError))
-	{
-		LOG_ERROR(initError.empty() ? "Failed to initialize DXC." : initError.c_str());
-	}
-}
-
-DxcShaderCompilerImpl* DxcShaderCompilerBackend::GetImpl() const
-{
-	return m_impl.get();
 }
 
 ShaderCompileResult DxcShaderCompilerBackend::Compile(const ShaderCompileDesc& desc)
 {
 	ShaderCompileResult result{};
 
-	DxcShaderCompilerImpl* impl = GetImpl();
-	if (impl == nullptr || impl->utils == nullptr || impl->compiler == nullptr || impl->includeHandler == nullptr)
+	if (m_context == nullptr || !m_context->IsInitialized())
+	{
+		result.Errors = "DXC shader context is not initialized.";
+		return result;
+	}
+
+	DxcShaderImpl& impl = m_context->GetImpl();
+	if (impl.utils == nullptr || impl.compiler == nullptr || impl.includeHandler == nullptr)
 	{
 		result.Errors = "DXC compiler backend is not initialized.";
 		return result;
@@ -152,7 +149,7 @@ ShaderCompileResult DxcShaderCompilerBackend::Compile(const ShaderCompileDesc& d
 	}
 
 	ComPtr<IDxcBlobEncoding> sourceBlob{};
-	const HRESULT loadHr = impl->utils->LoadFile(desc.FilePath.c_str(), nullptr, sourceBlob.GetAddressOf());
+	const HRESULT loadHr = impl.utils->LoadFile(desc.FilePath.c_str(), nullptr, sourceBlob.GetAddressOf());
 	if (FAILED(loadHr) || sourceBlob == nullptr)
 	{
 		result.Errors = "Failed to load shader source: " + desc.FilePath.string();
@@ -199,11 +196,11 @@ ShaderCompileResult DxcShaderCompilerBackend::Compile(const ShaderCompileDesc& d
 	}
 
 	ComPtr<IDxcResult> compileResult{};
-	const HRESULT compileHr = impl->compiler->Compile(
+	const HRESULT compileHr = impl.compiler->Compile(
 		&sourceBuffer,
 		arguments.Data(),
 		arguments.Count(),
-		impl->includeHandler.Get(),
+		impl.includeHandler.Get(),
 		IID_PPV_ARGS(compileResult.GetAddressOf()));
 
 	if (FAILED(compileHr) || compileResult == nullptr)
