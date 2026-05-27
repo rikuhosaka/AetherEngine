@@ -28,4 +28,5 @@ private:
 
 	friend class DX12Device;
 	friend class DX12CommandList;
+	friend class DX12PipelineState;
 };

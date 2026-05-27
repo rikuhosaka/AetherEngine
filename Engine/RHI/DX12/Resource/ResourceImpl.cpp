@@ -9,6 +9,10 @@ D3D12_RESOURCE_STATES ConvertToD3D12ResourceState(ERHIResourceState state)
 	{
 	case ERHIResourceState::Common:
 		return D3D12_RESOURCE_STATE_COMMON;
+	case ERHIResourceState::CopyDest:
+		return D3D12_RESOURCE_STATE_COPY_DEST;
+	case ERHIResourceState::CopySource:
+		return D3D12_RESOURCE_STATE_COPY_SOURCE;
 	case ERHIResourceState::VertexAndConstantBuffer:
 		return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 	case ERHIResourceState::IndexBuffer:

@@ -5,6 +5,7 @@
 #include "Engine/RHI/DX12/Resource/DX12PixelShader.h"
 #include "Engine/RHI/DX12/Resource/ShaderImpl.h"
 #include "Engine/RHI/DX12/Pipeline/PipelineImpl.h"
+#include "Engine/RHI/DX12/Pipeline/DX12RootSignature.h"
 
 
 PipelineStateImpl*
@@ -19,13 +20,28 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
 
-	//シェーダー
+	//?V?F?[?_?[
 	auto vs = static_cast<DX12VertexShader*>(pipelineDesc.vertexShader);
 	auto ps = static_cast<DX12PixelShader*>(pipelineDesc.pixelShader);
 	gpipeline.VS = { vs->GetImpl()->blob->GetBufferPointer(), vs->GetImpl()->blob->GetBufferSize() };
 	gpipeline.PS = { ps->GetImpl()->blob->GetBufferPointer(), ps->GetImpl()->blob->GetBufferSize() };
 
-	if (pipelineDesc.inputLayout == InputLayoutType::Basic)
+	if (pipelineDesc.rootSignature != nullptr)
+	{
+		const auto* dxRootSignature = static_cast<const DX12RootSignature*>(pipelineDesc.rootSignature);
+		gpipeline.pRootSignature = dxRootSignature->GetImpl()->rootSignature.Get();
+	}
+
+	if (pipelineDesc.inputLayout == InputLayoutType::PositionTex)
+	{
+		D3D12_INPUT_ELEMENT_DESC layout[] = {
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		};
+		gpipeline.InputLayout.pInputElementDescs = layout;
+		gpipeline.InputLayout.NumElements = _countof(layout);
+	}
+	else if (pipelineDesc.inputLayout == InputLayoutType::Basic)
 	{
 		D3D12_INPUT_ELEMENT_DESC basicLayout[] = {
 		{ "POSITION",0, DXGI_FORMAT_R32G32B32A32_FLOAT,0,0,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },

@@ -1,32 +1,65 @@
-#include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
+#include "Engine/RHI/DX12/Descriptor/DX12DescriptorAllocator.h"
+#include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
+#include "Engine/RHI/DX12/Device/DX12Device.h"
+#include "Engine/RHI/DX12/Device/DeviceImpl.h"
 
-class DX12Device;
-class HeapImpl;
-
-class DX12TransientDescriptorAllocator final : public RHITransientDescriptorAllocator
+DX12DescriptorAllocator::DX12DescriptorAllocator(uint32_t numDescriptors, const DX12Device* dxDevice)
+	: m_impl(std::make_unique<HeapImpl>())
+	, m_totalCount(numDescriptors)
 {
-public:
-	~DX12TransientDescriptorAllocator() override;
-
-	void Reset() override;
-	uint32_t Allocate() override;
-	CpuDescHandle GetCpuHandle(uint32_t descriptorIndex) const override;
-	GpuDescHandle GetGpuHandle(uint32_t descriptorIndex) const override;
-
-private:
-	DX12TransientDescriptorAllocator(uint32_t numDescriptors, const DX12Device* dxDevice);
-
-	static std::unique_ptr<DX12TransientDescriptorAllocator> Create(uint32_t numDescriptors, const DX12Device* dxDevice)
+	if (m_totalCount == 0)
 	{
-		return std::unique_ptr<DX12TransientDescriptorAllocator>(new DX12TransientDescriptorAllocator(numDescriptors, dxDevice));
+		return;
 	}
 
-	std::unique_ptr<HeapImpl> m_impl;
-	uint32_t m_descriptorSize = 0;
-	uint32_t m_totalCount = 0;
-	uint32_t m_currentOffset = 0;
-	uint64_t m_cpuStart = 0;
-	uint64_t m_gpuStart = 0;
+	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+	heapDesc.NumDescriptors = m_totalCount;
+	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-	friend class DX12Device;
-};
+	const HRESULT hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_impl->heap));
+	if (FAILED(hr))
+	{
+		LOG_FATAL("Failed to create CBV_SRV_UAV descriptor heap");
+		m_totalCount = 0;
+		return;
+	}
+
+	m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	m_cpuStart = m_impl->heap->GetCPUDescriptorHandleForHeapStart().ptr;
+	m_gpuStart = m_impl->heap->GetGPUDescriptorHandleForHeapStart().ptr;
+}
+
+DX12DescriptorAllocator::~DX12DescriptorAllocator() = default;
+
+void DX12DescriptorAllocator::BeginFrame(uint32_t frameIndex)
+{
+	m_frameIndex = frameIndex;
+	m_currentOffset = frameIndex * m_frameSize;
+	m_frameAllocations.clear();
+}
+
+uint32_t DX12DescriptorAllocator::Allocate()
+{
+	if (!m_impl || !m_impl->heap || m_totalCount == 0)
+	{
+		return UINT32_MAX;
+	}
+	if (m_frameSize == 0)
+	{
+		m_frameSize = m_totalCount / FrameCount;
+	}
+	if (m_currentOffset >= (m_frameIndex + 1) * m_frameSize)
+	{
+		LOG_ERROR("Descriptor allocator frame heap is full");
+		return UINT32_MAX;
+	}
+
+	const uint32_t index = m_currentOffset++;
+	CbvSrvUavHandle handle{};
+	handle.cpu.ptr = m_cpuStart + static_cast<uint64_t>(index) * static_cast<uint64_t>(m_descriptorSize);
+	handle.gpu.ptr = m_gpuStart + static_cast<uint64_t>(index) * static_cast<uint64_t>(m_descriptorSize);
+	m_frameAllocations.emplace(index, handle);
+	return index;
+}

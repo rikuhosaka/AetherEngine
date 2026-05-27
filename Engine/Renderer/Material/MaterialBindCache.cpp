@@ -1,0 +1,103 @@
+#include "Engine/Renderer/Material/MaterialBindCache.h"
+
+#include "Engine/Renderer/Texture/TextureSystemServices.h"
+#include "Engine/RHI/Interface/RHICommandList.h"
+#include "Engine/RHI/Interface/RHIDevice.h"
+#include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
+#include "Engine/RHI/Interface/RHIUploadBuffer.h"
+
+MaterialBindCache::MaterialBindCache(RHIDevice* device)
+	: m_device(device)
+{
+}
+
+bool MaterialBindCache::Bind(
+	FrameContext& frameContext,
+	RHICommandList* commandList,
+	const Material& material,
+	const MaterialInstance& instance,
+	TextureSystemServices& textureServices) const
+{
+	if (m_device == nullptr || commandList == nullptr || frameContext.transientDescriptors == nullptr)
+	{
+		return false;
+	}
+
+	(void)material;
+
+	commandList->SetTransientDescriptorHeap(frameContext.transientDescriptors);
+
+	size_t textureIndex = 0;
+	size_t constantIndex = 0;
+
+	for (const ShaderRootBindingSlot& slot : material.bindingSlots)
+	{
+		if (slot.IsRootConstants)
+		{
+			continue;
+		}
+
+		if (slot.RootType != RHIRootParamType::SRV && slot.RootType != RHIRootParamType::CBV)
+		{
+			continue;
+		}
+
+		const uint32_t descriptorIndex = frameContext.transientDescriptors->Allocate();
+		if (descriptorIndex == UINT32_MAX)
+		{
+			return false;
+		}
+
+		const CpuDescHandle cpuHandle = frameContext.transientDescriptors->GetCpuHandle(descriptorIndex);
+		const GpuDescHandle gpuHandle = frameContext.transientDescriptors->GetGpuHandle(descriptorIndex);
+
+		if (slot.RootType == RHIRootParamType::SRV)
+		{
+			if (textureIndex >= instance.boundTextures.size())
+			{
+				return false;
+			}
+
+			Texture* texture = textureServices.GetTexture(instance.boundTextures[textureIndex]);
+			if (texture == nullptr || texture->resource == nullptr)
+			{
+				return false;
+			}
+
+			m_device->WriteShaderResourceView(texture->resource.get(), cpuHandle);
+			++textureIndex;
+		}
+		else if (slot.RootType == RHIRootParamType::CBV)
+		{
+			if (constantIndex >= instance.constantBuffers.size() || frameContext.uploadBuffer == nullptr)
+			{
+				return false;
+			}
+
+			const std::vector<std::byte>& constantData = instance.constantBuffers[constantIndex];
+			if (constantData.empty())
+			{
+				return false;
+			}
+
+			const size_t constantSize = constantData.size();
+			RHIUploadAllocation allocation = frameContext.uploadBuffer->Allocate(constantSize, 256);
+			if (allocation.cpuAddress == nullptr)
+			{
+				return false;
+			}
+
+			std::memcpy(allocation.cpuAddress, constantData.data(), constantSize);
+			m_device->WriteConstantBufferView(
+				frameContext.uploadBuffer,
+				allocation.offset,
+				static_cast<uint32_t>(constantSize),
+				cpuHandle);
+			++constantIndex;
+		}
+
+		commandList->SetGraphicsRootDescriptorTable(slot.RootParameterIndex, gpuHandle.ptr);
+	}
+
+	return true;
+}

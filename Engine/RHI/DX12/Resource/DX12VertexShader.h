@@ -9,7 +9,9 @@ class ShaderImpl;
 class DX12VertexShader : public RHIVertexShader
 {
 public:
-	DX12VertexShader(const std::filesystem::path& filePath);
+	explicit DX12VertexShader(const std::filesystem::path& filePath);
+	explicit DX12VertexShader(std::span<const std::byte> bytecode);
+	~DX12VertexShader() override;
 
 private:
 	std::unique_ptr<ShaderImpl> m_impl = nullptr;

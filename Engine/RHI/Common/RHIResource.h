@@ -4,6 +4,8 @@
 enum class ERHIResourceState
 {
 	Common,
+	CopyDest,
+	CopySource,
 	VertexAndConstantBuffer,
 	IndexBuffer,
 	RenderTarget,

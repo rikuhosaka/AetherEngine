@@ -3,12 +3,15 @@
 #include "Engine/RHI/Common/RHIDescriptor.h"
 #include "Engine/RHI/Common/RHIResource.h"
 class RHIResource;
+class RHIBuffer;
 class RHIVertexBuffer;
 class RHIIndexBuffer;
 class RHITexture;
 class RHIPipelineState;
 class RHIRootSignature;
 class RHIDescriptorAllocator;
+class RHITransientDescriptorAllocator;
+class RHIUploadBuffer;
 class RHIDSVAllocator;
 class RHIRTVAllocator;
 
@@ -26,6 +29,20 @@ public:
 
     // Descriptor / Resource
     virtual void SetDescriptorHeaps(std::span<const RHIDescriptorAllocator*> heaps) = 0;
+	virtual void SetTransientDescriptorHeap(RHITransientDescriptorAllocator* heap) = 0;
+	virtual void CopyBufferRegion(
+		RHIBuffer* dstBuffer,
+		size_t dstOffset,
+		RHIUploadBuffer* srcUpload,
+		size_t srcOffset,
+		size_t numBytes) = 0;
+	virtual void CopyTextureRegion(
+		RHITexture* dstTexture,
+		uint32_t dstSubresource,
+		RHIUploadBuffer* srcUpload,
+		size_t srcOffset,
+		uint32_t bytesPerRow,
+		uint32_t numRows) = 0;
 	virtual void SetGraphicsRootDescriptorTable(uint32_t index, uint64_t baseDescriptor) = 0;
 
     // Input Assembler

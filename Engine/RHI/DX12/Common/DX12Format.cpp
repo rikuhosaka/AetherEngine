@@ -1,0 +1,22 @@
+#include "Engine/RHI/DX12/Common/DX12Format.h"
+
+DXGI_FORMAT ToDxgiFormat(ERHIFormat format)
+{
+	switch (format)
+	{
+	case ERHIFormat::R8G8B8A8_UNORM:
+		return DXGI_FORMAT_R8G8B8A8_UNORM;
+	case ERHIFormat::B8G8R8A8_UNORM:
+		return DXGI_FORMAT_B8G8R8A8_UNORM;
+	case ERHIFormat::R16G16B16A16_FLOAT:
+		return DXGI_FORMAT_R16G16B16A16_FLOAT;
+	case ERHIFormat::R32G32B32A32_FLOAT:
+		return DXGI_FORMAT_R32G32B32A32_FLOAT;
+	case ERHIFormat::D24_UNORM_S8_UINT:
+		return DXGI_FORMAT_D24_UNORM_S8_UINT;
+	case ERHIFormat::D32_FLOAT:
+		return DXGI_FORMAT_D32_FLOAT;
+	default:
+		return DXGI_FORMAT_UNKNOWN;
+	}
+}

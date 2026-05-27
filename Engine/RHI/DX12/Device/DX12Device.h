@@ -23,6 +23,25 @@ public:
 	std::unique_ptr<RHIStructuredBuffer> CreateStructuredBuffer(const RHIBufferDesc& bufferDesc) override;
 	std::unique_ptr<RHITexture> CreateTexture(const RHITextureDesc& desc) override;
 
+	std::unique_ptr<RHIVertexShader> CreateVertexShader(std::span<const std::byte> bytecode) override;
+	std::unique_ptr<RHIPixelShader> CreatePixelShader(std::span<const std::byte> bytecode) override;
+
+	CbvSrvUavHandle CreateShaderResourceView(
+		RHITexture* texture,
+		RHIDescriptorAllocator* allocator) override;
+
+	void WriteShaderResourceView(RHITexture* texture, CpuDescHandle destCpuHandle) override;
+	void WriteConstantBufferView(
+		RHIBuffer* buffer,
+		CpuDescHandle destCpuHandle,
+		uint32_t bufferSizeInBytes) override;
+
+	void WriteConstantBufferView(
+		RHIUploadBuffer* upload,
+		size_t offset,
+		uint32_t sizeInBytes,
+		CpuDescHandle destCpuHandle) override;
+
 	// Descriptor Creation
 	std::unique_ptr<RHIDescriptorAllocator> CreateDescriptorAllocator(uint32_t numDescriptors) override;
 	std::unique_ptr<RHITransientDescriptorAllocator> CreateTransientDescriptorAllocator(uint32_t numDescriptors) override;

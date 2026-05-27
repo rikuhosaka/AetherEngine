@@ -25,6 +25,9 @@ private:
 	std::unique_ptr<ResourceImpl> m_impl;
 
 	ResourceImpl* GetImpl() const { return m_impl.get(); }
+
+	friend class DX12CommandList;
+
 	void* m_mappedBase = nullptr;
 	uint64_t m_gpuVirtualAddress = 0;
 	size_t m_capacity = 0;

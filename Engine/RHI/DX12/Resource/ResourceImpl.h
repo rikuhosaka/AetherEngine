@@ -11,4 +11,6 @@ public:
 	ComPtr<ID3D12Resource> resource;
 
 	void TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList) override;
+
+	void SetInitialState(ERHIResourceState state) { m_currentState = state; }
 };

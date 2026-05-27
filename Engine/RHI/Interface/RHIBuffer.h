@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/RHI/Interface/RHIResource.h"
+#include "Engine/RHI/Common/RHIInput.h"
 
 class RHIBuffer : public RHIResource
 {

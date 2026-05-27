@@ -19,6 +19,20 @@ public:
 
 	// Descriptor / Resource
 	void SetDescriptorHeaps(std::span<const RHIDescriptorAllocator*> heaps) override;
+	void SetTransientDescriptorHeap(RHITransientDescriptorAllocator* heap) override;
+	void CopyBufferRegion(
+		RHIBuffer* dstBuffer,
+		size_t dstOffset,
+		RHIUploadBuffer* srcUpload,
+		size_t srcOffset,
+		size_t numBytes) override;
+	void CopyTextureRegion(
+		RHITexture* dstTexture,
+		uint32_t dstSubresource,
+		RHIUploadBuffer* srcUpload,
+		size_t srcOffset,
+		uint32_t bytesPerRow,
+		uint32_t numRows) override;
 	void SetGraphicsRootDescriptorTable(uint32_t index, uint64_t baseDescriptor) override;
 
 	// Input Assembler

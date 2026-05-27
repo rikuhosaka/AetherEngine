@@ -1,14 +1,21 @@
 #pragma once
 
 #include "Engine/RHI/Common/RHIResource.h"
+#include "Engine/RHI/Common/RHIDescriptor.h"
 #include "Engine/RHI/Common/RHITexture.h"
 #include "Engine/RHI/Common/RHIPipeline.h"
 #include "Engine/RHI/Common/RHIInput.h"
 #include "Engine/RHI/Common/RHIRootSignatureLayout.h"
 
+#include <cstddef>
+#include <span>
+
 class RHISwapChain;
 class RHICommandList;
 class RHICommandQueue;
+class RHIVertexShader;
+class RHIPixelShader;
+class RHIBuffer;
 class RHIVertexBuffer;
 class RHIIndexBuffer;
 class RHIConstantBuffer;
@@ -41,6 +48,25 @@ public:
 	virtual std::unique_ptr<RHIConstantBuffer> CreateConstantBuffer(const RHIBufferDesc& bufferDesc) = 0;
 	virtual std::unique_ptr<RHIStructuredBuffer> CreateStructuredBuffer(const RHIBufferDesc& bufferDesc) = 0;
 	virtual std::unique_ptr<RHITexture> CreateTexture(const RHITextureDesc& desc) = 0;
+
+	virtual std::unique_ptr<RHIVertexShader> CreateVertexShader(std::span<const std::byte> bytecode) = 0;
+	virtual std::unique_ptr<RHIPixelShader> CreatePixelShader(std::span<const std::byte> bytecode) = 0;
+
+	virtual CbvSrvUavHandle CreateShaderResourceView(
+		RHITexture* texture,
+		RHIDescriptorAllocator* allocator) = 0;
+
+	virtual void WriteShaderResourceView(RHITexture* texture, CpuDescHandle destCpuHandle) = 0;
+	virtual void WriteConstantBufferView(
+		RHIBuffer* buffer,
+		CpuDescHandle destCpuHandle,
+		uint32_t bufferSizeInBytes) = 0;
+
+	virtual void WriteConstantBufferView(
+		RHIUploadBuffer* upload,
+		size_t offset,
+		uint32_t sizeInBytes,
+		CpuDescHandle destCpuHandle) = 0;
 
 	// Descriptor Creation
 	virtual std::unique_ptr<RHIDescriptorAllocator> CreateDescriptorAllocator(uint32_t numDescriptors) = 0;

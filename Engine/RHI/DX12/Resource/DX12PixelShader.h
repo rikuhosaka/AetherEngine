@@ -9,8 +9,9 @@ class ShaderImpl;
 class DX12PixelShader : public RHIPixelShader
 {
 public:
-	DX12PixelShader(const std::filesystem::path& filePath);
-
+	explicit DX12PixelShader(const std::filesystem::path& filePath);
+	explicit DX12PixelShader(std::span<const std::byte> bytecode);
+	~DX12PixelShader() override;
 
 private:
 	std::unique_ptr<ShaderImpl> m_impl = nullptr;

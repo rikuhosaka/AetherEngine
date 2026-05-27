@@ -6,6 +6,10 @@
 #include "Engine/RHI/DX12/Memory/DX12Buffer.h"
 #include "Engine/RHI/DX12/Memory/DX12UploadBuffer.h"
 #include "Engine/RHI/DX12/Resource/DX12Texture.h"
+#include "Engine/RHI/DX12/Resource/DX12VertexShader.h"
+#include "Engine/RHI/DX12/Resource/DX12PixelShader.h"
+#include "Engine/RHI/DX12/Common/DX12Format.h"
+#include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 #include "Engine/RHI/DX12/Descriptor/DX12DescriptorAllocator.h"
 #include "Engine/RHI/DX12/Descriptor/DX12TransientDescriptorAllocator.h"
 #include "Engine/RHI/DX12/Descriptor/DX12DSVAllocator.h"
@@ -127,6 +131,143 @@ std::unique_ptr<RHIStructuredBuffer> DX12Device::CreateStructuredBuffer(const RH
 std::unique_ptr<RHITexture> DX12Device::CreateTexture(const RHITextureDesc& desc)
 {
 	return DX12Texture::Create(desc, this);
+}
+
+std::unique_ptr<RHIVertexShader> DX12Device::CreateVertexShader(std::span<const std::byte> bytecode)
+{
+	return std::make_unique<DX12VertexShader>(bytecode);
+}
+
+std::unique_ptr<RHIPixelShader> DX12Device::CreatePixelShader(std::span<const std::byte> bytecode)
+{
+	return std::make_unique<DX12PixelShader>(bytecode);
+}
+
+CbvSrvUavHandle DX12Device::CreateShaderResourceView(
+	RHITexture* texture,
+	RHIDescriptorAllocator* allocator)
+{
+	if (texture == nullptr || allocator == nullptr)
+	{
+		return {};
+	}
+
+	auto* dxTexture = static_cast<DX12Texture*>(texture);
+	auto* dxAllocator = static_cast<DX12DescriptorAllocator*>(allocator);
+	ResourceImpl* resource = dxTexture->GetResourceImpl();
+	if (resource == nullptr || resource->resource == nullptr)
+	{
+		return {};
+	}
+
+	const uint32_t index = dxAllocator->Allocate();
+	if (index == UINT32_MAX)
+	{
+		return {};
+	}
+
+	const CpuDescHandle cpuHandle = dxAllocator->GetCpuHandle(index);
+	const GpuDescHandle gpuHandle = dxAllocator->GetGpuHandle(index);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = ToDxgiFormat(dxTexture->GetFormat());
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = dxTexture->GetMipLevels();
+
+	ID3D12Device* device = GetImpl()->device.Get();
+	device->CreateShaderResourceView(
+		resource->resource.Get(),
+		&srvDesc,
+		{ cpuHandle.ptr });
+
+	return { cpuHandle, gpuHandle };
+}
+
+void DX12Device::WriteShaderResourceView(RHITexture* texture, CpuDescHandle destCpuHandle)
+{
+	if (texture == nullptr || destCpuHandle.ptr == 0)
+	{
+		return;
+	}
+
+	auto* dxTexture = static_cast<DX12Texture*>(texture);
+	ResourceImpl* resource = dxTexture->GetResourceImpl();
+	if (resource == nullptr || resource->resource == nullptr)
+	{
+		return;
+	}
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = ToDxgiFormat(dxTexture->GetFormat());
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = dxTexture->GetMipLevels();
+
+	GetImpl()->device->CreateShaderResourceView(
+		resource->resource.Get(),
+		&srvDesc,
+		{ destCpuHandle.ptr });
+}
+
+void DX12Device::WriteConstantBufferView(
+	RHIBuffer* buffer,
+	CpuDescHandle destCpuHandle,
+	uint32_t bufferSizeInBytes)
+{
+	if (buffer == nullptr || destCpuHandle.ptr == 0 || bufferSizeInBytes == 0)
+	{
+		return;
+	}
+
+	ResourceImpl* resource = nullptr;
+	if (auto* vertexBuffer = dynamic_cast<RHIVertexBuffer*>(buffer))
+	{
+		resource = static_cast<DX12VertexBuffer*>(vertexBuffer)->GetBufferResourceImpl();
+	}
+	else if (auto* indexBuffer = dynamic_cast<RHIIndexBuffer*>(buffer))
+	{
+		resource = static_cast<DX12IndexBuffer*>(indexBuffer)->GetBufferResourceImpl();
+	}
+	else if (auto* constantBuffer = dynamic_cast<RHIConstantBuffer*>(buffer))
+	{
+		resource = static_cast<DX12ConstantBuffer*>(constantBuffer)->GetBufferResourceImpl();
+	}
+
+	if (resource == nullptr || resource->resource == nullptr)
+	{
+		return;
+	}
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+	cbvDesc.BufferLocation = resource->resource->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = (bufferSizeInBytes + 255u) & ~255u;
+
+	GetImpl()->device->CreateConstantBufferView(&cbvDesc, { destCpuHandle.ptr });
+}
+
+void DX12Device::WriteConstantBufferView(
+	RHIUploadBuffer* upload,
+	size_t offset,
+	uint32_t sizeInBytes,
+	CpuDescHandle destCpuHandle)
+{
+	if (upload == nullptr || destCpuHandle.ptr == 0 || sizeInBytes == 0)
+	{
+		return;
+	}
+
+	auto* dxUpload = static_cast<DX12UploadBuffer*>(upload);
+	if (dxUpload->GetImpl()->resource == nullptr)
+	{
+		return;
+	}
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+	cbvDesc.BufferLocation = dxUpload->GetImpl()->resource->GetGPUVirtualAddress() + offset;
+	cbvDesc.SizeInBytes = (sizeInBytes + 255u) & ~255u;
+
+	GetImpl()->device->CreateConstantBufferView(&cbvDesc, { destCpuHandle.ptr });
 }
 
 // Descriptor Creation

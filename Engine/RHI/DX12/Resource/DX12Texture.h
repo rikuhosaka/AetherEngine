@@ -21,6 +21,10 @@ public:
 	uint32_t GetSampleQuality() const override { return m_desc.SampleQuality; }
 
 	void TransitionResource(ERHIResourceState newState, const RHICommandList* commandList) override;
+
+	ResourceImpl* GetResourceImpl() const { return m_impl.get(); }
+	ERHIFormat GetFormat() const { return m_desc.Format; }
+
 private:
 
 	DX12Texture(const RHITextureDesc& desc, const DX12Device* dxDevice);
@@ -36,11 +40,6 @@ private:
 	RHITextureDesc m_desc;
 
 	std::unique_ptr<ResourceImpl> m_impl = nullptr;
-
-	ResourceImpl* GetResourceImpl() const
-	{
-		return m_impl.get();
-	}
 
 	friend class DX12SwapChain;
 	friend class DX12Device;

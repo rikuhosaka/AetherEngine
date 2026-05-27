@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/RHI/Common/RHIFormat.h"
 
 enum class ERHITextureUsage
 {
@@ -17,5 +18,6 @@ struct RHITextureDesc
 	uint32_t ArraySize = 1;
 	uint32_t SampleCount = 1;
 	uint32_t SampleQuality = 0;
-	ERHITextureUsage Usage;
+	ERHITextureUsage Usage = ERHITextureUsage::ShaderResource;
+	ERHIFormat Format = ERHIFormat::R8G8B8A8_UNORM;
 };

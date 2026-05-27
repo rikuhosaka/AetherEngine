@@ -29,5 +29,8 @@ private:
 	uint64_t m_cpuStart = 0;
 	uint64_t m_gpuStart = 0;
 
+	HeapImpl* GetImpl() const { return m_impl.get(); }
+
 	friend class DX12Device;
+	friend class DX12CommandList;
 };

@@ -4,6 +4,7 @@
 enum class InputLayoutType
 {
 	Basic,
+	PositionTex,
 	Skinned
 };
 

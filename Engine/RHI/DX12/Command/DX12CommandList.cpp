@@ -7,9 +7,15 @@
 #include "Engine/RHI/DX12/Pipeline/DX12RootSignature.h"
 #include "Engine/RHI/DX12/Pipeline/PipelineImpl.h"
 #include "Engine/RHI/DX12/Descriptor/DX12DescriptorAllocator.h"
+#include "Engine/RHI/DX12/Descriptor/DX12TransientDescriptorAllocator.h"
 #include "Engine/RHI/DX12/Descriptor/DX12DSVAllocator.h"
 #include "Engine/RHI/DX12/Descriptor/DX12RTVAllocator.h"
 #include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
+#include "Engine/RHI/DX12/Memory/DX12UploadBuffer.h"
+#include "Engine/RHI/DX12/Resource/DX12Texture.h"
+#include "Engine/RHI/DX12/Common/DX12Format.h"
+#include "Engine/RHI/DX12/Resource/ResourceImpl.h"
+#include "Engine/RHI/Interface/RHIBuffer.h"
 
 
 
@@ -105,16 +111,109 @@ void
 DX12CommandList::SetDescriptorHeaps(std::span<const RHIDescriptorAllocator*> heaps)
 {
 	std::vector<ID3D12DescriptorHeap*> dxHeaps;
-	for (const auto& heap : heaps)
+	dxHeaps.reserve(heaps.size());
+	for (const RHIDescriptorAllocator* heap : heaps)
 	{
-		const DX12DescriptorAllocator* dxHeap = static_cast<const DX12DescriptorAllocator*>(heap);
-		ID3D12DescriptorHeap* descriptorHeap = dxHeap->GetImpl()->heap.Get();
-		dxHeaps.push_back(descriptorHeap);
+		if (heap == nullptr)
+		{
+			continue;
+		}
+		const auto* dxHeap = static_cast<const DX12DescriptorAllocator*>(heap);
+		dxHeaps.push_back(dxHeap->GetImpl()->heap.Get());
 	}
-	if (m_impl->commandList)
+	if (m_impl->commandList && !dxHeaps.empty())
 	{
 		m_impl->commandList->SetDescriptorHeaps(static_cast<UINT>(dxHeaps.size()), dxHeaps.data());
 	}
+}
+
+void DX12CommandList::SetTransientDescriptorHeap(RHITransientDescriptorAllocator* heap)
+{
+	if (heap == nullptr || m_impl->commandList == nullptr)
+	{
+		return;
+	}
+	const auto* dxHeap = static_cast<DX12TransientDescriptorAllocator*>(heap);
+	ID3D12DescriptorHeap* heaps[] = { dxHeap->GetImpl()->heap.Get() };
+	m_impl->commandList->SetDescriptorHeaps(1, heaps);
+}
+
+void DX12CommandList::CopyBufferRegion(
+	RHIBuffer* dstBuffer,
+	size_t dstOffset,
+	RHIUploadBuffer* srcUpload,
+	size_t srcOffset,
+	size_t numBytes)
+{
+	if (dstBuffer == nullptr || srcUpload == nullptr || m_impl->commandList == nullptr)
+	{
+		return;
+	}
+
+	ResourceImpl* dstResource = nullptr;
+	if (auto* vertexBuffer = dynamic_cast<RHIVertexBuffer*>(dstBuffer))
+	{
+		dstResource = static_cast<DX12VertexBuffer*>(vertexBuffer)->GetBufferResourceImpl();
+	}
+	else if (auto* indexBuffer = dynamic_cast<RHIIndexBuffer*>(dstBuffer))
+	{
+		dstResource = static_cast<DX12IndexBuffer*>(indexBuffer)->GetBufferResourceImpl();
+	}
+
+	auto* src = static_cast<DX12UploadBuffer*>(srcUpload);
+	if (dstResource == nullptr || dstResource->resource == nullptr || src->GetImpl()->resource == nullptr)
+	{
+		return;
+	}
+
+	m_impl->commandList->CopyBufferRegion(
+		dstResource->resource.Get(),
+		dstOffset,
+		src->GetImpl()->resource.Get(),
+		srcOffset,
+		numBytes);
+}
+
+void DX12CommandList::CopyTextureRegion(
+	RHITexture* dstTexture,
+	uint32_t dstSubresource,
+	RHIUploadBuffer* srcUpload,
+	size_t srcOffset,
+	uint32_t bytesPerRow,
+	uint32_t numRows)
+{
+	(void)numRows;
+	if (dstTexture == nullptr || srcUpload == nullptr || m_impl->commandList == nullptr)
+	{
+		return;
+	}
+
+	auto* dst = static_cast<DX12Texture*>(dstTexture);
+	auto* src = static_cast<DX12UploadBuffer*>(srcUpload);
+	if (dst->GetResourceImpl()->resource == nullptr || src->GetImpl()->resource == nullptr)
+	{
+		return;
+	}
+
+	D3D12_TEXTURE_COPY_LOCATION dstLocation = {};
+	dstLocation.pResource = dst->GetResourceImpl()->resource.Get();
+	dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	dstLocation.SubresourceIndex = dstSubresource;
+
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+	footprint.Footprint.Format = ToDxgiFormat(dst->GetFormat());
+	footprint.Footprint.Width = dst->GetWidth();
+	footprint.Footprint.Height = dst->GetHeight();
+	footprint.Footprint.Depth = 1;
+	footprint.Footprint.RowPitch = bytesPerRow;
+
+	D3D12_TEXTURE_COPY_LOCATION srcLocation = {};
+	srcLocation.pResource = src->GetImpl()->resource.Get();
+	srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	srcLocation.PlacedFootprint.Offset = srcOffset;
+	srcLocation.PlacedFootprint.Footprint = footprint.Footprint;
+
+	m_impl->commandList->CopyTextureRegion(&dstLocation, 0, 0, 0, &srcLocation, nullptr);
 }
 
 void
@@ -166,7 +265,7 @@ DX12CommandList::IASetIndexBuffer(const RHIIndexBuffer* view)
 			break;
 		default:
 			LOG_ERROR("Unsupported index format");
-			dxView.Format = DXGI_FORMAT_UNKNOWN; // デフォルト値を設定
+			dxView.Format = DXGI_FORMAT_UNKNOWN; // ?f?t?H???g?l????
 			return;
 		}
 		m_impl->commandList->IASetIndexBuffer(&dxView);

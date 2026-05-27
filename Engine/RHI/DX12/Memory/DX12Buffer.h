@@ -19,6 +19,8 @@ public:
 
 	void TransitionResource(ERHIResourceState newState, const RHICommandList* commandList);
 
+	[[nodiscard]] ResourceImpl* GetResourceImpl() const { return m_impl.get(); }
+
 private:
 
 
@@ -27,7 +29,8 @@ private:
 
 	std::unique_ptr<ResourceImpl> m_impl;
 
-	ResourceImpl* GetImpl() const { return m_impl.get(); }
+	friend class DX12CommandList;
+	friend class DX12Device;
 };
 
 class DX12VertexBuffer : public RHIVertexBuffer
@@ -53,7 +56,10 @@ private:
 
 	uint32_t m_stride;
 
+	[[nodiscard]] ResourceImpl* GetBufferResourceImpl() const { return m_buffer->GetResourceImpl(); }
+
 	friend class DX12Device;
+	friend class DX12CommandList;
 };
 
 class DX12IndexBuffer : public RHIIndexBuffer
@@ -78,7 +84,10 @@ private:
 	std::unique_ptr<DX12Buffer> m_buffer;
 	IndexFormat m_indexFormat;
 
+	[[nodiscard]] ResourceImpl* GetBufferResourceImpl() const { return m_buffer->GetResourceImpl(); }
+
 	friend class DX12Device;
+	friend class DX12CommandList;
 };
 
 class DX12ConstantBuffer : public RHIConstantBuffer
@@ -102,7 +111,10 @@ private:
 
 	std::unique_ptr<DX12Buffer> m_buffer;
 
+	[[nodiscard]] ResourceImpl* GetBufferResourceImpl() const { return m_buffer->GetResourceImpl(); }
+
 	friend class DX12Device;
+	friend class DX12CommandList;
 };
 
 
@@ -127,5 +139,8 @@ private:
 
 	std::unique_ptr<DX12Buffer> m_buffer;
 
+	[[nodiscard]] ResourceImpl* GetBufferResourceImpl() const { return m_buffer->GetResourceImpl(); }
+
 	friend class DX12Device;
+	friend class DX12CommandList;
 };
