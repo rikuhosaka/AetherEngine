@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Scene/RenderPlaceholders.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -81,15 +82,16 @@ bool RenderPlaceholders::EnsureInitialized(
 	meshDesc.indexFormat = IndexFormat::R32_UINT;
 	meshDesc.layoutId = VertexLayoutId::PositionTex;
 
-	m_resources.mesh = resources.GetMeshServices().UploadMesh(meshDesc, frameContext, commandList);
-	if (!m_resources.mesh.IsValid())
+	auto meshResult = resources.GetMeshServices().UploadMesh(meshDesc, frameContext, commandList);
+	if (!meshResult)
 	{
 		if (outError != nullptr)
 		{
-			*outError = "Failed to upload placeholder mesh";
+			*outError = meshResult.error.message;
 		}
 		return false;
 	}
+	m_resources.mesh = meshResult.value;
 
 	const std::array<std::byte, 4> whitePixel = {
 		std::byte{ 255 },
@@ -107,18 +109,19 @@ bool RenderPlaceholders::EnsureInitialized(
 	mip.pixels = whitePixel;
 	textureDesc.mips.push_back(mip);
 
-	m_resources.texture = resources.GetTextureServices().UploadTexture(
+	auto textureResult = resources.GetTextureServices().UploadTexture(
 		textureDesc,
 		frameContext,
 		commandList);
-	if (!m_resources.texture.IsValid())
+	if (!textureResult)
 	{
 		if (outError != nullptr)
 		{
-			*outError = "Failed to upload placeholder texture";
+			*outError = textureResult.error.message;
 		}
 		return false;
 	}
+	m_resources.texture = textureResult.value;
 
 	MaterialCreateDesc materialDesc{};
 	materialDesc.vertexShaderPath = shaderRoot / "SimpleVS.hlsl";
@@ -128,18 +131,17 @@ bool RenderPlaceholders::EnsureInitialized(
 	materialDesc.inputLayout = InputLayoutType::PositionTex;
 	materialDesc.requiredLayout = VertexLayoutId::PositionTex;
 
-	std::string materialError;
-	const std::optional<MaterialHandle> materialHandle =
-		resources.GetMaterialServices().CreateMaterial(materialDesc, &materialError);
-	if (!materialHandle.has_value())
+	const Result<MaterialHandle> materialResult =
+		resources.GetMaterialServices().CreateMaterial(materialDesc);
+	if (!materialResult)
 	{
 		if (outError != nullptr)
 		{
-			*outError = materialError.empty() ? "Failed to create placeholder material" : materialError;
+			*outError = materialResult.error.message;
 		}
 		return false;
 	}
-	m_resources.material = *materialHandle;
+	m_resources.material = materialResult.value;
 
 	SceneConstants sceneConstants{};
 	MakeIdentity(sceneConstants.mvp);

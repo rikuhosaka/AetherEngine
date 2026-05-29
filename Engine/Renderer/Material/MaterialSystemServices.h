@@ -1,13 +1,12 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Material/MaterialBindCache.h"
 #include "Engine/Renderer/Material/MaterialPool.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 
 #include <memory>
-#include <optional>
 #include <span>
-#include <string>
 
 class PipelineStateCache;
 class RootSignatureCache;
@@ -17,21 +16,18 @@ class TextureSystemServices;
 class MaterialSystemServices
 {
 public:
-	static std::unique_ptr<MaterialSystemServices> Create(
+	static Result<std::unique_ptr<MaterialSystemServices>> Create(
 		RHIDevice* device,
 		ShaderSystemServices* shaderServices,
 		RootSignatureCache* rootSignatureCache,
 		PipelineStateCache* pipelineStateCache,
-		TextureSystemServices* textureServices,
-		std::string* outError = nullptr);
+		TextureSystemServices* textureServices);
 
 	[[nodiscard]] MaterialPool& GetPool() noexcept { return m_pool; }
 	[[nodiscard]] MaterialBindCache& GetBindCache() noexcept { return m_bindCache; }
 	[[nodiscard]] TextureSystemServices& GetTextureServices() const { return *m_textureServices; }
 
-	[[nodiscard]] std::optional<MaterialHandle> CreateMaterial(
-		const MaterialCreateDesc& desc,
-		std::string* outError = nullptr);
+	[[nodiscard]] Result<MaterialHandle> CreateMaterial(const MaterialCreateDesc& desc);
 
 	[[nodiscard]] MaterialInstanceHandle CreateInstance(
 		MaterialHandle material,

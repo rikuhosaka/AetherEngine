@@ -1,5 +1,6 @@
 #include "Renderer.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Core/RendererPassScheduler.h"
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
@@ -15,32 +16,45 @@ Renderer::Renderer() = default;
 
 Renderer::~Renderer() = default;
 
-void Renderer::Initialize(
+Result<void> Renderer::Initialize(
 	RHIDevice* device,
 	RHIDescriptorAllocator* descriptorAllocator,
 	const RendererConfig& config)
 {
-	assert(device != nullptr);
-	assert(descriptorAllocator != nullptr);
+	if (device == nullptr || descriptorAllocator == nullptr)
+	{
+		return MakeFail(ErrorCode::InvalidArgument, "Renderer requires a valid device and descriptor allocator");
+	}
 
-	m_shaderServices = ShaderSystemServices::Create();
-	assert(m_shaderServices != nullptr);
+	auto shaderServicesResult = ShaderSystemServices::Create();
+	if (!shaderServicesResult)
+	{
+		LogResult(shaderServicesResult, LogCategory::Renderer);
+		return MakeFail(shaderServicesResult.error.code, shaderServicesResult.error.message);
+	}
+	m_shaderServices = std::move(shaderServicesResult.value);
 
 	m_rootSignatureCache = std::make_unique<RootSignatureCache>(device);
 	m_pipelineStateCache = std::make_unique<PipelineStateCache>(device, m_rootSignatureCache.get());
 
-	std::string error;
-	m_resourceServices = RenderResourceServices::Create(
+	auto resourceServicesResult = RenderResourceServices::Create(
 		device,
 		descriptorAllocator,
 		m_shaderServices.get(),
 		m_rootSignatureCache.get(),
-		m_pipelineStateCache.get(),
-		&error);
-	assert(m_resourceServices != nullptr);
+		m_pipelineStateCache.get());
+	if (!resourceServicesResult)
+	{
+		LogResult(resourceServicesResult, LogCategory::Renderer);
+		return MakeFail(
+			resourceServicesResult.error.code,
+			resourceServicesResult.error.message);
+	}
+	m_resourceServices = std::move(resourceServicesResult.value);
 
 	m_shaderRoot = config.shaderRoot;
 	m_scene.SetShaderRoot(m_shaderRoot);
+	return MakeOk();
 }
 
 void Renderer::SetFrameContext(FrameContext* frameContext)

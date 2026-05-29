@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 
 #include <memory>
-#include <string>
 
 class PipelineStateCache;
 class RHIDescriptorAllocator;
@@ -16,13 +16,12 @@ class ShaderSystemServices;
 class RenderResourceServices
 {
 public:
-	static std::unique_ptr<RenderResourceServices> Create(
+	static Result<std::unique_ptr<RenderResourceServices>> Create(
 		RHIDevice* device,
 		RHIDescriptorAllocator* descriptorAllocator,
 		ShaderSystemServices* shaderServices,
 		RootSignatureCache* rootSignatureCache,
-		PipelineStateCache* pipelineStateCache,
-		std::string* outError = nullptr);
+		PipelineStateCache* pipelineStateCache);
 
 	[[nodiscard]] MeshSystemServices& GetMeshServices() noexcept { return *m_meshServices; }
 	[[nodiscard]] TextureSystemServices& GetTextureServices() noexcept { return *m_textureServices; }

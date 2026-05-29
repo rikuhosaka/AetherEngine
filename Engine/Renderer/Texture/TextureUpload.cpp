@@ -29,19 +29,23 @@ TextureUpload::TextureUpload(RHIDevice* device, RHIDescriptorAllocator* descript
 {
 }
 
-std::unique_ptr<Texture> TextureUpload::CreateTexture(
+Result<std::unique_ptr<Texture>> TextureUpload::CreateTexture(
 	const TextureUploadDesc& desc,
 	FrameContext& frameContext,
 	RHICommandList* commandList) const
 {
 	if (m_device == nullptr || frameContext.uploadBuffer == nullptr || commandList == nullptr)
 	{
-		return nullptr;
+		return MakeFail<std::unique_ptr<Texture>>(
+			ErrorCode::InvalidArgument,
+			"Texture upload requires a valid device, upload buffer, and command list");
 	}
 
 	if (desc.mips.empty() || desc.width == 0 || desc.height == 0)
 	{
-		return nullptr;
+		return MakeFail<std::unique_ptr<Texture>>(
+			ErrorCode::InvalidArgument,
+			"Texture upload requires valid dimensions and mip data");
 	}
 
 	const TextureMipData& mip0 = desc.mips.front();
@@ -53,7 +57,9 @@ std::unique_ptr<Texture> TextureUpload::CreateTexture(
 	RHIUploadAllocation allocation = frameContext.uploadBuffer->Allocate(uploadSize, 256);
 	if (allocation.cpuAddress == nullptr)
 	{
-		return nullptr;
+		return MakeFail<std::unique_ptr<Texture>>(
+			ErrorCode::OutOfMemory,
+			"Upload buffer allocation failed for texture data");
 	}
 
 	std::memcpy(allocation.cpuAddress, mip0.pixels.data(), mip0.pixels.size());
@@ -70,8 +76,9 @@ std::unique_ptr<Texture> TextureUpload::CreateTexture(
 	auto textureResult = m_device->CreateTexture(textureDesc);
 	if (!textureResult)
 	{
-		LogResult(textureResult, LogCategory::Renderer);
-		return nullptr;
+		return MakeFail<std::unique_ptr<Texture>>(
+			textureResult.error.code,
+			textureResult.error.message);
 	}
 	texture->resource = std::move(textureResult.value);
 
@@ -98,5 +105,5 @@ std::unique_ptr<Texture> TextureUpload::CreateTexture(
 		}
 	}
 
-	return texture;
+	return MakeOk(std::move(texture));
 }

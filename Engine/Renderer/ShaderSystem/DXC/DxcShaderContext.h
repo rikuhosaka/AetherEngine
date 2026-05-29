@@ -1,11 +1,15 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
+
+#include <memory>
+
 class DxcShaderImpl;
 
 class DxcShaderContext
 {
 public:
-	[[nodiscard]] static std::unique_ptr<DxcShaderContext> Create(std::string* outError = nullptr);
+	[[nodiscard]] static Result<std::unique_ptr<DxcShaderContext>> Create();
 
 	[[nodiscard]] DxcShaderImpl& GetImpl() noexcept;
 	[[nodiscard]] const DxcShaderImpl& GetImpl() const noexcept;

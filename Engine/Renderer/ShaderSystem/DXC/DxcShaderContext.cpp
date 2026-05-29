@@ -1,5 +1,6 @@
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderContext.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderImpl.h"
 
 DxcShaderContext::DxcShaderContext()
@@ -7,24 +8,20 @@ DxcShaderContext::DxcShaderContext()
 {
 }
 
-std::unique_ptr<DxcShaderContext> DxcShaderContext::Create(std::string* outError)
+Result<std::unique_ptr<DxcShaderContext>> DxcShaderContext::Create()
 {
 	auto context = std::unique_ptr<DxcShaderContext>(new DxcShaderContext());
 
 	std::string initError{};
 	if (!context->m_impl->Initialize(initError))
 	{
-		if (outError != nullptr)
-		{
-			*outError = initError;
-		}
-
-		LOG_ERROR(LogCategory::Renderer, initError.empty() ? "Failed to initialize DXC." : initError);
-		return context;
+		return MakeFail<std::unique_ptr<DxcShaderContext>>(
+			ErrorCode::ShaderCompileFailed,
+			initError.empty() ? "Failed to initialize DXC." : initError);
 	}
 
 	context->m_initialized = true;
-	return context;
+	return MakeOk(std::move(context));
 }
 
 DxcShaderImpl& DxcShaderContext::GetImpl() noexcept

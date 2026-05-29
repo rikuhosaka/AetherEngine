@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Texture/TexturePool.h"
 #include "Engine/Renderer/Texture/TextureUpload.h"
 
@@ -11,14 +12,14 @@ class RHIDescriptorAllocator;
 class TextureSystemServices
 {
 public:
-	static std::unique_ptr<TextureSystemServices> Create(
+	static Result<std::unique_ptr<TextureSystemServices>> Create(
 		RHIDevice* device,
 		RHIDescriptorAllocator* descriptorAllocator);
 
 	[[nodiscard]] TexturePool& GetPool() noexcept { return m_pool; }
 	[[nodiscard]] TextureUpload& GetUpload() noexcept { return m_upload; }
 
-	[[nodiscard]] TextureHandle UploadTexture(
+	[[nodiscard]] Result<TextureHandle> UploadTexture(
 		const TextureUploadDesc& desc,
 		FrameContext& frameContext,
 		RHICommandList* commandList);

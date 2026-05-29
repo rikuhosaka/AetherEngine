@@ -22,37 +22,32 @@ std::string GetStemName(const std::filesystem::path& path)
 }
 } // namespace
 
-std::unique_ptr<MaterialSystemServices> MaterialSystemServices::Create(
+Result<std::unique_ptr<MaterialSystemServices>> MaterialSystemServices::Create(
 	RHIDevice* device,
 	ShaderSystemServices* shaderServices,
 	RootSignatureCache* rootSignatureCache,
 	PipelineStateCache* pipelineStateCache,
-	TextureSystemServices* textureServices,
-	std::string* outError)
+	TextureSystemServices* textureServices)
 {
 	if (device == nullptr || shaderServices == nullptr || !shaderServices->IsInitialized())
 	{
-		if (outError != nullptr)
-		{
-			*outError = "ShaderSystemServices is not initialized";
-		}
-		return nullptr;
+		return MakeFail<std::unique_ptr<MaterialSystemServices>>(
+			ErrorCode::InvalidArgument,
+			"ShaderSystemServices is not initialized");
 	}
 	if (rootSignatureCache == nullptr || pipelineStateCache == nullptr || textureServices == nullptr)
 	{
-		if (outError != nullptr)
-		{
-			*outError = "Renderer caches are not initialized";
-		}
-		return nullptr;
+		return MakeFail<std::unique_ptr<MaterialSystemServices>>(
+			ErrorCode::InvalidArgument,
+			"Renderer caches are not initialized");
 	}
 
-	return std::unique_ptr<MaterialSystemServices>(new MaterialSystemServices(
+	return MakeOk(std::unique_ptr<MaterialSystemServices>(new MaterialSystemServices(
 		device,
 		shaderServices,
 		rootSignatureCache,
 		pipelineStateCache,
-		textureServices));
+		textureServices)));
 }
 
 MaterialSystemServices::MaterialSystemServices(
@@ -70,13 +65,13 @@ MaterialSystemServices::MaterialSystemServices(
 {
 }
 
-std::optional<MaterialHandle> MaterialSystemServices::CreateMaterial(
-	const MaterialCreateDesc& desc,
-	std::string* outError)
+Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCreateDesc& desc)
 {
 	if (m_shaderServices == nullptr || m_device == nullptr)
 	{
-		return std::nullopt;
+		return MakeFail<MaterialHandle>(
+			ErrorCode::InvalidArgument,
+			"MaterialSystemServices is not initialized");
 	}
 
 	ShaderCompileDesc vsDesc{};
@@ -102,11 +97,9 @@ std::optional<MaterialHandle> MaterialSystemServices::CreateMaterial(
 	const ShaderBytecode* psBytecode = bytecodeCache.GetBytecode(psBytecodeHandle);
 	if (vsBytecode == nullptr || psBytecode == nullptr)
 	{
-		if (outError != nullptr)
-		{
-			*outError = "Failed to compile material shaders";
-		}
-		return std::nullopt;
+		return MakeFail<MaterialHandle>(
+			ErrorCode::ShaderCompileFailed,
+			"Failed to compile material shaders");
 	}
 
 	const ShaderReflectionHandle vsReflectionHandle =
@@ -117,11 +110,9 @@ std::optional<MaterialHandle> MaterialSystemServices::CreateMaterial(
 	const ShaderReflectionData* psReflection = reflectionCache.GetData(psReflectionHandle);
 	if (vsReflection == nullptr || psReflection == nullptr)
 	{
-		if (outError != nullptr)
-		{
-			*outError = "Failed to reflect material shaders";
-		}
-		return std::nullopt;
+		return MakeFail<MaterialHandle>(
+			ErrorCode::ShaderReflectionFailed,
+			"Failed to reflect material shaders");
 	}
 
 	ShaderRootLayoutBuilder layoutBuilder{};
@@ -130,45 +121,37 @@ std::optional<MaterialHandle> MaterialSystemServices::CreateMaterial(
 	const ShaderRootLayoutBuildResult layoutResult = layoutBuilder.Build();
 	if (!layoutResult.Success)
 	{
-		if (outError != nullptr)
-		{
-			*outError = layoutResult.Error;
-		}
-		return std::nullopt;
+		return MakeFail<MaterialHandle>(ErrorCode::InvalidArgument, layoutResult.Error);
 	}
 
 	const RootSignatureHandle rootSignatureHandle =
 		m_rootSignatureCache->GetOrCreateRootSignature(layoutResult.Layout);
 	if (!rootSignatureHandle.IsValid())
 	{
-		if (outError != nullptr)
-		{
-			*outError = "Failed to create root signature for material";
-		}
-		return std::nullopt;
+		return MakeFail<MaterialHandle>(
+			ErrorCode::PipelineCreationFailed,
+			"Failed to create root signature for material");
 	}
 
 	auto material = std::make_unique<Material>();
 	auto vertexShaderResult = m_device->CreateVertexShader(
 		std::span<const std::byte>(vsBytecode->Data));
+	if (!vertexShaderResult)
+	{
+		return MakeFail<MaterialHandle>(
+			vertexShaderResult.error.code,
+			vertexShaderResult.error.message);
+	}
+
 	auto pixelShaderResult = m_device->CreatePixelShader(
 		std::span<const std::byte>(psBytecode->Data));
-	if (!vertexShaderResult || !pixelShaderResult)
+	if (!pixelShaderResult)
 	{
-		if (!vertexShaderResult)
-		{
-			LogResult(vertexShaderResult, LogCategory::Renderer);
-		}
-		if (!pixelShaderResult)
-		{
-			LogResult(pixelShaderResult, LogCategory::Renderer);
-		}
-		if (outError != nullptr)
-		{
-			*outError = "Failed to create RHI shaders for material";
-		}
-		return std::nullopt;
+		return MakeFail<MaterialHandle>(
+			pixelShaderResult.error.code,
+			pixelShaderResult.error.message);
 	}
+
 	material->vertexShader = std::move(vertexShaderResult.value);
 	material->pixelShader = std::move(pixelShaderResult.value);
 
@@ -182,11 +165,9 @@ std::optional<MaterialHandle> MaterialSystemServices::CreateMaterial(
 	material->pipelineState = m_pipelineStateCache->GetOrCreatePipelineState(pipelineLayout);
 	if (!material->pipelineState.IsValid())
 	{
-		if (outError != nullptr)
-		{
-			*outError = "Failed to create pipeline state for material";
-		}
-		return std::nullopt;
+		return MakeFail<MaterialHandle>(
+			ErrorCode::PipelineCreationFailed,
+			"Failed to create pipeline state for material");
 	}
 
 	material->rootSignature = rootSignatureHandle;
@@ -223,7 +204,7 @@ std::optional<MaterialHandle> MaterialSystemServices::CreateMaterial(
 		}
 	}
 
-	return m_pool.AddMaterial(std::move(material));
+	return MakeOk(m_pool.AddMaterial(std::move(material)));
 }
 
 MaterialInstanceHandle MaterialSystemServices::CreateInstance(

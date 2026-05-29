@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Core/RendererConfig.h"
 #include "Engine/Frame/FrameContext.h"
 #include "Engine/Renderer/Scene/RenderScene.h"
@@ -23,7 +24,7 @@ public:
 	Renderer();
 	~Renderer();
 
-	void Initialize(
+	Result<void> Initialize(
 		RHIDevice* device,
 		RHIDescriptorAllocator* descriptorAllocator,
 		const RendererConfig& config);

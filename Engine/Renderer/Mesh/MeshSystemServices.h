@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Mesh/MeshPool.h"
 #include "Engine/Renderer/Mesh/MeshUpload.h"
 
@@ -10,7 +11,7 @@ class RHIDevice;
 class MeshSystemServices
 {
 public:
-	static std::unique_ptr<MeshSystemServices> Create(RHIDevice* device);
+	static Result<std::unique_ptr<MeshSystemServices>> Create(RHIDevice* device);
 
 	[[nodiscard]] MeshPool& GetPool() noexcept { return m_pool; }
 	[[nodiscard]] const MeshPool& GetPool() const noexcept { return m_pool; }
@@ -18,7 +19,7 @@ public:
 	[[nodiscard]] MeshUpload& GetUpload() noexcept { return m_upload; }
 	[[nodiscard]] const MeshUpload& GetUpload() const noexcept { return m_upload; }
 
-	[[nodiscard]] MeshHandle UploadMesh(
+	[[nodiscard]] Result<MeshHandle> UploadMesh(
 		const MeshUploadDesc& desc,
 		FrameContext& frameContext,
 		RHICommandList* commandList);

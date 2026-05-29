@@ -1,10 +1,10 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderBytecodeCache.h"
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderReflectionCache.h"
 
 #include <memory>
-#include <string>
 
 class DxcShaderCompilerBackend;
 class DxcShaderContext;
@@ -15,7 +15,7 @@ class IShaderReflectionBackend;
 class ShaderSystemServices
 {
 public:
-	[[nodiscard]] static std::unique_ptr<ShaderSystemServices> Create(std::string* outError = nullptr);
+	[[nodiscard]] static Result<std::unique_ptr<ShaderSystemServices>> Create();
 
 	[[nodiscard]] bool IsInitialized() const noexcept;
 

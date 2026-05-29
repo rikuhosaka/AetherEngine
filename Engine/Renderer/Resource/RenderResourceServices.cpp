@@ -14,35 +14,44 @@ RenderResourceServices::RenderResourceServices(
 {
 }
 
-std::unique_ptr<RenderResourceServices> RenderResourceServices::Create(
+Result<std::unique_ptr<RenderResourceServices>> RenderResourceServices::Create(
 	RHIDevice* device,
 	RHIDescriptorAllocator* descriptorAllocator,
 	ShaderSystemServices* shaderServices,
 	RootSignatureCache* rootSignatureCache,
-	PipelineStateCache* pipelineStateCache,
-	std::string* outError)
+	PipelineStateCache* pipelineStateCache)
 {
-	auto meshServices = MeshSystemServices::Create(device);
-	auto textureServices = TextureSystemServices::Create(device, descriptorAllocator);
-	auto materialServices = MaterialSystemServices::Create(
+	auto meshServicesResult = MeshSystemServices::Create(device);
+	if (!meshServicesResult)
+	{
+		return MakeFail<std::unique_ptr<RenderResourceServices>>(
+			meshServicesResult.error.code,
+			meshServicesResult.error.message);
+	}
+
+	auto textureServicesResult = TextureSystemServices::Create(device, descriptorAllocator);
+	if (!textureServicesResult)
+	{
+		return MakeFail<std::unique_ptr<RenderResourceServices>>(
+			textureServicesResult.error.code,
+			textureServicesResult.error.message);
+	}
+
+	auto materialServicesResult = MaterialSystemServices::Create(
 		device,
 		shaderServices,
 		rootSignatureCache,
 		pipelineStateCache,
-		textureServices.get(),
-		outError);
-
-	if (meshServices == nullptr || textureServices == nullptr || materialServices == nullptr)
+		textureServicesResult.value.get());
+	if (!materialServicesResult)
 	{
-		if (outError != nullptr && outError->empty())
-		{
-			*outError = "Failed to create render resource services";
-		}
-		return nullptr;
+		return MakeFail<std::unique_ptr<RenderResourceServices>>(
+			materialServicesResult.error.code,
+			materialServicesResult.error.message);
 	}
 
-	return std::unique_ptr<RenderResourceServices>(new RenderResourceServices(
-		std::move(meshServices),
-		std::move(textureServices),
-		std::move(materialServices)));
+	return MakeOk(std::unique_ptr<RenderResourceServices>(new RenderResourceServices(
+		std::move(meshServicesResult.value),
+		std::move(textureServicesResult.value),
+		std::move(materialServicesResult.value))));
 }

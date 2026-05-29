@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Test/RendererResourceSmokeTest.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -93,15 +94,16 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 	meshDesc.indexFormat = IndexFormat::R32_UINT;
 	meshDesc.layoutId = VertexLayoutId::PositionTex;
 
-	const MeshHandle meshHandle = resources->GetMeshServices().UploadMesh(
+	const Result<MeshHandle> meshResult = resources->GetMeshServices().UploadMesh(
 		meshDesc,
 		frameContext,
 		commandList);
-	if (!meshHandle.IsValid())
+	if (!meshResult)
 	{
-		result.error = "Failed to upload smoke-test mesh";
+		result.error = meshResult.error.message;
 		return result;
 	}
+	const MeshHandle meshHandle = meshResult.value;
 
 	const std::array<std::byte, 4> whitePixel = {
 		std::byte{ 255 },
@@ -119,15 +121,16 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 	mip.pixels = whitePixel;
 	textureDesc.mips.push_back(mip);
 
-	const TextureHandle textureHandle = resources->GetTextureServices().UploadTexture(
+	const Result<TextureHandle> textureResult = resources->GetTextureServices().UploadTexture(
 		textureDesc,
 		frameContext,
 		commandList);
-	if (!textureHandle.IsValid())
+	if (!textureResult)
 	{
-		result.error = "Failed to upload smoke-test texture";
+		result.error = textureResult.error.message;
 		return result;
 	}
+	const TextureHandle textureHandle = textureResult.value;
 
 	MaterialCreateDesc materialDesc{};
 	materialDesc.vertexShaderPath = shaderRoot / "SimpleVS.hlsl";
@@ -137,14 +140,14 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 	materialDesc.inputLayout = InputLayoutType::PositionTex;
 	materialDesc.requiredLayout = VertexLayoutId::PositionTex;
 
-	std::string materialError;
-	const std::optional<MaterialHandle> materialHandle =
-		resources->GetMaterialServices().CreateMaterial(materialDesc, &materialError);
-	if (!materialHandle.has_value())
+	const Result<MaterialHandle> materialResult =
+		resources->GetMaterialServices().CreateMaterial(materialDesc);
+	if (!materialResult)
 	{
-		result.error = materialError.empty() ? "Failed to create smoke-test material" : materialError;
+		result.error = materialResult.error.message;
 		return result;
 	}
+	const MaterialHandle materialHandle = materialResult.value;
 
 	MakeIdentity(result.sceneConstants.mvp);
 	result.materialConstants.tint[0] = 1.0f;
@@ -156,7 +159,7 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 	object.objectId.Index = 0;
 	object.objectId.Generation = 1;
 	object.mesh = meshHandle;
-	object.material = *materialHandle;
+	object.material = materialHandle;
 	object.submeshIndex = 0;
 	object.layerMask = RenderLayer::Opaque;
 	object.visible = true;

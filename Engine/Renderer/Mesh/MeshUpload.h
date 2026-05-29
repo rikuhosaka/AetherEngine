@@ -1,9 +1,11 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Frame/FrameContext.h"
 #include "Engine/Renderer/Mesh/MeshTypes.h"
 #include "Engine/RHI/Common/RHIInput.h"
 
+#include <memory>
 #include <span>
 
 class RHIDevice;
@@ -26,7 +28,7 @@ class MeshUpload
 public:
 	explicit MeshUpload(RHIDevice* device);
 
-	[[nodiscard]] std::unique_ptr<Mesh> CreateMesh(
+	[[nodiscard]] Result<std::unique_ptr<Mesh>> CreateMesh(
 		const MeshUploadDesc& desc,
 		FrameContext& frameContext,
 		RHICommandList* commandList) const;

@@ -7,15 +7,18 @@
 
 ShaderSystemServices::~ShaderSystemServices() = default;
 
-std::unique_ptr<ShaderSystemServices> ShaderSystemServices::Create(std::string* outError)
+Result<std::unique_ptr<ShaderSystemServices>> ShaderSystemServices::Create()
 {
 	auto services = std::unique_ptr<ShaderSystemServices>(new ShaderSystemServices());
 
-	services->m_context = DxcShaderContext::Create(outError);
-	if (services->m_context == nullptr || !services->m_context->IsInitialized())
+	auto contextResult = DxcShaderContext::Create();
+	if (!contextResult)
 	{
-		return services;
+		return MakeFail<std::unique_ptr<ShaderSystemServices>>(
+			contextResult.error.code,
+			contextResult.error.message);
 	}
+	services->m_context = std::move(contextResult.value);
 
 	services->m_compilerBackend =
 		std::make_unique<DxcShaderCompilerBackend>(services->m_context.get());
@@ -28,7 +31,7 @@ std::unique_ptr<ShaderSystemServices> ShaderSystemServices::Create(std::string* 
 		std::make_unique<ShaderReflectionCache>(services->m_reflectionBackend.get());
 
 	services->m_initialized = true;
-	return services;
+	return MakeOk(std::move(services));
 }
 
 bool ShaderSystemServices::IsInitialized() const noexcept

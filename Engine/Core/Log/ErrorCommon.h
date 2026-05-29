@@ -19,7 +19,9 @@ enum class ErrorCode
 
     PipelineCreationFailed,
 
-    ResourceCreationFailed
+    ResourceCreationFailed,
+
+    ShaderReflectionFailed
 };
 
 struct ErrorInfo
