@@ -5,6 +5,7 @@
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshUpload.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
+#include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/Renderer/Texture/TextureUpload.h"
 #include "Engine/RHI/Common/RHIInput.h"
@@ -20,16 +21,6 @@ struct PositionTexVertex
 	float uv[2];
 };
 
-struct SceneConstants
-{
-	float mvp[16];
-};
-
-struct MaterialConstants
-{
-	float tint[4];
-};
-
 void MakeIdentity(float* outMatrix4x4)
 {
 	std::memset(outMatrix4x4, 0, sizeof(float) * 16);
@@ -37,6 +28,33 @@ void MakeIdentity(float* outMatrix4x4)
 	outMatrix4x4[5] = 1.0f;
 	outMatrix4x4[10] = 1.0f;
 	outMatrix4x4[15] = 1.0f;
+}
+
+void FillExtractedObjectOverrides(
+	ExtractedObject& object,
+	const TextureHandle& textureHandle,
+	const RendererResourceSmokeSceneConstants& sceneConstants,
+	const RendererResourceSmokeMaterialConstants& materialConstants)
+{
+	object.overrides.baseColor = textureHandle;
+	object.overrides.normal = {};
+
+	object.overrides.parameters.clear();
+	object.overrides.parameters.reserve(2);
+
+	MaterialParameterBlock sceneBlock{};
+	sceneBlock.bindingSlot = 0;
+	sceneBlock.data = std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(&sceneConstants),
+		sizeof(sceneConstants));
+	object.overrides.parameters.push_back(sceneBlock);
+
+	MaterialParameterBlock materialBlock{};
+	materialBlock.bindingSlot = 1;
+	materialBlock.data = std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(&materialConstants),
+		sizeof(materialConstants));
+	object.overrides.parameters.push_back(materialBlock);
 }
 } // namespace
 
@@ -128,38 +146,27 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 		return result;
 	}
 
-	SceneConstants sceneConstants{};
-	MakeIdentity(sceneConstants.mvp);
+	MakeIdentity(result.sceneConstants.mvp);
+	result.materialConstants.tint[0] = 1.0f;
+	result.materialConstants.tint[1] = 1.0f;
+	result.materialConstants.tint[2] = 1.0f;
+	result.materialConstants.tint[3] = 1.0f;
 
-	MaterialConstants materialConstants{};
-	materialConstants.tint[0] = 1.0f;
-	materialConstants.tint[1] = 1.0f;
-	materialConstants.tint[2] = 1.0f;
-	materialConstants.tint[3] = 1.0f;
-
-	const std::array<std::span<const std::byte>, 2> constantBuffers = {
-		std::span<const std::byte>(
-			reinterpret_cast<const std::byte*>(&sceneConstants),
-			sizeof(sceneConstants)),
-		std::span<const std::byte>(
-			reinterpret_cast<const std::byte*>(&materialConstants),
-			sizeof(materialConstants)),
-	};
-
-	const std::array<TextureHandle, 1> textures = { textureHandle };
-	const MaterialInstanceHandle materialInstanceHandle =
-		resources->GetMaterialServices().CreateInstance(
-			*materialHandle,
-			textures,
-			constantBuffers);
-	if (!materialInstanceHandle.IsValid())
-	{
-		result.error = "Failed to create smoke-test material instance";
-		return result;
-	}
+	ExtractedObject& object = result.extractedObject;
+	object.objectId.Index = 0;
+	object.objectId.Generation = 1;
+	object.mesh = meshHandle;
+	object.material = *materialHandle;
+	object.submeshIndex = 0;
+	object.layerMask = RenderLayer::Opaque;
+	object.visible = true;
+	MakeIdentity(object.worldMatrix);
+	FillExtractedObjectOverrides(
+		object,
+		textureHandle,
+		result.sceneConstants,
+		result.materialConstants);
 
 	result.success = true;
-	result.renderItem.mesh = meshHandle;
-	result.renderItem.materialInstance = materialInstanceHandle;
 	return result;
 }

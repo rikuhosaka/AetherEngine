@@ -1,11 +1,13 @@
 #pragma once
 
+#include "Engine/Renderer/Core/RendererConfig.h"
 #include "Engine/Renderer/Frame/FrameContext.h"
-#include "Engine/Renderer/RenderItem/RenderItem.h"
 #include "Engine/Renderer/Scene/RenderScene.h"
 
+#include <cstdint>
+#include <filesystem>
 #include <memory>
-#include <vector>
+#include <span>
 
 class PipelineStateCache;
 class RHIDescriptorAllocator;
@@ -23,13 +25,17 @@ public:
 
 	void Initialize(
 		RHIDevice* device,
-		RHIDescriptorAllocator* descriptorAllocator);
+		RHIDescriptorAllocator* descriptorAllocator,
+		const RendererConfig& config);
 	void SetFrameContext(FrameContext* frameContext);
-	void BeginFrame();
+
+	void BeginFrame(uint32_t frameIndex);
+	void ExtractScene(std::span<const ExtractedObject> objects);
+	void BuildScene(RHICommandList* commandList);
+	void Render(RHICommandList* commandList);
 	void EndFrame();
 
-	void Submit(const RenderItem& item);
-	void Render(RHICommandList* commandList);
+	[[nodiscard]] bool IsSceneBuilt() const noexcept { return m_sceneBuilt; }
 
 	[[nodiscard]] RenderScene& GetScene() noexcept { return m_scene; }
 	[[nodiscard]] const RenderScene& GetScene() const noexcept { return m_scene; }
@@ -47,5 +53,8 @@ private:
 
 	FrameContext* m_frameContext = nullptr;
 	RenderScene m_scene{};
-	std::vector<RenderItem> m_renderItems{};
+
+	std::filesystem::path m_shaderRoot{};
+	uint32_t m_frameIndex = 0;
+	bool m_sceneBuilt = false;
 };

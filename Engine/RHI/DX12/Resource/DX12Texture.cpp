@@ -39,12 +39,6 @@ DX12Texture::DX12Texture(const RHITextureDesc& desc, std::unique_ptr<ResourceImp
 {
 }
 
-std::unique_ptr<DX12Texture>
-DX12Texture::Create(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource)
-{
-	return std::unique_ptr<DX12Texture>(new DX12Texture(desc, std::move(resource)));
-}
-
 DX12Texture::~DX12Texture()
 {
 	if (m_impl && m_impl->resource)
