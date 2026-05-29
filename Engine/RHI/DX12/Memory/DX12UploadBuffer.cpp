@@ -1,4 +1,6 @@
 #include "Engine/RHI/DX12/Memory/DX12UploadBuffer.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
@@ -14,6 +16,20 @@ namespace
 		const size_t rem = value % alignment;
 		return rem == 0 ? value : value + (alignment - rem);
 	}
+}
+
+bool DX12UploadBuffer::IsValid() const
+{
+	return m_impl != nullptr && m_impl->resource != nullptr && m_mappedBase != nullptr;
+}
+
+Result<std::unique_ptr<DX12UploadBuffer>> DX12UploadBuffer::Create(
+	size_t capacityInBytes,
+	const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12UploadBuffer>(new DX12UploadBuffer(capacityInBytes, dxDevice)),
+		"Failed to create upload buffer");
 }
 
 DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxDevice)
@@ -42,7 +58,6 @@ DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxD
 		IID_PPV_ARGS(&resource));
 	if (FAILED(hr))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to create upload ring buffer");
 		return;
 	}
 
@@ -51,9 +66,10 @@ DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxD
 	const HRESULT mapHr = resource->Map(0, nullptr, &m_mappedBase);
 	if (FAILED(mapHr))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to map upload ring buffer");
+		LOG_ERROR(LogCategory::RHI, "Failed to map upload ring buffer");
 		resource.Reset();
 		m_gpuVirtualAddress = 0;
+		return;
 	}
 	m_impl->resource = resource;
 }
@@ -68,8 +84,7 @@ DX12UploadBuffer::~DX12UploadBuffer()
 	m_impl->resource.Reset();
 }
 
-void
-DX12UploadBuffer::TransitionResource(ERHIResourceState newState, const RHICommandList* commandList)
+void DX12UploadBuffer::TransitionResource(ERHIResourceState newState, const RHICommandList* commandList)
 {
 	if (m_impl->resource)
 	{

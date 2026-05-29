@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/RootSignatureHash.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
 
@@ -24,13 +25,14 @@ RootSignatureHandle RootSignatureCache::GetOrCreateRootSignature(const RHIRootSi
 		return {};
 	}
 
-	std::unique_ptr<RHIRootSignature> rootSignature = m_device->CreateRootSignature(layout);
-	if (rootSignature == nullptr)
+	auto rootSignatureResult = m_device->CreateRootSignature(layout);
+	if (!rootSignatureResult)
 	{
+		LogResult(rootSignatureResult, LogCategory::Renderer);
 		return {};
 	}
 
-	const RootSignatureHandle handle = AddRootSignature(layout, std::move(rootSignature));
+	const RootSignatureHandle handle = AddRootSignature(layout, std::move(rootSignatureResult.value));
 	m_rootSignatureMap.emplace(key, handle);
 	return handle;
 }

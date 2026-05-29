@@ -1,4 +1,6 @@
 #include "DX12PixelShader.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Resource/ShaderImpl.h"
 
 namespace
@@ -19,6 +21,18 @@ bool CreateBlobFromBytecode(std::span<const std::byte> bytecode, ComPtr<ID3DBlob
 }
 } // namespace
 
+bool DX12PixelShader::IsValid() const
+{
+	return m_impl != nullptr && m_impl->blob != nullptr;
+}
+
+Result<std::unique_ptr<DX12PixelShader>> DX12PixelShader::Create(std::span<const std::byte> bytecode)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12PixelShader>(new DX12PixelShader(bytecode)),
+		"Failed to create pixel shader");
+}
+
 DX12PixelShader::DX12PixelShader(const std::filesystem::path& filePath)
 	: m_impl(std::make_unique<ShaderImpl>())
 {
@@ -38,7 +52,6 @@ DX12PixelShader::DX12PixelShader(std::span<const std::byte> bytecode)
 	ComPtr<ID3DBlob> blob;
 	if (!CreateBlobFromBytecode(bytecode, blob))
 	{
-		LOG_ERROR(LogCategory::RHI, "Failed to create pixel shader blob from bytecode");
 		return;
 	}
 	m_impl->blob = blob;

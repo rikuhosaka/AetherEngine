@@ -1,5 +1,6 @@
 #include "DX12RootSignature.h"
 
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Pipeline/PipelineImpl.h"
@@ -161,13 +162,26 @@ DX12RootSignature::GetImpl() const
 	return m_impl.get();
 }
 
+bool DX12RootSignature::IsValid() const
+{
+	return m_impl != nullptr && m_impl->rootSignature != nullptr;
+}
+
+Result<std::unique_ptr<DX12RootSignature>> DX12RootSignature::Create(
+	const DX12Device* dxDevice,
+	const RHIRootSignatureLayout& layout)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12RootSignature>(new DX12RootSignature(dxDevice, layout)),
+		"Failed to create root signature");
+}
+
 DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSignatureLayout& layout)
 	: m_impl(std::make_unique<RootSignatureImpl>())
 {
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	if (device == nullptr)
 	{
-		LOG_FATAL(LogCategory::RHI, "DX12 device is null.");
 		return;
 	}
 
@@ -253,7 +267,6 @@ DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSi
 		{
 			OutputDebugStringA(static_cast<const char*>(errorBlob->GetBufferPointer()));
 		}
-		LOG_FATAL(LogCategory::RHI, "Failed to serialize root signature.");
 		return;
 	}
 
@@ -265,7 +278,6 @@ DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSi
 		IID_PPV_ARGS(rootSignature.ReleaseAndGetAddressOf()));
 	if (FAILED(createResult))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to create root signature.");
 		return;
 	}
 

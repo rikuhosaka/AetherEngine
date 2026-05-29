@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Mesh/MeshUpload.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Common/RHIResource.h"
 #include "Engine/RHI/Interface/RHIBuffer.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
@@ -55,16 +56,25 @@ std::unique_ptr<Mesh> MeshUpload::CreateMesh(
 	indexDesc.MemoryType = ERHIMemoryType::Default;
 
 	auto mesh = std::make_unique<Mesh>();
-	mesh->vertexBuffer = m_device->CreateVertexBuffer(vertexDesc, desc.vertexStride);
-	mesh->indexBuffer = m_device->CreateIndexBuffer(indexDesc, desc.indexFormat);
+	auto vertexResult = m_device->CreateVertexBuffer(vertexDesc, desc.vertexStride);
+	auto indexResult = m_device->CreateIndexBuffer(indexDesc, desc.indexFormat);
+	if (!vertexResult || !indexResult)
+	{
+		if (!vertexResult)
+		{
+			LogResult(vertexResult, LogCategory::Renderer);
+		}
+		if (!indexResult)
+		{
+			LogResult(indexResult, LogCategory::Renderer);
+		}
+		return nullptr;
+	}
+	mesh->vertexBuffer = std::move(vertexResult.value);
+	mesh->indexBuffer = std::move(indexResult.value);
 	mesh->layoutId = desc.layoutId;
 	mesh->submeshes = desc.submeshes;
 	mesh->bounds = desc.bounds;
-
-	if (mesh->vertexBuffer == nullptr || mesh->indexBuffer == nullptr)
-	{
-		return nullptr;
-	}
 
 	commandList->CopyBufferRegion(
 		mesh->vertexBuffer.get(),

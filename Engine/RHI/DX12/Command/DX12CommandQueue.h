@@ -1,6 +1,9 @@
 #pragma once
+
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHICommandQueue.h"
 
+#include <memory>
 
 class DX12Device;
 class CommandQueueImpl;
@@ -13,14 +16,12 @@ public:
 	uint64_t Signal(RHIFence* fence) override;
 	void WaitGPU(RHIFence* fence, uint64_t value) override;
 
-protected:
+	[[nodiscard]] bool IsValid() const;
 
+protected:
 	DX12CommandQueue(const DX12Device* dxDevice);
 
-	static std::unique_ptr<DX12CommandQueue> Create(const DX12Device* dxDevice)
-	{
-		return std::unique_ptr<DX12CommandQueue>(new DX12CommandQueue(dxDevice));
-	}
+	static Result<std::unique_ptr<DX12CommandQueue>> Create(const DX12Device* dxDevice);
 
 	std::unique_ptr<CommandQueueImpl> m_impl = nullptr;
 

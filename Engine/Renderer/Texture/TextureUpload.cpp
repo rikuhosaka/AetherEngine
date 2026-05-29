@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Texture/TextureUpload.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Common/RHIResource.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
@@ -66,11 +67,13 @@ std::unique_ptr<Texture> TextureUpload::CreateTexture(
 
 	auto texture = std::make_unique<Texture>();
 	texture->desc = textureDesc;
-	texture->resource = m_device->CreateTexture(textureDesc);
-	if (texture->resource == nullptr)
+	auto textureResult = m_device->CreateTexture(textureDesc);
+	if (!textureResult)
 	{
+		LogResult(textureResult, LogCategory::Renderer);
 		return nullptr;
 	}
+	texture->resource = std::move(textureResult.value);
 
 	commandList->CopyTextureRegion(
 		texture->resource.get(),
@@ -83,8 +86,16 @@ std::unique_ptr<Texture> TextureUpload::CreateTexture(
 
 	if (m_descriptorAllocator != nullptr)
 	{
-		texture->srv = m_device->CreateShaderResourceView(texture->resource.get(), m_descriptorAllocator);
-		texture->srvValid = texture->srv.gpu.ptr != 0;
+		auto srvResult = m_device->CreateShaderResourceView(texture->resource.get(), m_descriptorAllocator);
+		if (srvResult)
+		{
+			texture->srv = srvResult.value;
+			texture->srvValid = texture->srv.gpu.ptr != 0;
+		}
+		else
+		{
+			LogResult(srvResult, LogCategory::Renderer);
+		}
 	}
 
 	return texture;

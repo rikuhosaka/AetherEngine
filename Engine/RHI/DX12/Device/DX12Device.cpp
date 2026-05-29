@@ -1,4 +1,5 @@
 #include "DX12Device.h"
+
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Command/DX12CommandList.h"
 #include "Engine/RHI/DX12/Command/DX12CommandQueue.h"
@@ -17,17 +18,14 @@
 #include "Engine/RHI/DX12/Pipeline/DX12RootSignature.h"
 #include "Engine/RHI/DX12/Pipeline/DX12PipelineState.h"
 #include "Engine/RHI/DX12/Sync/DX12Fence.h"
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 
-
-DeviceImpl* 
-DX12Device::GetImpl() const
+DeviceImpl* DX12Device::GetImpl() const
 {
 	return m_impl.get();
 }
 
-DX12Device::DX12Device()
-{
-}
+DX12Device::DX12Device() = default;
 
 DX12Device::~DX12Device()
 {
@@ -38,13 +36,9 @@ DX12Device::~DX12Device()
 	}
 }
 
-void DX12Device::Initialize()
+Result<void> DX12Device::Initialize()
 {
-	// DirectX 12???f???o???C???X????????????????????R???[???h??????????????????????L???q
-	// ????????AD3D12CreateDevice??????????????g???p??????????f???o???C???X??????????????????????????B
 	UINT flagsDXGI = 0;
-	//DirectX12????????????????
-	//???t???B???[???`???????????????x????????????
 	D3D_FEATURE_LEVEL levels[] = {
 		D3D_FEATURE_LEVEL_12_1,
 		D3D_FEATURE_LEVEL_12_0,
@@ -53,103 +47,115 @@ void DX12Device::Initialize()
 	};
 	ComPtr<IDXGIFactory6> dxgiFactory;
 	auto result = CreateDXGIFactory2(flagsDXGI, IID_PPV_ARGS(&dxgiFactory));
-	if (FAILED(result)) {
-		LOG_FATAL(LogCategory::RHI, "Failed to create DXGIFactory");
-		return;
+	if (FAILED(result))
+	{
+		return MakeFail(ErrorCode::DeviceLost, "Failed to create DXGIFactory");
 	}
 	std::vector<ComPtr<IDXGIAdapter>> adapters;
 	ComPtr<IDXGIAdapter> tmpAdapter = nullptr;
-	for (int i = 0; dxgiFactory->EnumAdapters(i, &tmpAdapter) != DXGI_ERROR_NOT_FOUND; ++i) {
+	for (int i = 0; dxgiFactory->EnumAdapters(i, &tmpAdapter) != DXGI_ERROR_NOT_FOUND; ++i)
+	{
 		adapters.push_back(tmpAdapter);
 	}
-	for (auto adpt : adapters) {
+	for (auto adpt : adapters)
+	{
 		DXGI_ADAPTER_DESC adesc = {};
 		adpt->GetDesc(&adesc);
 		std::wstring strDesc = adesc.Description;
-		if (strDesc.find(L"NVIDIA") != std::string::npos) {
+		if (strDesc.find(L"NVIDIA") != std::string::npos)
+		{
 			tmpAdapter = adpt;
 			break;
 		}
 	}
 
-	//Direct3D???f???o???C???X?????????????????
 	ComPtr<ID3D12Device> device;
 	D3D_FEATURE_LEVEL featureLevel;
-	for (auto l : levels) {
-		if (D3D12CreateDevice(tmpAdapter.Get(), l, IID_PPV_ARGS(&device)) == S_OK) {
+	for (auto l : levels)
+	{
+		if (D3D12CreateDevice(tmpAdapter.Get(), l, IID_PPV_ARGS(&device)) == S_OK)
+		{
 			featureLevel = l;
 			break;
 		}
 	}
-	if (!device) {
-		LOG_FATAL(LogCategory::RHI, "Failed to create D3D12 device");
-		return;
+	if (!device)
+	{
+		return MakeFail(ErrorCode::DeviceLost, "Failed to create D3D12 device");
 	}
 	m_impl = std::make_unique<DeviceImpl>();
 	m_impl->device = device;
 	m_impl->factory = dxgiFactory;
-	return;
+	(void)featureLevel;
+	return MakeOk();
 }
 
-// Resource Command Creation
-std::unique_ptr<RHICommandList> DX12Device::CreateCommandList()
+Result<std::unique_ptr<RHICommandList>> DX12Device::CreateCommandList()
 {
-	return DX12CommandList::Create(this);
+	return CastResourceResult<RHICommandList, DX12CommandList>(DX12CommandList::Create(this));
 }
 
-std::unique_ptr<RHICommandQueue> DX12Device::CreateCommandQueue()
+Result<std::unique_ptr<RHICommandQueue>> DX12Device::CreateCommandQueue()
 {
-	return DX12CommandQueue::Create(this);
+	return CastResourceResult<RHICommandQueue, DX12CommandQueue>(DX12CommandQueue::Create(this));
 }
 
-std::unique_ptr<RHISwapChain> DX12Device::CreateSwapChain(HWND hwnd, uint32_t width, uint32_t height, const RHICommandQueue* commandQueue)
+Result<std::unique_ptr<RHISwapChain>> DX12Device::CreateSwapChain(
+	HWND hwnd,
+	uint32_t width,
+	uint32_t height,
+	const RHICommandQueue* commandQueue)
 {
-	return DX12SwapChain::Create(hwnd, width, height, static_cast<const DX12CommandQueue*>(commandQueue), this);
+	return CastResourceResult<RHISwapChain, DX12SwapChain>(
+		DX12SwapChain::Create(hwnd, width, height, static_cast<const DX12CommandQueue*>(commandQueue), this));
 }
 
-// Resource Creation
-std::unique_ptr<RHIVertexBuffer> DX12Device::CreateVertexBuffer(const RHIBufferDesc& desc, uint32_t stride)
+Result<std::unique_ptr<RHIVertexBuffer>> DX12Device::CreateVertexBuffer(
+	const RHIBufferDesc& desc,
+	uint32_t stride)
 {
-	return DX12VertexBuffer::Create(desc, stride, this);
+	return CastResourceResult<RHIVertexBuffer, DX12VertexBuffer>(DX12VertexBuffer::Create(desc, stride, this));
 }
 
-std::unique_ptr<RHIIndexBuffer> DX12Device::CreateIndexBuffer(const RHIBufferDesc& desc, IndexFormat indexFormat)
+Result<std::unique_ptr<RHIIndexBuffer>> DX12Device::CreateIndexBuffer(
+	const RHIBufferDesc& desc,
+	IndexFormat indexFormat)
 {
-	return DX12IndexBuffer::Create(desc, indexFormat, this);
+	return CastResourceResult<RHIIndexBuffer, DX12IndexBuffer>(DX12IndexBuffer::Create(desc, indexFormat, this));
 }
 
-std::unique_ptr<RHIConstantBuffer> DX12Device::CreateConstantBuffer(const RHIBufferDesc& desc)
+Result<std::unique_ptr<RHIConstantBuffer>> DX12Device::CreateConstantBuffer(const RHIBufferDesc& desc)
 {
-	return DX12ConstantBuffer::Create(desc, this);
+	return CastResourceResult<RHIConstantBuffer, DX12ConstantBuffer>(DX12ConstantBuffer::Create(desc, this));
 }
 
-std::unique_ptr<RHIStructuredBuffer> DX12Device::CreateStructuredBuffer(const RHIBufferDesc& desc)
+Result<std::unique_ptr<RHIStructuredBuffer>> DX12Device::CreateStructuredBuffer(const RHIBufferDesc& desc)
 {
-	return DX12StructuredBuffer::Create(desc, this);
+	return CastResourceResult<RHIStructuredBuffer, DX12StructuredBuffer>(DX12StructuredBuffer::Create(desc, this));
 }
 
-std::unique_ptr<RHITexture> DX12Device::CreateTexture(const RHITextureDesc& desc)
+Result<std::unique_ptr<RHITexture>> DX12Device::CreateTexture(const RHITextureDesc& desc)
 {
-	return DX12Texture::Create(desc, this);
+	return CastResourceResult<RHITexture, DX12Texture>(DX12Texture::Create(desc, this));
 }
 
-std::unique_ptr<RHIVertexShader> DX12Device::CreateVertexShader(std::span<const std::byte> bytecode)
+Result<std::unique_ptr<RHIVertexShader>> DX12Device::CreateVertexShader(std::span<const std::byte> bytecode)
 {
-	return std::make_unique<DX12VertexShader>(bytecode);
+	return CastResourceResult<RHIVertexShader, DX12VertexShader>(DX12VertexShader::Create(bytecode));
 }
 
-std::unique_ptr<RHIPixelShader> DX12Device::CreatePixelShader(std::span<const std::byte> bytecode)
+Result<std::unique_ptr<RHIPixelShader>> DX12Device::CreatePixelShader(std::span<const std::byte> bytecode)
 {
-	return std::make_unique<DX12PixelShader>(bytecode);
+	return CastResourceResult<RHIPixelShader, DX12PixelShader>(DX12PixelShader::Create(bytecode));
 }
 
-CbvSrvUavHandle DX12Device::CreateShaderResourceView(
+Result<CbvSrvUavHandle> DX12Device::CreateShaderResourceView(
 	RHITexture* texture,
 	RHIDescriptorAllocator* allocator)
 {
 	if (texture == nullptr || allocator == nullptr)
 	{
-		return {};
+		return MakeFail<CbvSrvUavHandle>(ErrorCode::InvalidArgument, "Texture or allocator is null");
 	}
 
 	auto* dxTexture = static_cast<DX12Texture*>(texture);
@@ -157,13 +163,15 @@ CbvSrvUavHandle DX12Device::CreateShaderResourceView(
 	ResourceImpl* resource = dxTexture->GetResourceImpl();
 	if (resource == nullptr || resource->resource == nullptr)
 	{
-		return {};
+		return MakeFail<CbvSrvUavHandle>(ErrorCode::InvalidArgument, "Texture resource is invalid");
 	}
 
 	const uint32_t index = dxAllocator->Allocate();
 	if (index == UINT32_MAX)
 	{
-		return {};
+		return MakeFail<CbvSrvUavHandle>(
+			ErrorCode::ResourceCreationFailed,
+			"Failed to allocate shader resource view descriptor");
 	}
 
 	const CpuDescHandle cpuHandle = dxAllocator->GetCpuHandle(index);
@@ -181,7 +189,7 @@ CbvSrvUavHandle DX12Device::CreateShaderResourceView(
 		&srvDesc,
 		{ cpuHandle.ptr });
 
-	return { cpuHandle, gpuHandle };
+	return MakeOk(CbvSrvUavHandle{ cpuHandle, gpuHandle });
 }
 
 void DX12Device::WriteShaderResourceView(RHITexture* texture, CpuDescHandle destCpuHandle)
@@ -322,48 +330,45 @@ void DX12Device::WriteConstantBufferView(
 	GetImpl()->device->CreateConstantBufferView(&cbvDesc, { destCpuHandle.ptr });
 }
 
-// Descriptor Creation
-std::unique_ptr<RHIDescriptorAllocator> DX12Device::CreateDescriptorAllocator(uint32_t numDescriptors)
+Result<std::unique_ptr<RHIDescriptorAllocator>> DX12Device::CreateDescriptorAllocator(uint32_t numDescriptors)
 {
-	return DX12DescriptorAllocator::Create(numDescriptors, this);
+	return CastResourceResult<RHIDescriptorAllocator, DX12DescriptorAllocator>(
+		DX12DescriptorAllocator::Create(numDescriptors, this));
 }
 
-std::unique_ptr<RHITransientDescriptorAllocator> DX12Device::CreateTransientDescriptorAllocator(uint32_t numDescriptors)
+Result<std::unique_ptr<RHITransientDescriptorAllocator>> DX12Device::CreateTransientDescriptorAllocator(
+	uint32_t numDescriptors)
 {
-	return DX12TransientDescriptorAllocator::Create(numDescriptors, this);
+	return CastResourceResult<RHITransientDescriptorAllocator, DX12TransientDescriptorAllocator>(
+		DX12TransientDescriptorAllocator::Create(numDescriptors, this));
 }
 
-std::unique_ptr<RHIUploadBuffer> DX12Device::CreateUploadBuffer(size_t capacityInBytes)
+Result<std::unique_ptr<RHIUploadBuffer>> DX12Device::CreateUploadBuffer(size_t capacityInBytes)
 {
-	return DX12UploadBuffer::Create(capacityInBytes, this);
+	return CastResourceResult<RHIUploadBuffer, DX12UploadBuffer>(DX12UploadBuffer::Create(capacityInBytes, this));
 }
 
-std::unique_ptr<RHIDSVAllocator> DX12Device::CreateDSVAllocator(uint32_t numDescriptors)
+Result<std::unique_ptr<RHIDSVAllocator>> DX12Device::CreateDSVAllocator(uint32_t numDescriptors)
 {
-	return DX12DSVAllocator::Create(numDescriptors, this);
+	return CastResourceResult<RHIDSVAllocator, DX12DSVAllocator>(DX12DSVAllocator::Create(numDescriptors, this));
 }
 
-std::unique_ptr<RHIRTVAllocator> DX12Device::CreateRTVAllocator(uint32_t numDescriptors)
+Result<std::unique_ptr<RHIRTVAllocator>> DX12Device::CreateRTVAllocator(uint32_t numDescriptors)
 {
-	return DX12RTVAllocator::Create(numDescriptors, this);
+	return CastResourceResult<RHIRTVAllocator, DX12RTVAllocator>(DX12RTVAllocator::Create(numDescriptors, this));
 }
 
-// Pipeline Creation
-std::unique_ptr<RHIRootSignature> DX12Device::CreateRootSignature(const RHIRootSignatureLayout& layout)
+Result<std::unique_ptr<RHIRootSignature>> DX12Device::CreateRootSignature(const RHIRootSignatureLayout& layout)
 {
-	return DX12RootSignature::Create(this, layout);
+	return CastResourceResult<RHIRootSignature, DX12RootSignature>(DX12RootSignature::Create(this, layout));
 }
 
-
-std::unique_ptr<RHIPipelineState>
-DX12Device::CreatePipelineState(const RHIPipelineDesc& pipelineDesc)
+Result<std::unique_ptr<RHIPipelineState>> DX12Device::CreatePipelineState(const RHIPipelineDesc& pipelineDesc)
 {
-	return DX12PipelineState::Create(pipelineDesc, this);
+	return CastResourceResult<RHIPipelineState, DX12PipelineState>(DX12PipelineState::Create(pipelineDesc, this));
 }
 
-// Sync Creation
-std::unique_ptr<RHIFence> 
-DX12Device::CreateFence()
+Result<std::unique_ptr<RHIFence>> DX12Device::CreateFence()
 {
-	return DX12Fence::Create(this);
+	return CastResourceResult<RHIFence, DX12Fence>(DX12Fence::Create(this));
 }

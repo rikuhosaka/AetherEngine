@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 #include "Engine/Renderer/Pipeline/ShaderRootLayoutBuilder.h"
@@ -148,18 +149,28 @@ std::optional<MaterialHandle> MaterialSystemServices::CreateMaterial(
 	}
 
 	auto material = std::make_unique<Material>();
-	material->vertexShader = m_device->CreateVertexShader(
+	auto vertexShaderResult = m_device->CreateVertexShader(
 		std::span<const std::byte>(vsBytecode->Data));
-	material->pixelShader = m_device->CreatePixelShader(
+	auto pixelShaderResult = m_device->CreatePixelShader(
 		std::span<const std::byte>(psBytecode->Data));
-	if (material->vertexShader == nullptr || material->pixelShader == nullptr)
+	if (!vertexShaderResult || !pixelShaderResult)
 	{
+		if (!vertexShaderResult)
+		{
+			LogResult(vertexShaderResult, LogCategory::Renderer);
+		}
+		if (!pixelShaderResult)
+		{
+			LogResult(pixelShaderResult, LogCategory::Renderer);
+		}
 		if (outError != nullptr)
 		{
 			*outError = "Failed to create RHI shaders for material";
 		}
 		return std::nullopt;
 	}
+	material->vertexShader = std::move(vertexShaderResult.value);
+	material->pixelShader = std::move(pixelShaderResult.value);
 
 	RHIPipelineStateLayout pipelineLayout{};
 	pipelineLayout.vertexShader = material->vertexShader.get();

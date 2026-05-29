@@ -1,7 +1,10 @@
 #pragma once
+
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHIPipelineState.h"
 #include "Engine/RHI/Common/RHIPipeline.h"
 
+#include <memory>
 
 class DX12Device;
 class PipelineStateImpl;
@@ -9,17 +12,16 @@ class PipelineStateImpl;
 class DX12PipelineState : public RHIPipelineState
 {
 public:
-
 	~DX12PipelineState() override;
 
-private:
+	[[nodiscard]] bool IsValid() const;
 
+private:
 	DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const DX12Device* dxDevice);
 
-	static std::unique_ptr<DX12PipelineState> Create(const RHIPipelineDesc& pipelineDesc, const DX12Device* dxDevice)
-	{
-		return std::unique_ptr<DX12PipelineState>(new DX12PipelineState(pipelineDesc, dxDevice));
-	}
+	static Result<std::unique_ptr<DX12PipelineState>> Create(
+		const RHIPipelineDesc& pipelineDesc,
+		const DX12Device* dxDevice);
 
 	std::unique_ptr<PipelineStateImpl> m_impl = nullptr;
 

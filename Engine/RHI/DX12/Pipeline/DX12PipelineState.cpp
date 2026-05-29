@@ -1,4 +1,6 @@
 #include "DX12PipelineState.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Resource/DX12VertexShader.h"
@@ -12,6 +14,20 @@ PipelineStateImpl*
 DX12PipelineState::GetImpl() const
 {
 	return m_impl.get();
+}
+
+bool DX12PipelineState::IsValid() const
+{
+	return m_impl != nullptr && m_impl->pipelineState != nullptr;
+}
+
+Result<std::unique_ptr<DX12PipelineState>> DX12PipelineState::Create(
+	const RHIPipelineDesc& pipelineDesc,
+	const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12PipelineState>(new DX12PipelineState(pipelineDesc, dxDevice)),
+		"Failed to create pipeline state");
 }
 
 DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const DX12Device* dxDevice)
@@ -83,8 +99,8 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 
 	ComPtr<ID3D12PipelineState> pipelineState;
 	HRESULT result = device->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&pipelineState));
-	if (FAILED(result)) {
-		LOG_FATAL(LogCategory::RHI, "Failed to create pipeline state");
+	if (FAILED(result))
+	{
 		return;
 	}
 	m_impl->pipelineState = pipelineState;

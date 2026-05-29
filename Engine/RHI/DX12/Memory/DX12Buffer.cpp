@@ -1,66 +1,69 @@
 #include "DX12Buffer.h"
-#include "Engine/RHI/DX12/Resource/ResourceImpl.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
+#include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 
+bool DX12Buffer::IsValid() const
+{
+	return m_impl != nullptr && m_impl->resource != nullptr;
+}
 
 DX12Buffer::DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice)
 	: m_impl(std::make_unique<ResourceImpl>())
 {
-	// DirectX 12?o?b?t?@????R?[?h????????L?q
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	ComPtr<ID3D12Resource> buffer;
 	if (bufferDesc.MemoryType == ERHIMemoryType::Upload)
 	{
-		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-		auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferDesc.Size);
-		auto result = device->CreateCommittedResource(
+		const auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		const auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferDesc.Size);
+		const HRESULT result = device->CreateCommittedResource(
 			&heapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&resourceDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&buffer)
-		);
-		if (FAILED(result)) {
-			LOG_FATAL(LogCategory::RHI, "Failed to create upload buffer");
+			IID_PPV_ARGS(&buffer));
+		if (FAILED(result))
+		{
 			return;
 		}
 		m_impl->resource = buffer;
 	}
-	if (bufferDesc.MemoryType == ERHIMemoryType::Default)
+	else if (bufferDesc.MemoryType == ERHIMemoryType::Default)
 	{
-		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-		auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferDesc.Size);
-		auto result = device->CreateCommittedResource(
+		const auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		const auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferDesc.Size);
+		const HRESULT result = device->CreateCommittedResource(
 			&heapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&resourceDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			nullptr,
-			IID_PPV_ARGS(&buffer)
-		);
-		if (FAILED(result)) {
-			LOG_FATAL(LogCategory::RHI, "Failed to create default buffer");
+			IID_PPV_ARGS(&buffer));
+		if (FAILED(result))
+		{
 			return;
 		}
+		m_impl->resource = buffer;
 	}
-	m_impl->resource = buffer;
+
+	if (!IsValid())
+	{
+		return;
+	}
 
 	m_gpuAddress = buffer->GetGPUVirtualAddress();
 	m_size = bufferDesc.Size;
 }
+
 DX12Buffer::~DX12Buffer()
 {
-	if (m_impl->resource)
+	if (m_impl && m_impl->resource)
 	{
-		m_impl->resource->Release();
-		m_impl->resource = nullptr;
-	}
-	if (m_impl->resource)
-	{
-		m_impl->resource->Release();
-		m_impl->resource = nullptr;
+		m_impl->resource.Reset();
 	}
 }
 
@@ -69,7 +72,7 @@ void* DX12Buffer::Map()
 	if (m_impl->resource)
 	{
 		void* mappedData = nullptr;
-		HRESULT hr = m_impl->resource->Map(0, nullptr, &mappedData);
+		const HRESULT hr = m_impl->resource->Map(0, nullptr, &mappedData);
 		if (FAILED(hr))
 		{
 			LOG_ERROR(LogCategory::RHI, "Failed to map upload resource");
@@ -77,11 +80,9 @@ void* DX12Buffer::Map()
 		}
 		return mappedData;
 	}
-	else
-	{
-		LOG_ERROR(LogCategory::RHI, "Upload resource is not available for mapping");
-		return nullptr;
-	}
+
+	LOG_ERROR(LogCategory::RHI, "Upload resource is not available for mapping");
+	return nullptr;
 }
 
 void DX12Buffer::Unmap()
@@ -96,48 +97,101 @@ void DX12Buffer::Unmap()
 	}
 }
 
-void
-DX12Buffer::TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList)
+void DX12Buffer::TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList)
 {
 	m_impl->TransitionResource(newState, rhiCommandList);
 }
 
-DX12VertexBuffer::DX12VertexBuffer(const RHIBufferDesc& bufferDesc, uint32_t stride, const DX12Device* dxDevice)
-	: m_buffer(std::make_unique<DX12Buffer>(bufferDesc, dxDevice)), m_stride(stride)
+Result<std::unique_ptr<DX12VertexBuffer>> DX12VertexBuffer::Create(
+	const RHIBufferDesc& bufferDesc,
+	uint32_t stride,
+	const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12VertexBuffer>(new DX12VertexBuffer(bufferDesc, stride, dxDevice)),
+		"Failed to create vertex buffer");
+}
+
+bool DX12VertexBuffer::IsValid() const
+{
+	return m_buffer != nullptr && m_buffer->IsValid();
+}
+
+DX12VertexBuffer::DX12VertexBuffer(
+	const RHIBufferDesc& bufferDesc,
+	uint32_t stride,
+	const DX12Device* dxDevice)
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
+	, m_stride(stride)
 {
 }
 
-DX12VertexBuffer::~DX12VertexBuffer()
+DX12VertexBuffer::~DX12VertexBuffer() = default;
+
+Result<std::unique_ptr<DX12IndexBuffer>> DX12IndexBuffer::Create(
+	const RHIBufferDesc& bufferDesc,
+	IndexFormat indexFormat,
+	const DX12Device* dxDevice)
 {
-	m_buffer.release();
+	return MakeResourceResult(
+		std::unique_ptr<DX12IndexBuffer>(new DX12IndexBuffer(bufferDesc, indexFormat, dxDevice)),
+		"Failed to create index buffer");
 }
 
-DX12IndexBuffer::DX12IndexBuffer(const RHIBufferDesc& bufferDesc, IndexFormat indexFormat, const DX12Device* dxDevice)
-	: m_buffer(std::make_unique<DX12Buffer>(bufferDesc, dxDevice)), m_indexFormat(indexFormat)
+bool DX12IndexBuffer::IsValid() const
+{
+	return m_buffer != nullptr && m_buffer->IsValid();
+}
+
+DX12IndexBuffer::DX12IndexBuffer(
+	const RHIBufferDesc& bufferDesc,
+	IndexFormat indexFormat,
+	const DX12Device* dxDevice)
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
+	, m_indexFormat(indexFormat)
 {
 }
 
-DX12IndexBuffer::~DX12IndexBuffer()
+DX12IndexBuffer::~DX12IndexBuffer() = default;
+
+Result<std::unique_ptr<DX12ConstantBuffer>> DX12ConstantBuffer::Create(
+	const RHIBufferDesc& bufferDesc,
+	const DX12Device* dxDevice)
 {
-	m_buffer.release();
+	return MakeResourceResult(
+		std::unique_ptr<DX12ConstantBuffer>(new DX12ConstantBuffer(bufferDesc, dxDevice)),
+		"Failed to create constant buffer");
+}
+
+bool DX12ConstantBuffer::IsValid() const
+{
+	return m_buffer != nullptr && m_buffer->IsValid();
 }
 
 DX12ConstantBuffer::DX12ConstantBuffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice)
-	: m_buffer(std::make_unique<DX12Buffer>(bufferDesc, dxDevice))
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
 {
 }
 
-DX12ConstantBuffer::~DX12ConstantBuffer()
+DX12ConstantBuffer::~DX12ConstantBuffer() = default;
+
+Result<std::unique_ptr<DX12StructuredBuffer>> DX12StructuredBuffer::Create(
+	const RHIBufferDesc& bufferDesc,
+	const DX12Device* dxDevice)
 {
-	m_buffer.release();
+	return MakeResourceResult(
+		std::unique_ptr<DX12StructuredBuffer>(new DX12StructuredBuffer(bufferDesc, dxDevice)),
+		"Failed to create structured buffer");
+}
+
+bool DX12StructuredBuffer::IsValid() const
+{
+	return m_buffer != nullptr && m_buffer->IsValid();
 }
 
 DX12StructuredBuffer::DX12StructuredBuffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice)
-	: m_buffer(std::make_unique<DX12Buffer>(bufferDesc, dxDevice))
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
 {
 }
 
-DX12StructuredBuffer::~DX12StructuredBuffer()
-{
-	m_buffer.release();
-}
+DX12StructuredBuffer::~DX12StructuredBuffer() = default;

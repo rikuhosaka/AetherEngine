@@ -1,4 +1,6 @@
 #include "DX12CommandList.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Command/CommandImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
@@ -25,23 +27,49 @@ DX12CommandList::GetImpl() const
 	return m_impl.get();
 }
 
+bool DX12CommandList::IsValid() const
+{
+	return m_impl != nullptr && m_impl->commandAllocator != nullptr && m_impl->commandList != nullptr;
+}
+
+Result<std::unique_ptr<DX12CommandList>> DX12CommandList::Create(const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12CommandList>(new DX12CommandList(dxDevice)),
+		"Failed to create command list");
+}
+
 DX12CommandList::DX12CommandList(const DX12Device* dxDevice)
 	: m_impl(std::make_unique<CommandListImpl>())
 {
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	ComPtr<ID3D12CommandAllocator> commandAllocator;
-	device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator));
+	const HRESULT allocatorHr =
+		device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator));
+	if (FAILED(allocatorHr))
+	{
+		return;
+	}
 	if (FAILED(commandAllocator->Reset()))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to reset command allocator");
 		return;
 	}
 	m_impl->commandAllocator = commandAllocator;
 	ComPtr<ID3D12GraphicsCommandList> commandList;
-	device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList));
+	const HRESULT listHr = device->CreateCommandList(
+		0,
+		D3D12_COMMAND_LIST_TYPE_DIRECT,
+		commandAllocator.Get(),
+		nullptr,
+		IID_PPV_ARGS(&commandList));
+	if (FAILED(listHr))
+	{
+		m_impl->commandAllocator.Reset();
+		return;
+	}
 	if (FAILED(commandList->Close()))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to close command list");
+		m_impl->commandAllocator.Reset();
 		return;
 	}
 	m_impl->commandList = commandList;

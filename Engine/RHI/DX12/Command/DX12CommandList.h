@@ -1,6 +1,9 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
+
+#include <memory>
 
 class DX12Device;
 class CommandListImpl;
@@ -62,13 +65,12 @@ public:
 	// Barrier
 	void ResourceBarrier(RHIResource* resource, ERHIResourceState stateAfter) override;
 
+	[[nodiscard]] bool IsValid() const;
+
 private:
 	DX12CommandList(const DX12Device* dxDevice);
 
-	static std::unique_ptr<DX12CommandList> Create(const DX12Device* dxDevice)
-	{
-		return std::unique_ptr<DX12CommandList>(new DX12CommandList(dxDevice));
-	}
+	static Result<std::unique_ptr<DX12CommandList>> Create(const DX12Device* dxDevice);
 
 	std::unique_ptr<CommandListImpl> m_impl = nullptr;
 

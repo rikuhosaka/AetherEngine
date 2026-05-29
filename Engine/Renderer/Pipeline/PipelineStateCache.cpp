@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/PipelineStateHash.h"
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 #include "Engine/RHI/Common/RHIPipeline.h"
@@ -62,13 +63,14 @@ PipelineStateHandle PipelineStateCache::GetOrCreatePipelineState(const RHIPipeli
 	}
 
 	const RHIPipelineDesc pipelineDesc = ToPipelineDesc(layout, rootSignature);
-	std::unique_ptr<RHIPipelineState> pipelineState = m_device->CreatePipelineState(pipelineDesc);
-	if (pipelineState == nullptr)
+	auto pipelineStateResult = m_device->CreatePipelineState(pipelineDesc);
+	if (!pipelineStateResult)
 	{
+		LogResult(pipelineStateResult, LogCategory::Renderer);
 		return {};
 	}
 
-	const PipelineStateHandle handle = AddPipelineState(layout, std::move(pipelineState));
+	const PipelineStateHandle handle = AddPipelineState(layout, std::move(pipelineStateResult.value));
 	m_pipelineStateMap.emplace(key, handle);
 	return handle;
 }

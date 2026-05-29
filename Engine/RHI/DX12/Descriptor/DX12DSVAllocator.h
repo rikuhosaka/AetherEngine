@@ -1,25 +1,25 @@
 #pragma once
+
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHIDSVAllocator.h"
 
+#include <memory>
 
 class DX12Device;
 class HeapImpl;
 
 class DX12DSVAllocator : public RHIDSVAllocator
 {
-
 public:
 	~DX12DSVAllocator();
-	virtual DsvHandle Allocate(uint32_t numDescriptors = 1) override;
+	DsvHandle Allocate(uint32_t numDescriptors = 1) override;
+
+	[[nodiscard]] bool IsValid() const;
 
 private:
-
 	DX12DSVAllocator(uint32_t numDescriptors, const DX12Device* dxDevice);
 
-	static std::unique_ptr<DX12DSVAllocator> Create(uint32_t numDescriptors, const DX12Device* dxDevice)
-	{
-		return std::unique_ptr<DX12DSVAllocator>(new DX12DSVAllocator(numDescriptors, dxDevice));
-	}
+	static Result<std::unique_ptr<DX12DSVAllocator>> Create(uint32_t numDescriptors, const DX12Device* dxDevice);
 
 	uint32_t m_descriptorSize;
 	uint32_t m_currentOffset;

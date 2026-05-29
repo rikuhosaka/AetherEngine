@@ -1,5 +1,9 @@
 #pragma once
+
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
+
+#include <memory>
 
 class DX12Device;
 class HeapImpl;
@@ -14,13 +18,14 @@ public:
 	CpuDescHandle GetCpuHandle(uint32_t descriptorIndex) const override;
 	GpuDescHandle GetGpuHandle(uint32_t descriptorIndex) const override;
 
+	[[nodiscard]] bool IsValid() const;
+
 private:
 	DX12TransientDescriptorAllocator(uint32_t numDescriptors, const DX12Device* dxDevice);
 
-	static std::unique_ptr<DX12TransientDescriptorAllocator> Create(uint32_t numDescriptors, const DX12Device* dxDevice)
-	{
-		return std::unique_ptr<DX12TransientDescriptorAllocator>(new DX12TransientDescriptorAllocator(numDescriptors, dxDevice));
-	}
+	static Result<std::unique_ptr<DX12TransientDescriptorAllocator>> Create(
+		uint32_t numDescriptors,
+		const DX12Device* dxDevice);
 
 	std::unique_ptr<HeapImpl> m_impl;
 	uint32_t m_descriptorSize = 0;

@@ -1,7 +1,23 @@
 #include "Engine/RHI/DX12/Descriptor/DX12DescriptorAllocator.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
+
+bool DX12DescriptorAllocator::IsValid() const
+{
+	return m_impl != nullptr && m_impl->heap != nullptr && m_totalCount > 0;
+}
+
+Result<std::unique_ptr<DX12DescriptorAllocator>> DX12DescriptorAllocator::Create(
+	uint32_t numDescriptors,
+	const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12DescriptorAllocator>(new DX12DescriptorAllocator(numDescriptors, dxDevice)),
+		"Failed to create descriptor allocator");
+}
 
 DX12DescriptorAllocator::DX12DescriptorAllocator(uint32_t numDescriptors, const DX12Device* dxDevice)
 	: m_impl(std::make_unique<HeapImpl>())
@@ -21,7 +37,6 @@ DX12DescriptorAllocator::DX12DescriptorAllocator(uint32_t numDescriptors, const 
 	const HRESULT hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_impl->heap));
 	if (FAILED(hr))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to create CBV_SRV_UAV descriptor heap");
 		m_totalCount = 0;
 		return;
 	}

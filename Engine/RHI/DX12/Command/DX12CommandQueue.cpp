@@ -1,4 +1,6 @@
 #include "DX12CommandQueue.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Command/CommandImpl.h"
 #include "Engine/RHI/DX12/Command/DX12CommandList.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
@@ -6,6 +8,17 @@
 #include "Engine/RHI/DX12/Sync/DX12Fence.h"
 #include "Engine/RHI/DX12/Sync/FenceImpl.h"
 
+bool DX12CommandQueue::IsValid() const
+{
+	return m_impl != nullptr && m_impl->commandQueue != nullptr;
+}
+
+Result<std::unique_ptr<DX12CommandQueue>> DX12CommandQueue::Create(const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12CommandQueue>(new DX12CommandQueue(dxDevice)),
+		"Failed to create command queue");
+}
 
 DX12CommandQueue::DX12CommandQueue(const DX12Device* dxDevice)
 	: m_impl(std::make_unique<CommandQueueImpl>())
@@ -18,8 +31,8 @@ DX12CommandQueue::DX12CommandQueue(const DX12Device* dxDevice)
 	queueDesc.NodeMask = 0;
 	ComPtr<ID3D12CommandQueue> commandQueue;
 	auto result = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&commandQueue));
-	if (FAILED(result)) {
-		LOG_FATAL(LogCategory::RHI, "Failed to create command queue");
+	if (FAILED(result))
+	{
 		return;
 	}
 	m_impl->commandQueue = commandQueue;
@@ -45,16 +58,14 @@ void DX12CommandQueue::ExecuteCommandLists(const std::vector<RHICommandList*>& c
 	m_impl->commandQueue->ExecuteCommandLists(static_cast<UINT>(dxCommandLists.size()), dxCommandLists.data());
 }
 
-uint64_t 
-DX12CommandQueue::Signal(RHIFence* fence)
+uint64_t DX12CommandQueue::Signal(RHIFence* fence)
 {
 	DX12Fence* dxFence = static_cast<DX12Fence*>(fence);
 	dxFence->Increment();
 	return m_impl->commandQueue->Signal(dxFence->GetImpl()->fence.Get(), dxFence->GetImpl()->currentFenceValue);
 }
 
-void 
-DX12CommandQueue::WaitGPU(RHIFence* fence, uint64_t value)
+void DX12CommandQueue::WaitGPU(RHIFence* fence, uint64_t value)
 {
 	DX12Fence* dxFence = static_cast<DX12Fence*>(fence);
 	if (!dxFence->IsComplete(value))

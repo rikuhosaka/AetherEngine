@@ -1,5 +1,9 @@
 #pragma once
+
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHIUploadBuffer.h"
+
+#include <memory>
 
 class ResourceImpl;
 class DX12Device;
@@ -14,13 +18,12 @@ public:
 
 	void TransitionResource(ERHIResourceState newState, const RHICommandList* commandList) override;
 
+	[[nodiscard]] bool IsValid() const;
+
 private:
 	explicit DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxDevice);
 
-	static std::unique_ptr<DX12UploadBuffer> Create(size_t capacityInBytes, const DX12Device* dxDevice)
-	{
-		return std::unique_ptr<DX12UploadBuffer>(new DX12UploadBuffer(capacityInBytes, dxDevice));
-	}
+	static Result<std::unique_ptr<DX12UploadBuffer>> Create(size_t capacityInBytes, const DX12Device* dxDevice);
 
 	std::unique_ptr<ResourceImpl> m_impl;
 

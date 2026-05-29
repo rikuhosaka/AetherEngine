@@ -1,5 +1,6 @@
 #include "DX12SwapChain.h"
 
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Command/DX12CommandQueue.h"
@@ -16,6 +17,32 @@ public:
 	uint32_t bufferCount = 2;
 	std::vector<std::unique_ptr<DX12Texture>> backBuffers{};
 };
+
+bool DX12SwapChain::IsValid() const
+{
+	return m_impl != nullptr
+		&& m_impl->swapChain != nullptr
+		&& m_impl->backBuffers.size() == m_impl->bufferCount;
+}
+
+Result<std::unique_ptr<DX12SwapChain>> DX12SwapChain::Create(
+	HWND hwnd,
+	uint32_t width,
+	uint32_t height,
+	const DX12CommandQueue* commandQueue,
+	const DX12Device* dxDevice)
+{
+	constexpr uint32_t kDefaultBufferCount = 2;
+	return MakeResourceResult(
+		std::unique_ptr<DX12SwapChain>(new DX12SwapChain(
+			hwnd,
+			width,
+			height,
+			kDefaultBufferCount,
+			commandQueue,
+			dxDevice)),
+		"Failed to create swap chain");
+}
 
 DX12SwapChain::DX12SwapChain(
 	HWND hwnd,
@@ -52,7 +79,6 @@ DX12SwapChain::DX12SwapChain(
 		&swapChain1);
 	if (FAILED(result))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to create swap chain");
 		return;
 	}
 
@@ -62,7 +88,6 @@ DX12SwapChain::DX12SwapChain(
 	result = swapChain1.As(&swapChain4);
 	if (FAILED(result))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to query IDXGISwapChain4");
 		return;
 	}
 
@@ -83,7 +108,7 @@ void DX12SwapChain::CreateBackBuffers()
 		const HRESULT result = m_impl->swapChain->GetBuffer(bufferIndex, IID_PPV_ARGS(&backBuffer));
 		if (FAILED(result))
 		{
-			LOG_FATAL(LogCategory::RHI, "Failed to get swap chain back buffer");
+			m_impl->backBuffers.clear();
 			return;
 		}
 
@@ -102,8 +127,14 @@ void DX12SwapChain::CreateBackBuffers()
 		resourceImpl->resource = backBuffer;
 		resourceImpl->SetInitialState(ERHIResourceState::Present);
 
-		std::unique_ptr<DX12Texture> texture = DX12Texture::Create(textureDesc, std::move(resourceImpl));
-		m_impl->backBuffers.push_back(std::move(texture));
+		auto textureResult = DX12Texture::Create(textureDesc, std::move(resourceImpl));
+		if (!textureResult)
+		{
+			m_impl->backBuffers.clear();
+			return;
+		}
+
+		m_impl->backBuffers.push_back(std::move(textureResult.value));
 	}
 }
 
@@ -156,7 +187,6 @@ void DX12SwapChain::Resize(uint32_t width, uint32_t height)
 		0);
 	if (FAILED(result))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to resize swap chain buffers");
 		return;
 	}
 

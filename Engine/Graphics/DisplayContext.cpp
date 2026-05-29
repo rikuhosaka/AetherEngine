@@ -1,5 +1,6 @@
 #include "Engine/Graphics/DisplayContext.h"
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Common/RHITexture.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHITexture.h"
@@ -27,16 +28,36 @@ std::unique_ptr<DisplayContext> DisplayContext::Create(
 	display->m_device = device;
 	display->m_config = config;
 
-	display->m_swapChain = device->CreateSwapChain(hwnd, config.width, config.height, graphicsQueue);
-	assert(display->m_swapChain != nullptr);
+	auto swapChainResult = device->CreateSwapChain(hwnd, config.width, config.height, graphicsQueue);
+	if (!swapChainResult)
+	{
+		LogResult(swapChainResult, LogCategory::RHI);
+		return nullptr;
+	}
+	display->m_swapChain = std::move(swapChainResult.value);
 
 	const uint32_t bufferCount = display->m_swapChain->GetBufferCount();
-	assert(bufferCount > 0);
+	if (bufferCount == 0)
+	{
+		return nullptr;
+	}
 
-	display->m_rtvAllocator = device->CreateRTVAllocator(bufferCount);
-	display->m_dsvAllocator = device->CreateDSVAllocator(1);
-	assert(display->m_rtvAllocator != nullptr);
-	assert(display->m_dsvAllocator != nullptr);
+	auto rtvAllocatorResult = device->CreateRTVAllocator(bufferCount);
+	auto dsvAllocatorResult = device->CreateDSVAllocator(1);
+	if (!rtvAllocatorResult || !dsvAllocatorResult)
+	{
+		if (!rtvAllocatorResult)
+		{
+			LogResult(rtvAllocatorResult, LogCategory::RHI);
+		}
+		if (!dsvAllocatorResult)
+		{
+			LogResult(dsvAllocatorResult, LogCategory::RHI);
+		}
+		return nullptr;
+	}
+	display->m_rtvAllocator = std::move(rtvAllocatorResult.value);
+	display->m_dsvAllocator = std::move(dsvAllocatorResult.value);
 
 	display->CreateDepthResources();
 	display->CreateBackBufferViews();
@@ -62,10 +83,22 @@ void DisplayContext::Resize(uint32_t width, uint32_t height)
 	m_swapChain->Resize(width, height);
 
 	const uint32_t bufferCount = m_swapChain->GetBufferCount();
-	m_rtvAllocator = m_device->CreateRTVAllocator(bufferCount);
-	m_dsvAllocator = m_device->CreateDSVAllocator(1);
-	assert(m_rtvAllocator != nullptr);
-	assert(m_dsvAllocator != nullptr);
+	auto rtvAllocatorResult = m_device->CreateRTVAllocator(bufferCount);
+	auto dsvAllocatorResult = m_device->CreateDSVAllocator(1);
+	if (!rtvAllocatorResult || !dsvAllocatorResult)
+	{
+		if (!rtvAllocatorResult)
+		{
+			LogResult(rtvAllocatorResult, LogCategory::RHI);
+		}
+		if (!dsvAllocatorResult)
+		{
+			LogResult(dsvAllocatorResult, LogCategory::RHI);
+		}
+		return;
+	}
+	m_rtvAllocator = std::move(rtvAllocatorResult.value);
+	m_dsvAllocator = std::move(dsvAllocatorResult.value);
 
 	CreateDepthResources();
 	CreateBackBufferViews();
@@ -134,8 +167,13 @@ void DisplayContext::CreateDepthResources()
 	depthDesc.Usage = ERHITextureUsage::DepthStencil;
 	depthDesc.Format = ERHIFormat::D32_FLOAT;
 
-	m_depthTexture = m_device->CreateTexture(depthDesc);
-	assert(m_depthTexture != nullptr);
+	auto depthTextureResult = m_device->CreateTexture(depthDesc);
+	if (!depthTextureResult)
+	{
+		LogResult(depthTextureResult, LogCategory::RHI);
+		return;
+	}
+	m_depthTexture = std::move(depthTextureResult.value);
 
 	m_depthDsv = m_dsvAllocator->Allocate();
 	m_device->WriteDepthStencilView(m_depthTexture.get(), m_depthDsv);

@@ -1,4 +1,6 @@
 #include "Engine/RHI/DX12/Descriptor/DX12TransientDescriptorAllocator.h"
+
+#include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
@@ -6,6 +8,21 @@
 namespace
 {
 	constexpr uint32_t kInvalidDescriptorIndex = 0xffffffffu;
+}
+
+bool DX12TransientDescriptorAllocator::IsValid() const
+{
+	return m_impl != nullptr && m_impl->heap != nullptr && m_totalCount > 0;
+}
+
+Result<std::unique_ptr<DX12TransientDescriptorAllocator>> DX12TransientDescriptorAllocator::Create(
+	uint32_t numDescriptors,
+	const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12TransientDescriptorAllocator>(
+			new DX12TransientDescriptorAllocator(numDescriptors, dxDevice)),
+		"Failed to create transient descriptor allocator");
 }
 
 DX12TransientDescriptorAllocator::DX12TransientDescriptorAllocator(uint32_t numDescriptors, const DX12Device* dxDevice)
@@ -27,7 +44,6 @@ DX12TransientDescriptorAllocator::DX12TransientDescriptorAllocator(uint32_t numD
 	const HRESULT hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_impl->heap));
 	if (FAILED(hr))
 	{
-		LOG_FATAL(LogCategory::RHI, "Failed to create transient CBV_SRV_UAV descriptor heap");
 		m_totalCount = 0;
 		return;
 	}
