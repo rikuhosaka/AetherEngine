@@ -27,7 +27,7 @@ DX12TransientDescriptorAllocator::DX12TransientDescriptorAllocator(uint32_t numD
 	const HRESULT hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_impl->heap));
 	if (FAILED(hr))
 	{
-		LOG_FATAL("Failed to create transient CBV_SRV_UAV descriptor heap");
+		LOG_FATAL(LogCategory::RHI, "Failed to create transient CBV_SRV_UAV descriptor heap");
 		m_totalCount = 0;
 		return;
 	}
@@ -52,7 +52,7 @@ uint32_t DX12TransientDescriptorAllocator::Allocate()
 	}
 	if (m_currentOffset >= m_totalCount)
 	{
-		LOG_ERROR("Transient descriptor heap is full");
+		LOG_ERROR(LogCategory::RHI, "Transient descriptor heap is full");
 		return kInvalidDescriptorIndex;
 	}
 	return m_currentOffset++;

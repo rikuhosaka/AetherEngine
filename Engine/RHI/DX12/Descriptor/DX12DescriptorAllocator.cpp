@@ -21,7 +21,7 @@ DX12DescriptorAllocator::DX12DescriptorAllocator(uint32_t numDescriptors, const 
 	const HRESULT hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_impl->heap));
 	if (FAILED(hr))
 	{
-		LOG_FATAL("Failed to create CBV_SRV_UAV descriptor heap");
+		LOG_FATAL(LogCategory::RHI, "Failed to create CBV_SRV_UAV descriptor heap");
 		m_totalCount = 0;
 		return;
 	}
@@ -52,7 +52,7 @@ uint32_t DX12DescriptorAllocator::Allocate()
 	}
 	if (m_currentOffset >= (m_frameIndex + 1) * m_frameSize)
 	{
-		LOG_ERROR("Descriptor allocator frame heap is full");
+		LOG_ERROR(LogCategory::RHI, "Descriptor allocator frame heap is full");
 		return UINT32_MAX;
 	}
 

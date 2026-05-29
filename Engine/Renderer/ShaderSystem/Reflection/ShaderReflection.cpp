@@ -27,7 +27,7 @@ ShaderReflectionResult ShaderReflection::Reflect(
 	ShaderReflectionResult result = m_backend->Reflect(bytecode, stage);
 	if (!result.Succeeded)
 	{
-		LOG_ERROR(result.Errors);
+		LOG_ERROR(LogCategory::Renderer, result.Errors);
 		return result;
 	}
 

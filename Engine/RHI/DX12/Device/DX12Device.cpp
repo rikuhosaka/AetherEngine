@@ -54,7 +54,7 @@ void DX12Device::Initialize()
 	ComPtr<IDXGIFactory6> dxgiFactory;
 	auto result = CreateDXGIFactory2(flagsDXGI, IID_PPV_ARGS(&dxgiFactory));
 	if (FAILED(result)) {
-		LOG_FATAL("Failed to create DXGIFactory");
+		LOG_FATAL(LogCategory::RHI, "Failed to create DXGIFactory");
 		return;
 	}
 	std::vector<ComPtr<IDXGIAdapter>> adapters;
@@ -82,7 +82,7 @@ void DX12Device::Initialize()
 		}
 	}
 	if (!device) {
-		LOG_FATAL("Failed to create D3D12 device");
+		LOG_FATAL(LogCategory::RHI, "Failed to create D3D12 device");
 		return;
 	}
 	m_impl = std::make_unique<DeviceImpl>();
@@ -208,6 +208,58 @@ void DX12Device::WriteShaderResourceView(RHITexture* texture, CpuDescHandle dest
 		resource->resource.Get(),
 		&srvDesc,
 		{ destCpuHandle.ptr });
+}
+
+void DX12Device::WriteRenderTargetView(RHITexture* texture, RtvHandle dest)
+{
+	if (texture == nullptr || dest.cpu.ptr == 0)
+	{
+		return;
+	}
+
+	auto* dxTexture = static_cast<DX12Texture*>(texture);
+	ResourceImpl* resource = dxTexture->GetResourceImpl();
+	if (resource == nullptr || resource->resource == nullptr)
+	{
+		return;
+	}
+
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = ToDxgiFormat(dxTexture->GetFormat());
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+	rtvDesc.Texture2D.PlaneSlice = 0;
+
+	GetImpl()->device->CreateRenderTargetView(
+		resource->resource.Get(),
+		&rtvDesc,
+		{ dest.cpu.ptr });
+}
+
+void DX12Device::WriteDepthStencilView(RHITexture* texture, DsvHandle dest)
+{
+	if (texture == nullptr || dest.cpu.ptr == 0)
+	{
+		return;
+	}
+
+	auto* dxTexture = static_cast<DX12Texture*>(texture);
+	ResourceImpl* resource = dxTexture->GetResourceImpl();
+	if (resource == nullptr || resource->resource == nullptr)
+	{
+		return;
+	}
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+	dsvDesc.Format = ToDxgiFormat(dxTexture->GetFormat());
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+	dsvDesc.Texture2D.MipSlice = 0;
+
+	GetImpl()->device->CreateDepthStencilView(
+		resource->resource.Get(),
+		&dsvDesc,
+		{ dest.cpu.ptr });
 }
 
 void DX12Device::WriteConstantBufferView(

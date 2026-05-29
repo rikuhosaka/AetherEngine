@@ -15,7 +15,7 @@ DX12DSVAllocator::DX12DSVAllocator(uint32_t numDescriptors, const DX12Device* dx
 	ComPtr<ID3D12DescriptorHeap> descriptorHeap;
 	auto result = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&descriptorHeap));
 	if (FAILED(result)) {
-		LOG_FATAL("Failed to create DSV descriptor heap");
+		LOG_FATAL(LogCategory::RHI, "Failed to create DSV descriptor heap");
 		return;
 	}
 	m_impl->heap = descriptorHeap;

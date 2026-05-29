@@ -167,7 +167,7 @@ DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSi
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	if (device == nullptr)
 	{
-		LOG_FATAL("DX12 device is null.");
+		LOG_FATAL(LogCategory::RHI, "DX12 device is null.");
 		return;
 	}
 
@@ -253,7 +253,7 @@ DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSi
 		{
 			OutputDebugStringA(static_cast<const char*>(errorBlob->GetBufferPointer()));
 		}
-		LOG_FATAL("Failed to serialize root signature.");
+		LOG_FATAL(LogCategory::RHI, "Failed to serialize root signature.");
 		return;
 	}
 
@@ -265,7 +265,7 @@ DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSi
 		IID_PPV_ARGS(rootSignature.ReleaseAndGetAddressOf()));
 	if (FAILED(createResult))
 	{
-		LOG_FATAL("Failed to create root signature.");
+		LOG_FATAL(LogCategory::RHI, "Failed to create root signature.");
 		return;
 	}
 

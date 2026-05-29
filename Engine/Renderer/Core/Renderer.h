@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Renderer/Core/RendererConfig.h"
-#include "Engine/Renderer/Frame/FrameContext.h"
+#include "Engine/Frame/FrameContext.h"
 #include "Engine/Renderer/Scene/RenderScene.h"
 
 #include <cstdint>

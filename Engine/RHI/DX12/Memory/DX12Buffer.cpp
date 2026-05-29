@@ -7,7 +7,7 @@
 DX12Buffer::DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice)
 	: m_impl(std::make_unique<ResourceImpl>())
 {
-	// DirectX 12バッファの作成コードをここに記述
+	// DirectX 12?o?b?t?@????R?[?h????????L?q
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	ComPtr<ID3D12Resource> buffer;
 	if (bufferDesc.MemoryType == ERHIMemoryType::Upload)
@@ -23,7 +23,7 @@ DX12Buffer::DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevi
 			IID_PPV_ARGS(&buffer)
 		);
 		if (FAILED(result)) {
-			LOG_FATAL("Failed to create upload buffer");
+			LOG_FATAL(LogCategory::RHI, "Failed to create upload buffer");
 			return;
 		}
 		m_impl->resource = buffer;
@@ -41,7 +41,7 @@ DX12Buffer::DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevi
 			IID_PPV_ARGS(&buffer)
 		);
 		if (FAILED(result)) {
-			LOG_FATAL("Failed to create default buffer");
+			LOG_FATAL(LogCategory::RHI, "Failed to create default buffer");
 			return;
 		}
 	}
@@ -72,14 +72,14 @@ void* DX12Buffer::Map()
 		HRESULT hr = m_impl->resource->Map(0, nullptr, &mappedData);
 		if (FAILED(hr))
 		{
-			LOG_ERROR("Failed to map upload resource");
+			LOG_ERROR(LogCategory::RHI, "Failed to map upload resource");
 			return nullptr;
 		}
 		return mappedData;
 	}
 	else
 	{
-		LOG_ERROR("Upload resource is not available for mapping");
+		LOG_ERROR(LogCategory::RHI, "Upload resource is not available for mapping");
 		return nullptr;
 	}
 }
@@ -92,7 +92,7 @@ void DX12Buffer::Unmap()
 	}
 	else
 	{
-		LOG_ERROR("Upload resource is not available for unmapping");
+		LOG_ERROR(LogCategory::RHI, "Upload resource is not available for unmapping");
 	}
 }
 

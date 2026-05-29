@@ -13,7 +13,8 @@ enum class ERHIResourceState
 	DepthWrite,
 	DepthRead,
 	NonPixelShaderResource,
-	PixelShaderResource
+	PixelShaderResource,
+	Present
 };
 
 enum class ERHIMemoryType

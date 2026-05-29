@@ -42,7 +42,7 @@ DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxD
 		IID_PPV_ARGS(&resource));
 	if (FAILED(hr))
 	{
-		LOG_FATAL("Failed to create upload ring buffer");
+		LOG_FATAL(LogCategory::RHI, "Failed to create upload ring buffer");
 		return;
 	}
 
@@ -51,7 +51,7 @@ DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxD
 	const HRESULT mapHr = resource->Map(0, nullptr, &m_mappedBase);
 	if (FAILED(mapHr))
 	{
-		LOG_FATAL("Failed to map upload ring buffer");
+		LOG_FATAL(LogCategory::RHI, "Failed to map upload ring buffer");
 		resource.Reset();
 		m_gpuVirtualAddress = 0;
 	}
@@ -92,7 +92,7 @@ RHIUploadAllocation DX12UploadBuffer::Allocate(size_t size, size_t alignment)
 	const size_t alignedOffset = AlignUp(m_cursor, alignment);
 	if (alignedOffset > m_capacity || size > m_capacity - alignedOffset)
 	{
-		LOG_ERROR("Upload ring buffer out of memory");
+		LOG_ERROR(LogCategory::RHI, "Upload ring buffer out of memory");
 		return {};
 	}
 

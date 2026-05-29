@@ -33,7 +33,7 @@ DX12CommandList::DX12CommandList(const DX12Device* dxDevice)
 	device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator));
 	if (FAILED(commandAllocator->Reset()))
 	{
-		LOG_FATAL("Failed to reset command allocator");
+		LOG_FATAL(LogCategory::RHI, "Failed to reset command allocator");
 		return;
 	}
 	m_impl->commandAllocator = commandAllocator;
@@ -41,7 +41,7 @@ DX12CommandList::DX12CommandList(const DX12Device* dxDevice)
 	device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList));
 	if (FAILED(commandList->Close()))
 	{
-		LOG_FATAL("Failed to close command list");
+		LOG_FATAL(LogCategory::RHI, "Failed to close command list");
 		return;
 	}
 	m_impl->commandList = commandList;
@@ -264,7 +264,7 @@ DX12CommandList::IASetIndexBuffer(const RHIIndexBuffer* view)
 			dxView.Format = DXGI_FORMAT_R32_UINT;
 			break;
 		default:
-			LOG_ERROR("Unsupported index format");
+			LOG_ERROR(LogCategory::RHI, "Unsupported index format");
 			dxView.Format = DXGI_FORMAT_UNKNOWN; // ?f?t?H???g?l????
 			return;
 		}
@@ -367,7 +367,7 @@ DX12CommandList::ResourceBarrier(RHIResource* resource, ERHIResourceState newSta
 {
 	if (!resource)
 	{
-		LOG_ERROR("Resource is null");
+		LOG_ERROR(LogCategory::RHI, "Resource is null");
 		return;
 	}
 	resource->TransitionResource(newState, this);

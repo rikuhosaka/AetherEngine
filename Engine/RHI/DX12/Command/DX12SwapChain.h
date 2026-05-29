@@ -1,44 +1,109 @@
 #pragma once
+
 #include "Engine/RHI/Interface/RHISwapChain.h"
 
 
+
 class DX12Device;
+
 class DX12CommandQueue;
+
 class DX12Texture;
+
+
+
 class DX12SwapChain : public RHISwapChain
+
 {
+
 public:
 
 	~DX12SwapChain() override;
 
-	std::unique_ptr<RHITexture> GetCurrentBackBuffer() override;
+
+
+	uint32_t GetBufferCount() const override;
+
+	RHITexture* GetBackBuffer(uint32_t index) override;
+
 	uint32_t GetCurrentBackBufferIndex() override;
 
+	uint32_t GetWidth() const override;
+
+	uint32_t GetHeight() const override;
+
+
+
+	void Resize(uint32_t width, uint32_t height) override;
 
 	void Present(uint32_t syncInterval, uint32_t flags) override;
+
+
+
 protected:
 
 	DX12SwapChain(
+
 		HWND hwnd,
+
 		uint32_t width,
+
 		uint32_t height,
+
+		uint32_t bufferCount,
+
 		const DX12CommandQueue* commandQueue,
+
 		const DX12Device* dxDevice);
 
+
+
 	static std::unique_ptr<DX12SwapChain> Create(
+
 		HWND hwnd,
+
 		uint32_t width,
+
 		uint32_t height,
+
 		const DX12CommandQueue* commandQueue,
+
 		const DX12Device* dxDevice)
+
 	{
-		return std::unique_ptr<DX12SwapChain>(new DX12SwapChain(hwnd, width, height, commandQueue, dxDevice));
+
+		constexpr uint32_t kDefaultBufferCount = 2;
+
+		return std::unique_ptr<DX12SwapChain>(new DX12SwapChain(
+
+			hwnd,
+
+			width,
+
+			height,
+
+			kDefaultBufferCount,
+
+			commandQueue,
+
+			dxDevice));
+
 	}
 
-	class Impl;
-	std::unique_ptr<Impl> m_impl = nullptr;
 
-	Impl* GetImpl() const { return m_impl.get(); }
+
+	class Impl;
+
+	std::unique_ptr<Impl> m_impl{};
+
+
+
+	void CreateBackBuffers();
+
+
 
 	friend class DX12Device;
+
 };
+
+

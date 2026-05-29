@@ -11,14 +11,14 @@ DX12Fence::DX12Fence(const DX12Device* dxDevice)
 	auto result = deviceImpl->device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_impl->fence));
 	if (FAILED(result))
 	{
-		LOG_FATAL("Failed to create fence");
+		LOG_FATAL(LogCategory::RHI, "Failed to create fence");
 		return;
 	}
 	m_impl->currentFenceValue = 0;
 	m_impl->fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 	if (m_impl->fenceEvent == nullptr)
 	{
-		LOG_FATAL("Failed to create fence event");
+		LOG_FATAL(LogCategory::RHI, "Failed to create fence event");
 		return;
 	}
 }

@@ -1,39 +1,98 @@
 #include "Log.h"
 
+#include <string_view>
+#include <fstream>
+#include <mutex>
+#include <source_location>
 
-void Log(LogLevel level, const std::string& message)
+namespace
 {
-    const char* prefix = "";
 
+const char* ToString(LogLevel level)
+{
     switch (level)
     {
-    case LogLevel::Info:    prefix = "[Info] "; break;
-    case LogLevel::Warning: prefix = "[Warn] "; break;
-    case LogLevel::Error:   prefix = "[Error] "; break;
-    case LogLevel::Fatal:   prefix = "[Fatal] "; break;
+    case LogLevel::Info:    return "Info";
+    case LogLevel::Warning: return "Warning";
+    case LogLevel::Error:   return "Error";
+    case LogLevel::Fatal:   return "Fatal";
     }
 
-    std::string output = prefix + message + "\n";
-
-    OutputDebugStringA(output.c_str()); // Visual Studio出力
+    return "Unknown";
 }
 
-
-void Fatal(const std::string& message, const char* file, int line)
+const char* ToString(LogCategory category)
 {
-    std::string msg = "[FATAL] ";
-    msg += file;
-    msg += ":";
-    msg += std::to_string(line);
-    msg += " ";
-    msg += message;
-    msg += "\n";
+    switch (category)
+    {
+    case LogCategory::Core:      return "Core";
+    case LogCategory::Renderer:  return "Renderer";
+    case LogCategory::RHI:       return "RHI";
+    case LogCategory::Asset:     return "Asset";
+    case LogCategory::ECS:       return "ECS";
+    case LogCategory::Physics:   return "Physics";
+    case LogCategory::Animation: return "Animation";
+    }
 
-    OutputDebugStringA(msg.c_str());
+    return "Unknown";
+}
 
-    // ブレーク（デバッガ停止）
-    __debugbreak();
+}
 
-    // 念のためクラッシュ
-    std::abort();
+Logger& Logger::Instance()
+{
+    static Logger logger;
+    return logger;
+}
+
+bool Logger::Initialize(const std::string& filename)
+{
+    m_file.open(filename, std::ios::out | std::ios::trunc);
+
+    return m_file.is_open();
+}
+
+void Logger::Shutdown()
+{
+    if (m_file.is_open())
+    {
+        m_file.close();
+    }
+}
+
+void Logger::Write(
+    LogCategory category,
+    LogLevel level,
+    std::string_view message,
+    const std::source_location& location)
+{
+    std::scoped_lock lock(m_mutex);
+
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+
+    std::string output =
+        std::format(
+            "[{}][{}][{}:{}] {}\n",
+            ToString(category),
+            ToString(level),
+            location.file_name(),
+            location.line(),
+            message);
+
+    OutputDebugStringA(output.c_str());
+
+    if (m_file.is_open())
+    {
+        m_file << output;
+        m_file.flush();
+    }
+
+    if (level == LogLevel::Fatal)
+    {
+#ifdef _DEBUG
+        __debugbreak();
+#endif
+        std::abort();
+    }
 }

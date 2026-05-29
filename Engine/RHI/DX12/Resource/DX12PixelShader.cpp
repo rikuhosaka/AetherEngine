@@ -26,7 +26,7 @@ DX12PixelShader::DX12PixelShader(const std::filesystem::path& filePath)
 	const HRESULT result = D3DReadFileToBlob(filePath.c_str(), &ps);
 	if (FAILED(result))
 	{
-		LOG_ERROR("Failed to read pixel shader file");
+		LOG_ERROR(LogCategory::RHI, "Failed to read pixel shader file");
 		return;
 	}
 	m_impl->blob = ps;
@@ -38,7 +38,7 @@ DX12PixelShader::DX12PixelShader(std::span<const std::byte> bytecode)
 	ComPtr<ID3DBlob> blob;
 	if (!CreateBlobFromBytecode(bytecode, blob))
 	{
-		LOG_ERROR("Failed to create pixel shader blob from bytecode");
+		LOG_ERROR(LogCategory::RHI, "Failed to create pixel shader blob from bytecode");
 		return;
 	}
 	m_impl->blob = blob;

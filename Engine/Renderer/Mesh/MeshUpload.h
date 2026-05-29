@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Renderer/Frame/FrameContext.h"
+#include "Engine/Frame/FrameContext.h"
 #include "Engine/Renderer/Mesh/MeshTypes.h"
 #include "Engine/RHI/Common/RHIInput.h"
 

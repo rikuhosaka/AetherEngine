@@ -6,7 +6,7 @@ ShaderCompiler::ShaderCompiler(std::unique_ptr<IShaderCompilerBackend> backend)
     {
         if (m_backend == nullptr)
         {
-            LOG_ERROR("Backend is not initialized");
+            LOG_ERROR(LogCategory::Renderer, "Backend is not initialized");
             return;
         }
     }
@@ -22,7 +22,7 @@ ShaderCompileResult ShaderCompiler::Compile(const ShaderCompileDesc& desc)
     ShaderCompileResult result = m_backend->Compile(desc);
     if (!result.Succeeded)
     {
-        LOG_ERROR(result.Errors);
+        LOG_ERROR(LogCategory::Renderer, result.Errors);
         return result;
     }
     return result;

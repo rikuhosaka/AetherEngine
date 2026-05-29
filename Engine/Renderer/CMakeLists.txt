@@ -27,6 +27,7 @@ target_include_directories(Renderer
 target_link_libraries(Renderer
     PUBLIC
         Core
+        Frame
         RHI
         RHI_Interface
         DX12

@@ -19,7 +19,7 @@ DX12CommandQueue::DX12CommandQueue(const DX12Device* dxDevice)
 	ComPtr<ID3D12CommandQueue> commandQueue;
 	auto result = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&commandQueue));
 	if (FAILED(result)) {
-		LOG_FATAL("Failed to create command queue");
+		LOG_FATAL(LogCategory::RHI, "Failed to create command queue");
 		return;
 	}
 	m_impl->commandQueue = commandQueue;

@@ -26,7 +26,7 @@ DX12VertexShader::DX12VertexShader(const std::filesystem::path& filePath)
 	const HRESULT result = D3DReadFileToBlob(filePath.c_str(), &vs);
 	if (FAILED(result))
 	{
-		LOG_ERROR("Failed to read vertex shader file");
+		LOG_ERROR(LogCategory::RHI, "Failed to read vertex shader file");
 		return;
 	}
 	m_impl->blob = vs;
@@ -38,7 +38,7 @@ DX12VertexShader::DX12VertexShader(std::span<const std::byte> bytecode)
 	ComPtr<ID3DBlob> blob;
 	if (!CreateBlobFromBytecode(bytecode, blob))
 	{
-		LOG_ERROR("Failed to create vertex shader blob from bytecode");
+		LOG_ERROR(LogCategory::RHI, "Failed to create vertex shader blob from bytecode");
 		return;
 	}
 	m_impl->blob = blob;

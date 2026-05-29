@@ -29,6 +29,8 @@ D3D12_RESOURCE_STATES ConvertToD3D12ResourceState(ERHIResourceState state)
 		return D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 	case ERHIResourceState::PixelShaderResource:
 		return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	case ERHIResourceState::Present:
+		return D3D12_RESOURCE_STATE_PRESENT;
 	default:
 		return D3D12_RESOURCE_STATE_COMMON;
 	}

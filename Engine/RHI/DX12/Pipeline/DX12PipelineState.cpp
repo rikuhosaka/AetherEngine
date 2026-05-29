@@ -84,7 +84,7 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 	ComPtr<ID3D12PipelineState> pipelineState;
 	HRESULT result = device->CreateGraphicsPipelineState(&gpipeline, IID_PPV_ARGS(&pipelineState));
 	if (FAILED(result)) {
-		LOG_FATAL("Failed to create pipeline state");
+		LOG_FATAL(LogCategory::RHI, "Failed to create pipeline state");
 		return;
 	}
 	m_impl->pipelineState = pipelineState;

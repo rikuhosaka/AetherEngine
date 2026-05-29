@@ -39,7 +39,7 @@ ShaderReflectionHandle ShaderReflectionCache::GetOrReflect(
 
 	if (m_backend == nullptr)
 	{
-		LOG_ERROR("Shader reflection backend is not available.");
+		LOG_ERROR(LogCategory::Renderer, "Shader reflection backend is not available.");
 		return {};
 	}
 
@@ -48,7 +48,7 @@ ShaderReflectionHandle ShaderReflectionCache::GetOrReflect(
 	{
 		if (!reflectResult.Errors.empty())
 		{
-			LOG_ERROR(reflectResult.Errors.c_str());
+			LOG_ERROR(LogCategory::Renderer, reflectResult.Errors);
 		}
 		return {};
 	}
@@ -73,7 +73,7 @@ ShaderReflectionHandle ShaderReflectionCache::GetOrReflect(
 	const ShaderBytecode* bytecode = bytecodeCache.GetBytecode(bytecodeHandle);
 	if (bytecode == nullptr)
 	{
-		LOG_ERROR("Invalid shader bytecode handle for reflection.");
+		LOG_ERROR(LogCategory::Renderer, "Invalid shader bytecode handle for reflection.");
 		return {};
 	}
 

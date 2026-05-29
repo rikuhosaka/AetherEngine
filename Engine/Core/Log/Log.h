@@ -1,13 +1,40 @@
 #pragma once
 
-enum class LogLevel
+#include "LogCommon.h"
+
+#include <fstream>
+#include <mutex>
+#include <source_location>
+#include <string>
+#include <string_view>
+
+class Logger
 {
-    Info,
-    Warning,
-    Error,
-    Fatal
+public:
+
+    static Logger& Instance();
+
+    bool Initialize(const std::string& filename = "Engine.log");
+
+    void Shutdown();
+
+    void Write(
+        LogCategory category,
+        LogLevel level,
+        std::string_view message,
+        const std::source_location& location =
+            std::source_location::current());
+
+private:
+
+    Logger() = default;
+    ~Logger() = default;
+
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+
+private:
+
+    std::ofstream m_file;
+    std::mutex m_mutex;
 };
-
-void Log(LogLevel level, const std::string& message);
-
-void Fatal(const std::string& message, const char* file, int line);

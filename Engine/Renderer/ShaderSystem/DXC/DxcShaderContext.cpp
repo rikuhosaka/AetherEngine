@@ -19,7 +19,7 @@ std::unique_ptr<DxcShaderContext> DxcShaderContext::Create(std::string* outError
 			*outError = initError;
 		}
 
-		LOG_ERROR(initError.empty() ? "Failed to initialize DXC." : initError.c_str());
+		LOG_ERROR(LogCategory::Renderer, initError.empty() ? "Failed to initialize DXC." : initError);
 		return context;
 	}
 

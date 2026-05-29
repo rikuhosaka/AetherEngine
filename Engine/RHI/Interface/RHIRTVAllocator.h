@@ -5,6 +5,7 @@
 class RHIRTVAllocator
 {
 public:
+	virtual ~RHIRTVAllocator() = default;
 
 	virtual RtvHandle Allocate(uint32_t numDescriptors = 1) = 0;
 protected:

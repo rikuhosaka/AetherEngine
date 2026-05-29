@@ -34,7 +34,7 @@ ShaderBytecodeHandle ShaderBytecodeCache::GetOrCompile(const ShaderCompileDesc& 
 
 	if (m_backend == nullptr)
 	{
-		LOG_ERROR("Shader compiler backend is not available.");
+		LOG_ERROR(LogCategory::Renderer, "Shader compiler backend is not available.");
 		return {};
 	}
 
@@ -43,7 +43,7 @@ ShaderBytecodeHandle ShaderBytecodeCache::GetOrCompile(const ShaderCompileDesc& 
 	{
 		if (!compileResult.Errors.empty())
 		{
-			LOG_ERROR(compileResult.Errors.c_str());
+			LOG_ERROR(LogCategory::Renderer, compileResult.Errors);
 		}
 		return {};
 	}
