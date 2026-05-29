@@ -15,6 +15,7 @@ target_include_directories(Graphics
 
 target_link_libraries(Graphics
     PUBLIC
+        Core
         Frame
         RHI
         RHI_Interface

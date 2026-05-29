@@ -92,12 +92,12 @@ DX12SwapChain::DX12SwapChain(
 	}
 
 	m_impl->swapChain = swapChain4;
-	CreateBackBuffers();
+	(void)CreateBackBuffers();
 }
 
 DX12SwapChain::~DX12SwapChain() = default;
 
-void DX12SwapChain::CreateBackBuffers()
+Result<void> DX12SwapChain::CreateBackBuffers()
 {
 	m_impl->backBuffers.clear();
 	m_impl->backBuffers.reserve(m_impl->bufferCount);
@@ -109,7 +109,7 @@ void DX12SwapChain::CreateBackBuffers()
 		if (FAILED(result))
 		{
 			m_impl->backBuffers.clear();
-			return;
+			return MakeFail(ErrorCode::ResourceCreationFailed, "Failed to get swap chain back buffer");
 		}
 
 		const D3D12_RESOURCE_DESC resourceDesc = backBuffer->GetDesc();
@@ -131,11 +131,13 @@ void DX12SwapChain::CreateBackBuffers()
 		if (!textureResult)
 		{
 			m_impl->backBuffers.clear();
-			return;
+			return MakeFail(textureResult.error.code, textureResult.error.message);
 		}
 
 		m_impl->backBuffers.push_back(std::move(textureResult.value));
 	}
+
+	return MakeOk();
 }
 
 uint32_t DX12SwapChain::GetBufferCount() const
@@ -168,11 +170,11 @@ uint32_t DX12SwapChain::GetHeight() const
 	return m_impl->height;
 }
 
-void DX12SwapChain::Resize(uint32_t width, uint32_t height)
+Result<void> DX12SwapChain::Resize(uint32_t width, uint32_t height)
 {
 	if (width == m_impl->width && height == m_impl->height)
 	{
-		return;
+		return MakeOk();
 	}
 
 	m_impl->width = width;
@@ -187,10 +189,10 @@ void DX12SwapChain::Resize(uint32_t width, uint32_t height)
 		0);
 	if (FAILED(result))
 	{
-		return;
+		return MakeFail(ErrorCode::ResourceCreationFailed, "Failed to resize swap chain buffers");
 	}
 
-	CreateBackBuffers();
+	return CreateBackBuffers();
 }
 
 void DX12SwapChain::Present(uint32_t syncInterval, uint32_t flags)

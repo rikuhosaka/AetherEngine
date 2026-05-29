@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Frame/FrameContext.h"
 #include "Engine/Graphics/DisplayConfig.h"
 
@@ -19,13 +20,13 @@ class DisplayContext
 public:
 	~DisplayContext();
 
-	static std::unique_ptr<DisplayContext> Create(
+	static Result<std::unique_ptr<DisplayContext>> Create(
 		RHIDevice* device,
 		RHICommandQueue* graphicsQueue,
 		HWND hwnd,
 		const DisplayConfig& config);
 
-	void Resize(uint32_t width, uint32_t height);
+	Result<void> Resize(uint32_t width, uint32_t height);
 
 	void BeginFrame(FrameContext& frameContext);
 	void BeginMainRenderPass(FrameContext& frameContext, RHICommandList* commandList);
@@ -38,8 +39,8 @@ public:
 private:
 	DisplayContext() = default;
 
-	void CreateDepthResources();
-	void CreateBackBufferViews();
+	Result<void> CreateDepthResources();
+	Result<void> CreateBackBufferViews();
 	void DestroyRenderTargets();
 
 	DisplayConfig m_config{};

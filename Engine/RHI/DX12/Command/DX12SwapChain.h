@@ -20,7 +20,7 @@ public:
 	uint32_t GetWidth() const override;
 	uint32_t GetHeight() const override;
 
-	void Resize(uint32_t width, uint32_t height) override;
+	Result<void> Resize(uint32_t width, uint32_t height) override;
 	void Present(uint32_t syncInterval, uint32_t flags) override;
 
 	[[nodiscard]] bool IsValid() const;
@@ -44,7 +44,7 @@ protected:
 	class Impl;
 	std::unique_ptr<Impl> m_impl{};
 
-	void CreateBackBuffers();
+	Result<void> CreateBackBuffers();
 
 	friend class DX12Device;
 };

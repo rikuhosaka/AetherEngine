@@ -14,15 +14,18 @@
 
 DisplayContext::~DisplayContext() = default;
 
-std::unique_ptr<DisplayContext> DisplayContext::Create(
+Result<std::unique_ptr<DisplayContext>> DisplayContext::Create(
 	RHIDevice* device,
 	RHICommandQueue* graphicsQueue,
 	HWND hwnd,
 	const DisplayConfig& config)
 {
-	assert(device != nullptr);
-	assert(graphicsQueue != nullptr);
-	assert(hwnd != nullptr);
+	if (device == nullptr || graphicsQueue == nullptr || hwnd == nullptr)
+	{
+		return MakeFail<std::unique_ptr<DisplayContext>>(
+			ErrorCode::InvalidArgument,
+			"DisplayContext::Create received null argument");
+	}
 
 	auto display = std::unique_ptr<DisplayContext>(new DisplayContext());
 	display->m_device = device;
@@ -31,77 +34,99 @@ std::unique_ptr<DisplayContext> DisplayContext::Create(
 	auto swapChainResult = device->CreateSwapChain(hwnd, config.width, config.height, graphicsQueue);
 	if (!swapChainResult)
 	{
-		LogResult(swapChainResult, LogCategory::RHI);
-		return nullptr;
+		return MakeFail<std::unique_ptr<DisplayContext>>(
+			swapChainResult.error.code,
+			swapChainResult.error.message);
 	}
 	display->m_swapChain = std::move(swapChainResult.value);
 
 	const uint32_t bufferCount = display->m_swapChain->GetBufferCount();
 	if (bufferCount == 0)
 	{
-		return nullptr;
+		return MakeFail<std::unique_ptr<DisplayContext>>(
+			ErrorCode::ResourceCreationFailed,
+			"Swap chain returned zero back buffers");
 	}
 
 	auto rtvAllocatorResult = device->CreateRTVAllocator(bufferCount);
-	auto dsvAllocatorResult = device->CreateDSVAllocator(1);
-	if (!rtvAllocatorResult || !dsvAllocatorResult)
+	if (!rtvAllocatorResult)
 	{
-		if (!rtvAllocatorResult)
-		{
-			LogResult(rtvAllocatorResult, LogCategory::RHI);
-		}
-		if (!dsvAllocatorResult)
-		{
-			LogResult(dsvAllocatorResult, LogCategory::RHI);
-		}
-		return nullptr;
+		return MakeFail<std::unique_ptr<DisplayContext>>(
+			rtvAllocatorResult.error.code,
+			rtvAllocatorResult.error.message);
+	}
+
+	auto dsvAllocatorResult = device->CreateDSVAllocator(1);
+	if (!dsvAllocatorResult)
+	{
+		return MakeFail<std::unique_ptr<DisplayContext>>(
+			dsvAllocatorResult.error.code,
+			dsvAllocatorResult.error.message);
 	}
 	display->m_rtvAllocator = std::move(rtvAllocatorResult.value);
 	display->m_dsvAllocator = std::move(dsvAllocatorResult.value);
 
-	display->CreateDepthResources();
-	display->CreateBackBufferViews();
-	return display;
+	if (auto depthResult = display->CreateDepthResources(); !depthResult)
+	{
+		return MakeFail<std::unique_ptr<DisplayContext>>(
+			depthResult.error.code,
+			depthResult.error.message);
+	}
+
+	if (auto backBufferResult = display->CreateBackBufferViews(); !backBufferResult)
+	{
+		return MakeFail<std::unique_ptr<DisplayContext>>(
+			backBufferResult.error.code,
+			backBufferResult.error.message);
+	}
+
+	return MakeOk(std::move(display));
 }
 
-void DisplayContext::Resize(uint32_t width, uint32_t height)
+Result<void> DisplayContext::Resize(uint32_t width, uint32_t height)
 {
 	if (width == 0 || height == 0)
 	{
-		return;
+		return MakeFail(ErrorCode::InvalidArgument, "DisplayContext::Resize requires non-zero dimensions");
 	}
 
 	if (width == m_config.width && height == m_config.height)
 	{
-		return;
+		return MakeOk();
 	}
 
 	m_config.width = width;
 	m_config.height = height;
 
 	DestroyRenderTargets();
-	m_swapChain->Resize(width, height);
+
+	auto resizeResult = m_swapChain->Resize(width, height);
+	if (!resizeResult)
+	{
+		return resizeResult;
+	}
 
 	const uint32_t bufferCount = m_swapChain->GetBufferCount();
 	auto rtvAllocatorResult = m_device->CreateRTVAllocator(bufferCount);
-	auto dsvAllocatorResult = m_device->CreateDSVAllocator(1);
-	if (!rtvAllocatorResult || !dsvAllocatorResult)
+	if (!rtvAllocatorResult)
 	{
-		if (!rtvAllocatorResult)
-		{
-			LogResult(rtvAllocatorResult, LogCategory::RHI);
-		}
-		if (!dsvAllocatorResult)
-		{
-			LogResult(dsvAllocatorResult, LogCategory::RHI);
-		}
-		return;
+		return MakeFail(rtvAllocatorResult.error.code, rtvAllocatorResult.error.message);
+	}
+
+	auto dsvAllocatorResult = m_device->CreateDSVAllocator(1);
+	if (!dsvAllocatorResult)
+	{
+		return MakeFail(dsvAllocatorResult.error.code, dsvAllocatorResult.error.message);
 	}
 	m_rtvAllocator = std::move(rtvAllocatorResult.value);
 	m_dsvAllocator = std::move(dsvAllocatorResult.value);
 
-	CreateDepthResources();
-	CreateBackBufferViews();
+	if (auto depthResult = CreateDepthResources(); !depthResult)
+	{
+		return depthResult;
+	}
+
+	return CreateBackBufferViews();
 }
 
 void DisplayContext::BeginFrame(FrameContext& frameContext)
@@ -159,7 +184,7 @@ void DisplayContext::Present(uint32_t syncInterval, uint32_t flags)
 	m_swapChain->Present(syncInterval, flags);
 }
 
-void DisplayContext::CreateDepthResources()
+Result<void> DisplayContext::CreateDepthResources()
 {
 	RHITextureDesc depthDesc{};
 	depthDesc.Width = m_config.width;
@@ -170,19 +195,21 @@ void DisplayContext::CreateDepthResources()
 	auto depthTextureResult = m_device->CreateTexture(depthDesc);
 	if (!depthTextureResult)
 	{
-		LogResult(depthTextureResult, LogCategory::RHI);
-		return;
+		return MakeFail(depthTextureResult.error.code, depthTextureResult.error.message);
 	}
 	m_depthTexture = std::move(depthTextureResult.value);
 
 	m_depthDsv = m_dsvAllocator->Allocate();
 	m_device->WriteDepthStencilView(m_depthTexture.get(), m_depthDsv);
+	return MakeOk();
 }
 
-void DisplayContext::CreateBackBufferViews()
+Result<void> DisplayContext::CreateBackBufferViews()
 {
-	assert(m_swapChain != nullptr);
-	assert(m_rtvAllocator != nullptr);
+	if (m_swapChain == nullptr || m_rtvAllocator == nullptr)
+	{
+		return MakeFail(ErrorCode::InvalidArgument, "DisplayContext render target dependencies are null");
+	}
 
 	const uint32_t bufferCount = m_swapChain->GetBufferCount();
 	m_backBufferRtvs.resize(bufferCount);
@@ -190,11 +217,15 @@ void DisplayContext::CreateBackBufferViews()
 	for (uint32_t bufferIndex = 0; bufferIndex < bufferCount; ++bufferIndex)
 	{
 		RHITexture* backBuffer = m_swapChain->GetBackBuffer(bufferIndex);
-		assert(backBuffer != nullptr);
+		if (backBuffer == nullptr)
+		{
+			return MakeFail(ErrorCode::ResourceCreationFailed, "Swap chain back buffer is null");
+		}
 
 		m_backBufferRtvs[bufferIndex] = m_rtvAllocator->Allocate();
 		m_device->WriteRenderTargetView(backBuffer, m_backBufferRtvs[bufferIndex]);
 	}
+	return MakeOk();
 }
 
 void DisplayContext::DestroyRenderTargets()
