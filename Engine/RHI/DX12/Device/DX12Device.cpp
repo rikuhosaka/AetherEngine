@@ -57,8 +57,8 @@ void DX12Device::Initialize()
 		LOG_FATAL("Failed to create DXGIFactory");
 		return;
 	}
-	std::vector <IDXGIAdapter*> adapters;
-	IDXGIAdapter* tmpAdapter = nullptr;
+	std::vector<ComPtr<IDXGIAdapter>> adapters;
+	ComPtr<IDXGIAdapter> tmpAdapter = nullptr;
 	for (int i = 0; dxgiFactory->EnumAdapters(i, &tmpAdapter) != DXGI_ERROR_NOT_FOUND; ++i) {
 		adapters.push_back(tmpAdapter);
 	}
@@ -76,7 +76,7 @@ void DX12Device::Initialize()
 	ComPtr<ID3D12Device> device;
 	D3D_FEATURE_LEVEL featureLevel;
 	for (auto l : levels) {
-		if (D3D12CreateDevice(tmpAdapter, l, IID_PPV_ARGS(&device)) == S_OK) {
+		if (D3D12CreateDevice(tmpAdapter.Get(), l, IID_PPV_ARGS(&device)) == S_OK) {
 			featureLevel = l;
 			break;
 		}

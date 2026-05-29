@@ -20,7 +20,7 @@ DX12SwapChain::DX12SwapChain(
 	const DX12CommandQueue* dxCommandQueue,
 	const DX12Device* dxDevice)
 {
-	// SwapChainİ’è
+	// SwapChainï¿½İ’ï¿½
 	DXGI_SWAP_CHAIN_DESC1 desc = {};
 	desc.Width = width;
 	desc.Height = height;
@@ -33,10 +33,10 @@ DX12SwapChain::DX12SwapChain(
 	ComPtr<IDXGISwapChain1> swapChain1;
 	ComPtr<IDXGISwapChain4> swapChain;
 
-	// DXGI Factory‚Ìæ“¾
+	// DXGI Factoryï¿½Ìæ“¾
 	IDXGIFactory6* dxgiFactory = dxDevice->GetImpl()->factory.Get();
 	ID3D12CommandQueue* commandQueue = dxCommandQueue->GetImpl()->commandQueue.Get();
-	// ì¬
+	// ï¿½ì¬
 	dxgiFactory->CreateSwapChainForHwnd(
 		commandQueue,
 		hwnd,
@@ -46,7 +46,7 @@ DX12SwapChain::DX12SwapChain(
 		&swapChain1
 	);
 
-	// •ÏŠ·
+	// ï¿½ÏŠï¿½
 	swapChain1->QueryInterface(IID_PPV_ARGS(&swapChain));
 	m_impl->swapChain = swapChain;
 }
@@ -60,16 +60,16 @@ DX12SwapChain::~DX12SwapChain()
 	}
 }
 
-RHITexture* 
+std::unique_ptr<RHITexture>
 DX12SwapChain::GetCurrentBackBuffer()
 {
-	// Œ»İ‚ÌƒoƒbƒNƒoƒbƒtƒ@‚ğæ“¾
+	// ï¿½ï¿½ï¿½İ‚Ìƒoï¿½bï¿½Nï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½æ“¾
 	uint32_t backBufferIndex = m_impl->swapChain->GetCurrentBackBufferIndex();
 	ComPtr<ID3D12Resource> backBuffer;
 	m_impl->swapChain->GetBuffer(backBufferIndex, IID_PPV_ARGS(&backBuffer));
 	std::unique_ptr<ResourceImpl> resourceImpl = std::make_unique<ResourceImpl>();
 	resourceImpl->resource = backBuffer;
-	// RHITexture‚Éƒ‰ƒbƒv‚µ‚Ä•Ô‚·
+	// RHITextureï¿½Éƒï¿½ï¿½bï¿½vï¿½ï¿½ï¿½Ä•Ô‚ï¿½
 	D3D12_RESOURCE_DESC resourceDesc = backBuffer->GetDesc();
 	RHITextureDesc desc = {};
 	desc.Width = static_cast<uint32_t>(resourceDesc.Width);
@@ -78,9 +78,9 @@ DX12SwapChain::GetCurrentBackBuffer()
 	desc.ArraySize = resourceDesc.DepthOrArraySize;
 	desc.SampleCount = resourceDesc.SampleDesc.Count;
 	desc.SampleQuality = resourceDesc.SampleDesc.Quality;
-	desc.Usage = ERHITextureUsage::RenderTarget; // ƒoƒbƒNƒoƒbƒtƒ@‚ÍƒŒƒ“ƒ_[ƒ^[ƒQƒbƒg‚Æ‚µ‚Äg—p‚³‚ê‚é‚½‚ßA“KØ‚Èg—pƒtƒ‰ƒO‚ğİ’è‚µ‚Ü‚·B
+	desc.Usage = ERHITextureUsage::RenderTarget; // ï¿½oï¿½bï¿½Nï¿½oï¿½bï¿½tï¿½@ï¿½Íƒï¿½ï¿½ï¿½ï¿½_ï¿½[ï¿½^ï¿½[ï¿½Qï¿½bï¿½gï¿½Æ‚ï¿½ï¿½Ägï¿½pï¿½ï¿½ï¿½ï¿½é‚½ï¿½ßAï¿½Kï¿½Ø‚Ègï¿½pï¿½tï¿½ï¿½ï¿½Oï¿½ï¿½İ’è‚µï¿½Ü‚ï¿½ï¿½B
 
-	return new DX12Texture(desc, std::move(resourceImpl));
+	return DX12Texture::Create(desc, std::move(resourceImpl));
 }
 
 uint32_t DX12SwapChain::GetCurrentBackBufferIndex()

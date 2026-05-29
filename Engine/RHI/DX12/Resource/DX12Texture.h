@@ -35,8 +35,11 @@ private:
 		return std::unique_ptr<DX12Texture>(new DX12Texture(desc, dxDevice));
 	}
 
-	static std::unique_ptr<DX12Texture> Create(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource);
-
+	static std::unique_ptr<DX12Texture> Create(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource)
+	{
+		return std::unique_ptr<DX12Texture>(new DX12Texture(desc, std::move(resource)));
+	}
+	
 	RHITextureDesc m_desc;
 
 	std::unique_ptr<ResourceImpl> m_impl = nullptr;

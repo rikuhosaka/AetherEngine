@@ -4,14 +4,14 @@
 
 class DX12Device;
 class DX12CommandQueue;
-
+class DX12Texture;
 class DX12SwapChain : public RHISwapChain
 {
 public:
 
 	~DX12SwapChain() override;
 
-	RHITexture* GetCurrentBackBuffer() override;
+	std::unique_ptr<RHITexture> GetCurrentBackBuffer() override;
 	uint32_t GetCurrentBackBufferIndex() override;
 
 
