@@ -1,6 +1,5 @@
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
 
-#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/PipelineStateHash.h"
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 #include "Engine/RHI/Common/RHIPipeline.h"
@@ -40,39 +39,54 @@ PipelineStateCache::PipelineStateCache(RHIDevice* device, RootSignatureCache* ro
 
 PipelineStateCache::~PipelineStateCache() = default;
 
-PipelineStateHandle PipelineStateCache::GetOrCreatePipelineState(const RHIPipelineStateLayout& layout)
+Result<PipelineStateHandle> PipelineStateCache::GetOrCreatePipelineState(
+	const RHIPipelineStateLayout& layout)
 {
 	const std::uint64_t key = HashPipelineStateLayout(layout);
 	const auto found = m_pipelineStateMap.find(key);
 	if (found != m_pipelineStateMap.end())
 	{
-		return found->second;
+		return MakeOk(found->second);
 	}
 
 	if (m_device == nullptr || m_rootSignatureCache == nullptr)
 	{
-		return {};
+		return MakeFail<PipelineStateHandle>(
+			ErrorCode::InvalidArgument,
+			"Pipeline state cache is not initialized.");
 	}
 
-	const RootSignatureHandle rootSignatureHandle =
+	auto rootSignatureResult =
 		m_rootSignatureCache->GetOrCreateRootSignature(layout.rootSignature);
-	RHIRootSignature* rootSignature = m_rootSignatureCache->GetRootSignature(rootSignatureHandle);
+	if (!rootSignatureResult)
+	{
+		return MakeFail<PipelineStateHandle>(
+			rootSignatureResult.error.code,
+			rootSignatureResult.error.message);
+	}
+
+	RHIRootSignature* rootSignature =
+		m_rootSignatureCache->GetRootSignature(rootSignatureResult.value);
 	if (rootSignature == nullptr)
 	{
-		return {};
+		return MakeFail<PipelineStateHandle>(
+			ErrorCode::PipelineCreationFailed,
+			"Root signature handle is invalid.");
 	}
 
 	const RHIPipelineDesc pipelineDesc = ToPipelineDesc(layout, rootSignature);
 	auto pipelineStateResult = m_device->CreatePipelineState(pipelineDesc);
 	if (!pipelineStateResult)
 	{
-		LogResult(pipelineStateResult, LogCategory::Renderer);
-		return {};
+		return MakeFail<PipelineStateHandle>(
+			pipelineStateResult.error.code,
+			pipelineStateResult.error.message);
 	}
 
-	const PipelineStateHandle handle = AddPipelineState(layout, std::move(pipelineStateResult.value));
+	const PipelineStateHandle handle =
+		AddPipelineState(layout, std::move(pipelineStateResult.value));
 	m_pipelineStateMap.emplace(key, handle);
-	return handle;
+	return MakeOk(handle);
 }
 
 PipelineStateHandle PipelineStateCache::AddPipelineState(

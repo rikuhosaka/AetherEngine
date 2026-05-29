@@ -1,29 +1,25 @@
 #include "Engine/Renderer/ShaderSystem/Compiler/ShaderCompiler.h"
+
 #include "Engine/Renderer/ShaderSystem/Compiler/IShaderCompilerBackend.h"
 
 ShaderCompiler::ShaderCompiler(std::unique_ptr<IShaderCompilerBackend> backend)
-    : m_backend(std::move(backend))
-    {
-        if (m_backend == nullptr)
-        {
-            LOG_ERROR(LogCategory::Renderer, "Backend is not initialized");
-            return;
-        }
-    }
-
+	: m_backend(std::move(backend))
+{
+}
 
 ShaderCompiler::~ShaderCompiler()
 {
-    m_backend.reset();
+	m_backend.reset();
 }
 
-ShaderCompileResult ShaderCompiler::Compile(const ShaderCompileDesc& desc)
+Result<ShaderBytecode> ShaderCompiler::Compile(const ShaderCompileDesc& desc)
 {
-    ShaderCompileResult result = m_backend->Compile(desc);
-    if (!result.Succeeded)
-    {
-        LOG_ERROR(LogCategory::Renderer, result.Errors);
-        return result;
-    }
-    return result;
+	if (m_backend == nullptr)
+	{
+		return MakeFail<ShaderBytecode>(
+			ErrorCode::InvalidArgument,
+			"Shader compiler backend is not initialized.");
+	}
+
+	return m_backend->Compile(desc);
 }

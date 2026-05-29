@@ -2,6 +2,7 @@
 
 #include "Engine/Core/Containers/ResourcePool.h"
 #include "Engine/Core/Handle/Handle.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Common/RHIPipelineStateLayout.h"
 #include "Engine/RHI/Interface/RHIPipelineState.h"
 
@@ -22,7 +23,7 @@ public:
 	PipelineStateCache(RHIDevice* device, RootSignatureCache* rootSignatureCache);
 	~PipelineStateCache();
 
-	PipelineStateHandle GetOrCreatePipelineState(const RHIPipelineStateLayout& layout);
+	Result<PipelineStateHandle> GetOrCreatePipelineState(const RHIPipelineStateLayout& layout);
 	[[nodiscard]] PipelineStateHandle AddPipelineState(
 		const RHIPipelineStateLayout& layout,
 		std::unique_ptr<RHIPipelineState> pipelineState);

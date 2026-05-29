@@ -22,35 +22,41 @@ ShaderBytecodeHandle ShaderBytecodeCache::FindCached(const ShaderCompileDesc& de
 	return found->second;
 }
 
-ShaderBytecodeHandle ShaderBytecodeCache::GetOrCompile(const ShaderCompileDesc& desc)
+Result<ShaderBytecodeHandle> ShaderBytecodeCache::GetOrCompile(const ShaderCompileDesc& desc)
 {
 	if (ShaderBytecodeHandle cached = FindCached(desc); cached.IsValid())
 	{
 		++m_stats.Hits;
-		return cached;
+		return MakeOk(cached);
 	}
 
 	++m_stats.Misses;
 
 	if (m_backend == nullptr)
 	{
-		LOG_ERROR(LogCategory::Renderer, "Shader compiler backend is not available.");
-		return {};
+		return MakeFail<ShaderBytecodeHandle>(
+			ErrorCode::InvalidArgument,
+			"Shader compiler backend is not available.");
 	}
 
-	ShaderCompileResult compileResult = m_backend->Compile(desc);
-	if (!compileResult.Succeeded || compileResult.Bytecode.Data.empty())
+	auto compileResult = m_backend->Compile(desc);
+	if (!compileResult || compileResult.value.Data.empty())
 	{
-		if (!compileResult.Errors.empty())
+		if (!compileResult)
 		{
-			LOG_ERROR(LogCategory::Renderer, compileResult.Errors);
+			return MakeFail<ShaderBytecodeHandle>(
+				compileResult.error.code,
+				compileResult.error.message);
 		}
-		return {};
+
+		return MakeFail<ShaderBytecodeHandle>(
+			ErrorCode::ShaderCompileFailed,
+			"Shader compile produced empty bytecode.");
 	}
 
 	auto entry = std::make_unique<ShaderBytecodeEntry>();
 	entry->Desc = desc;
-	entry->Bytecode = std::move(compileResult.Bytecode);
+	entry->Bytecode = std::move(compileResult.value);
 
 	const ShaderBytecodeHandle handle = m_pool.Add(std::move(entry));
 	const std::uint64_t lookupKey =
@@ -58,7 +64,7 @@ ShaderBytecodeHandle ShaderBytecodeCache::GetOrCompile(const ShaderCompileDesc& 
 	m_lookup.emplace(lookupKey, handle);
 
 	++m_stats.Compiles;
-	return handle;
+	return MakeOk(handle);
 }
 
 const ShaderBytecode* ShaderBytecodeCache::GetBytecode(ShaderBytecodeHandle handle)

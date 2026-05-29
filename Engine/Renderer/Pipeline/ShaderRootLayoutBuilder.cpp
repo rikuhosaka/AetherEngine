@@ -1,8 +1,11 @@
 #include "Engine/Renderer/Pipeline/ShaderRootLayoutBuilder.h"
 
+#include "Engine/Core/Log/Result.h"
+
 #include <bit>
 #include <format>
 #include <map>
+#include <optional>
 #include <tuple>
 #include <unordered_map>
 
@@ -299,12 +302,9 @@ namespace
 		return cost;
 	}
 
-	[[nodiscard]] ShaderRootLayoutBuildResult MakeError(std::string error)
+	[[nodiscard]] Result<ShaderRootLayoutData> MakeLayoutFail(std::string error)
 	{
-		ShaderRootLayoutBuildResult result{};
-		result.Success = false;
-		result.Error = std::move(error);
-		return result;
+		return MakeFail<ShaderRootLayoutData>(ErrorCode::InvalidArgument, std::move(error));
 	}
 
 	[[nodiscard]] ShaderStageFlags StageToFlags(ShaderStage stage)
@@ -407,24 +407,24 @@ namespace
 
 	using TableBucketKey = std::tuple<RHIRootParamType, std::uint32_t, RHIShaderVisibility>;
 
-	[[nodiscard]] ShaderRootLayoutBuildResult BuildLayout(
+	[[nodiscard]] Result<ShaderRootLayoutData> BuildLayout(
 		const std::vector<ShaderReflectionData>& stages,
 		ShaderRootLayoutBuildOptions options)
 	{
 		if (stages.empty())
 		{
-			return MakeError("No shader reflection stages were provided.");
+			return MakeLayoutFail("No shader reflection stages were provided.");
 		}
 
 		std::string mergeError{};
 		std::vector<MergedBinding> bindings = MergeStageBindings(stages, mergeError);
 		if (!mergeError.empty())
 		{
-			return MakeError(std::move(mergeError));
+			return MakeLayoutFail(std::move(mergeError));
 		}
 
-		ShaderRootLayoutBuildResult result{};
-		result.Layout.flags = RHIRootSignatureFlags::None;
+		ShaderRootLayoutData data{};
+		data.Layout.flags = RHIRootSignatureFlags::None;
 
 		bool hasInputElements = false;
 		for (const ShaderReflectionData& stage : stages)
@@ -437,8 +437,8 @@ namespace
 		}
 		if (hasInputElements && options.allowInputAssembler)
 		{
-			result.Layout.flags =
-				result.Layout.flags | RHIRootSignatureFlags::AllowInputAssembler;
+			data.Layout.flags =
+				data.Layout.flags | RHIRootSignatureFlags::AllowInputAssembler;
 		}
 
 		std::optional<RootConstantsCandidate> rootConstants =
@@ -462,7 +462,7 @@ namespace
 			constantsParam.constants.num32BitValues = rootConstants->Num32BitValues;
 			constantsParam.constants.baseRegister = rootConstants->Register;
 			constantsParam.constants.space = rootConstants->Space;
-			result.Layout.parameters.push_back(constantsParam);
+			data.Layout.parameters.push_back(constantsParam);
 
 			ShaderRootBindingSlot slot{};
 			slot.Name = rootConstants->Name;
@@ -474,7 +474,7 @@ namespace
 			slot.RootParameterIndex = 0;
 			slot.Visibility = rootConstants->Visibility;
 			slot.IsRootConstants = true;
-			result.Slots.push_back(std::move(slot));
+			data.Slots.push_back(std::move(slot));
 		}
 
 		std::map<TableBucketKey, std::vector<MergedBinding*>> tableBuckets{};
@@ -498,7 +498,7 @@ namespace
 				staticSampler.space = binding.Space;
 				staticSampler.visibility =
 					ToRHIShaderVisibility(binding.StageVisibility, ShaderStage::Unknown);
-				result.Layout.staticSamplers.push_back(staticSampler);
+				data.Layout.staticSamplers.push_back(staticSampler);
 
 				ShaderRootBindingSlot slot{};
 				slot.Name = binding.Name;
@@ -508,13 +508,13 @@ namespace
 				slot.Space = binding.Space;
 				slot.BindCount = 1;
 				slot.Visibility = staticSampler.visibility;
-				result.Slots.push_back(std::move(slot));
+				data.Slots.push_back(std::move(slot));
 				continue;
 			}
 
 			if (!options.splitDescriptorTables)
 			{
-				return MakeError("Phase 1 requires splitDescriptorTables = true.");
+				return MakeLayoutFail("Phase 1 requires splitDescriptorTables = true.");
 			}
 
 			const RHIShaderVisibility visibility =
@@ -546,6 +546,7 @@ namespace
 				return lhsSpace < rhsSpace;
 			});
 
+		std::optional<std::string> buildError;
 		for (const TableBucketKey& bucketKey : bucketOrder)
 		{
 			std::vector<MergedBinding*>& bucketBindings = tableBuckets[bucketKey];
@@ -563,15 +564,15 @@ namespace
 
 			std::uint32_t tableOffset = 0;
 			const std::uint32_t rootParameterIndex =
-				static_cast<std::uint32_t>(result.Layout.parameters.size());
+				static_cast<std::uint32_t>(data.Layout.parameters.size());
 
 			auto appendRange = [&](const MergedBinding& binding, std::uint32_t rangeIndex)
 			{
 				if (binding.Unbounded && !options.allowUnbounded)
 				{
-					result = MakeError(std::format(
+					buildError = std::format(
 						"Bindless resource '{}' is not allowed by build options.",
-						binding.Name));
+						binding.Name);
 					return false;
 				}
 
@@ -595,7 +596,7 @@ namespace
 				slot.RangeIndex = rangeIndex;
 				slot.TableOffset = tableOffset;
 				slot.Visibility = visibility;
-				result.Slots.push_back(std::move(slot));
+				data.Slots.push_back(std::move(slot));
 
 				if (!binding.Unbounded)
 				{
@@ -610,7 +611,7 @@ namespace
 				{
 					if (!appendRange(*bucketBindings[bindingIndex], static_cast<std::uint32_t>(bindingIndex)))
 					{
-						return result;
+						return MakeLayoutFail(buildError.value_or("Root layout build failed."));
 					}
 				}
 			}
@@ -643,7 +644,7 @@ namespace
 
 					if (!appendRange(mergedRange, static_cast<std::uint32_t>(rangeIndex)))
 					{
-						return result;
+						return MakeLayoutFail(buildError.value_or("Root layout build failed."));
 					}
 
 					++rangeIndex;
@@ -653,20 +654,19 @@ namespace
 
 			if (!tableParam.ranges.empty())
 			{
-				result.Layout.parameters.push_back(std::move(tableParam));
+				data.Layout.parameters.push_back(std::move(tableParam));
 			}
 		}
 
-		const std::uint32_t rootCost = EstimateRootSignatureDwords(result.Layout);
+		const std::uint32_t rootCost = EstimateRootSignatureDwords(data.Layout);
 		if (rootCost > 64u)
 		{
-			return MakeError(std::format(
+			return MakeLayoutFail(std::format(
 				"Root signature cost {} exceeds D3D12 limit of 64 DWORDs.",
 				rootCost));
 		}
 
-		result.Success = true;
-		return result;
+		return MakeOk(std::move(data));
 	}
 }
 
@@ -685,12 +685,12 @@ void ShaderRootLayoutBuilder::SetOptions(ShaderRootLayoutBuildOptions options)
 	m_options = options;
 }
 
-ShaderRootLayoutBuildResult ShaderRootLayoutBuilder::Build() const
+Result<ShaderRootLayoutData> ShaderRootLayoutBuilder::Build() const
 {
 	return BuildLayout(m_stages, m_options);
 }
 
-ShaderRootLayoutBuildResult BuildRootSignatureLayout(
+Result<ShaderRootLayoutData> BuildRootSignatureLayout(
 	std::span<const ShaderReflectionData> stages,
 	ShaderRootLayoutBuildOptions options)
 {

@@ -91,46 +91,70 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 	ShaderBytecodeCache& bytecodeCache = m_shaderServices->GetBytecodeCache();
 	ShaderReflectionCache& reflectionCache = m_shaderServices->GetReflectionCache();
 
-	const ShaderBytecodeHandle vsBytecodeHandle = bytecodeCache.GetOrCompile(vsDesc);
-	const ShaderBytecodeHandle psBytecodeHandle = bytecodeCache.GetOrCompile(psDesc);
-	const ShaderBytecode* vsBytecode = bytecodeCache.GetBytecode(vsBytecodeHandle);
-	const ShaderBytecode* psBytecode = bytecodeCache.GetBytecode(psBytecodeHandle);
+	auto vsBytecodeResult = bytecodeCache.GetOrCompile(vsDesc);
+	if (!vsBytecodeResult)
+	{
+		return MakeFail<MaterialHandle>(vsBytecodeResult.error.code, vsBytecodeResult.error.message);
+	}
+
+	auto psBytecodeResult = bytecodeCache.GetOrCompile(psDesc);
+	if (!psBytecodeResult)
+	{
+		return MakeFail<MaterialHandle>(psBytecodeResult.error.code, psBytecodeResult.error.message);
+	}
+
+	const ShaderBytecode* vsBytecode = bytecodeCache.GetBytecode(vsBytecodeResult.value);
+	const ShaderBytecode* psBytecode = bytecodeCache.GetBytecode(psBytecodeResult.value);
 	if (vsBytecode == nullptr || psBytecode == nullptr)
 	{
 		return MakeFail<MaterialHandle>(
 			ErrorCode::ShaderCompileFailed,
-			"Failed to compile material shaders");
+			"Failed to resolve compiled material shader bytecode.");
 	}
 
-	const ShaderReflectionHandle vsReflectionHandle =
-		reflectionCache.GetOrReflect(vsBytecodeHandle, bytecodeCache, ShaderStage::Vertex);
-	const ShaderReflectionHandle psReflectionHandle =
-		reflectionCache.GetOrReflect(psBytecodeHandle, bytecodeCache, ShaderStage::Pixel);
-	const ShaderReflectionData* vsReflection = reflectionCache.GetData(vsReflectionHandle);
-	const ShaderReflectionData* psReflection = reflectionCache.GetData(psReflectionHandle);
+	auto vsReflectionResult =
+		reflectionCache.GetOrReflect(vsBytecodeResult.value, bytecodeCache, ShaderStage::Vertex);
+	if (!vsReflectionResult)
+	{
+		return MakeFail<MaterialHandle>(
+			vsReflectionResult.error.code,
+			vsReflectionResult.error.message);
+	}
+
+	auto psReflectionResult =
+		reflectionCache.GetOrReflect(psBytecodeResult.value, bytecodeCache, ShaderStage::Pixel);
+	if (!psReflectionResult)
+	{
+		return MakeFail<MaterialHandle>(
+			psReflectionResult.error.code,
+			psReflectionResult.error.message);
+	}
+
+	const ShaderReflectionData* vsReflection = reflectionCache.GetData(vsReflectionResult.value);
+	const ShaderReflectionData* psReflection = reflectionCache.GetData(psReflectionResult.value);
 	if (vsReflection == nullptr || psReflection == nullptr)
 	{
 		return MakeFail<MaterialHandle>(
 			ErrorCode::ShaderReflectionFailed,
-			"Failed to reflect material shaders");
+			"Failed to resolve reflected material shader data.");
 	}
 
 	ShaderRootLayoutBuilder layoutBuilder{};
 	layoutBuilder.AddStage(*vsReflection);
 	layoutBuilder.AddStage(*psReflection);
-	const ShaderRootLayoutBuildResult layoutResult = layoutBuilder.Build();
-	if (!layoutResult.Success)
+	auto layoutResult = layoutBuilder.Build();
+	if (!layoutResult)
 	{
-		return MakeFail<MaterialHandle>(ErrorCode::InvalidArgument, layoutResult.Error);
+		return MakeFail<MaterialHandle>(layoutResult.error.code, layoutResult.error.message);
 	}
 
-	const RootSignatureHandle rootSignatureHandle =
-		m_rootSignatureCache->GetOrCreateRootSignature(layoutResult.Layout);
-	if (!rootSignatureHandle.IsValid())
+	auto rootSignatureResult =
+		m_rootSignatureCache->GetOrCreateRootSignature(layoutResult.value.Layout);
+	if (!rootSignatureResult)
 	{
 		return MakeFail<MaterialHandle>(
-			ErrorCode::PipelineCreationFailed,
-			"Failed to create root signature for material");
+			rootSignatureResult.error.code,
+			rootSignatureResult.error.message);
 	}
 
 	auto material = std::make_unique<Material>();
@@ -159,22 +183,23 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 	pipelineLayout.vertexShader = material->vertexShader.get();
 	pipelineLayout.pixelShader = material->pixelShader.get();
 	pipelineLayout.inputLayout = desc.inputLayout;
-	pipelineLayout.rootSignature = layoutResult.Layout;
+	pipelineLayout.rootSignature = layoutResult.value.Layout;
 	pipelineLayout.topology = PrimitiveTopology::TriangleList;
 
-	material->pipelineState = m_pipelineStateCache->GetOrCreatePipelineState(pipelineLayout);
-	if (!material->pipelineState.IsValid())
+	auto pipelineStateResult = m_pipelineStateCache->GetOrCreatePipelineState(pipelineLayout);
+	if (!pipelineStateResult)
 	{
 		return MakeFail<MaterialHandle>(
-			ErrorCode::PipelineCreationFailed,
-			"Failed to create pipeline state for material");
+			pipelineStateResult.error.code,
+			pipelineStateResult.error.message);
 	}
 
-	material->rootSignature = rootSignatureHandle;
+	material->pipelineState = pipelineStateResult.value;
+	material->rootSignature = rootSignatureResult.value;
 	material->requiredLayout = desc.requiredLayout;
 	material->inputLayout = desc.inputLayout;
-	material->bindingSlots = layoutResult.Slots;
-	material->rootSignatureLayout = layoutResult.Layout;
+	material->bindingSlots = layoutResult.value.Slots;
+	material->rootSignatureLayout = layoutResult.value.Layout;
 	material->constantLayout = vsReflection->ConstantBuffers;
 	material->constantLayout.insert(
 		material->constantLayout.end(),

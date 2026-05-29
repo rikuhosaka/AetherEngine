@@ -1,6 +1,5 @@
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 
-#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/RootSignatureHash.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
 
@@ -11,30 +10,34 @@ RootSignatureCache::RootSignatureCache(RHIDevice* device)
 
 RootSignatureCache::~RootSignatureCache() = default;
 
-RootSignatureHandle RootSignatureCache::GetOrCreateRootSignature(const RHIRootSignatureLayout& layout)
+Result<RootSignatureHandle> RootSignatureCache::GetOrCreateRootSignature(
+	const RHIRootSignatureLayout& layout)
 {
 	const std::uint64_t key = HashRootSignatureLayout(layout);
 	const auto found = m_rootSignatureMap.find(key);
 	if (found != m_rootSignatureMap.end())
 	{
-		return found->second;
+		return MakeOk(found->second);
 	}
 
 	if (m_device == nullptr)
 	{
-		return {};
+		return MakeFail<RootSignatureHandle>(
+			ErrorCode::InvalidArgument,
+			"Root signature cache requires a valid RHIDevice.");
 	}
 
 	auto rootSignatureResult = m_device->CreateRootSignature(layout);
 	if (!rootSignatureResult)
 	{
-		LogResult(rootSignatureResult, LogCategory::Renderer);
-		return {};
+		return MakeFail<RootSignatureHandle>(
+			rootSignatureResult.error.code,
+			rootSignatureResult.error.message);
 	}
 
 	const RootSignatureHandle handle = AddRootSignature(layout, std::move(rootSignatureResult.value));
 	m_rootSignatureMap.emplace(key, handle);
-	return handle;
+	return MakeOk(handle);
 }
 
 RootSignatureHandle RootSignatureCache::AddRootSignature(

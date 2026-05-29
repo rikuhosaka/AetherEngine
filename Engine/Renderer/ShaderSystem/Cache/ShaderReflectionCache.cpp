@@ -25,36 +25,35 @@ ShaderReflectionHandle ShaderReflectionCache::FindCached(
 	return found->second;
 }
 
-ShaderReflectionHandle ShaderReflectionCache::GetOrReflect(
+Result<ShaderReflectionHandle> ShaderReflectionCache::GetOrReflect(
 	const ShaderBytecode& bytecode,
 	ShaderStage stage)
 {
 	if (ShaderReflectionHandle cached = FindCached(bytecode, stage); cached.IsValid())
 	{
 		++m_stats.Hits;
-		return cached;
+		return MakeOk(cached);
 	}
 
 	++m_stats.Misses;
 
 	if (m_backend == nullptr)
 	{
-		LOG_ERROR(LogCategory::Renderer, "Shader reflection backend is not available.");
-		return {};
+		return MakeFail<ShaderReflectionHandle>(
+			ErrorCode::InvalidArgument,
+			"Shader reflection backend is not available.");
 	}
 
-	ShaderReflectionResult reflectResult = m_backend->Reflect(bytecode, stage);
-	if (!reflectResult.Succeeded)
+	auto reflectResult = m_backend->Reflect(bytecode, stage);
+	if (!reflectResult)
 	{
-		if (!reflectResult.Errors.empty())
-		{
-			LOG_ERROR(LogCategory::Renderer, reflectResult.Errors);
-		}
-		return {};
+		return MakeFail<ShaderReflectionHandle>(
+			reflectResult.error.code,
+			reflectResult.error.message);
 	}
 
 	auto entry = std::make_unique<ShaderReflectionEntry>();
-	entry->Data = std::move(reflectResult.Data);
+	entry->Data = std::move(reflectResult.value);
 
 	const ShaderReflectionHandle handle = m_pool.Add(std::move(entry));
 	const std::uint64_t lookupKey = HashShaderReflectionCacheLookupKey(
@@ -62,10 +61,10 @@ ShaderReflectionHandle ShaderReflectionCache::GetOrReflect(
 	m_lookup.emplace(lookupKey, handle);
 
 	++m_stats.Reflects;
-	return handle;
+	return MakeOk(handle);
 }
 
-ShaderReflectionHandle ShaderReflectionCache::GetOrReflect(
+Result<ShaderReflectionHandle> ShaderReflectionCache::GetOrReflect(
 	ShaderBytecodeHandle bytecodeHandle,
 	ShaderBytecodeCache& bytecodeCache,
 	ShaderStage stage)
@@ -73,8 +72,9 @@ ShaderReflectionHandle ShaderReflectionCache::GetOrReflect(
 	const ShaderBytecode* bytecode = bytecodeCache.GetBytecode(bytecodeHandle);
 	if (bytecode == nullptr)
 	{
-		LOG_ERROR(LogCategory::Renderer, "Invalid shader bytecode handle for reflection.");
-		return {};
+		return MakeFail<ShaderReflectionHandle>(
+			ErrorCode::InvalidArgument,
+			"Invalid shader bytecode handle for reflection.");
 	}
 
 	return GetOrReflect(*bytecode, stage);

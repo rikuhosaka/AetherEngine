@@ -1,4 +1,5 @@
 #include "Engine/Renderer/ShaderSystem/Reflection/ShaderReflection.h"
+
 #include "Engine/Renderer/ShaderSystem/Reflection/IShaderReflectionBackend.h"
 
 ShaderReflection::ShaderReflection(std::unique_ptr<IShaderReflectionBackend> backend)
@@ -6,31 +7,30 @@ ShaderReflection::ShaderReflection(std::unique_ptr<IShaderReflectionBackend> bac
 {
 }
 
-ShaderReflectionResult ShaderReflection::Reflect(
+Result<ShaderReflectionData> ShaderReflection::Reflect(
 	const ShaderBytecode& bytecode,
 	ShaderStage stage) const
 {
 	if (m_backend == nullptr)
 	{
-		return ShaderReflectionResult{
-			.Errors = "Shader reflection backend is not initialized.",
-		};
+		return MakeFail<ShaderReflectionData>(
+			ErrorCode::InvalidArgument,
+			"Shader reflection backend is not initialized.");
 	}
 
 	if (bytecode.Data.empty())
 	{
-		return ShaderReflectionResult{
-			.Errors = "Shader bytecode is empty.",
-		};
+		return MakeFail<ShaderReflectionData>(
+			ErrorCode::InvalidArgument,
+			"Shader bytecode is empty.");
 	}
 
-	ShaderReflectionResult result = m_backend->Reflect(bytecode, stage);
-	if (!result.Succeeded)
+	auto result = m_backend->Reflect(bytecode, stage);
+	if (!result)
 	{
-		LOG_ERROR(LogCategory::Renderer, result.Errors);
 		return result;
 	}
 
-	result.Data.Stage = stage;
+	result.value.Stage = stage;
 	return result;
 }

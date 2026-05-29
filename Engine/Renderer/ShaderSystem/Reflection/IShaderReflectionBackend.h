@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Engine/Renderer/ShaderSystem/Reflection/ShaderReflectionResult.h"
+#include "Engine/Core/Log/Result.h"
+#include "Engine/Renderer/ShaderSystem/Reflection/ShaderReflectionData.h"
 #include "Engine/Renderer/ShaderSystem/Compiler/ShaderBytecode.h"
 #include "Engine/Renderer/ShaderSystem/Compiler/ShaderType.h"
 
@@ -9,7 +10,7 @@ class IShaderReflectionBackend
 public:
 	virtual ~IShaderReflectionBackend() = default;
 
-	[[nodiscard]] virtual ShaderReflectionResult Reflect(
+	[[nodiscard]] virtual Result<ShaderReflectionData> Reflect(
 		const ShaderBytecode& bytecode,
 		ShaderStage stage) = 0;
 };

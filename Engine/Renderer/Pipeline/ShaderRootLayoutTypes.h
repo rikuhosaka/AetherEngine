@@ -42,11 +42,8 @@ struct ShaderRootBindingSlot
 	bool IsRootConstants = false;
 };
 
-struct ShaderRootLayoutBuildResult
+struct ShaderRootLayoutData
 {
-	bool Success = false;
-	std::string Error{};
-
 	RHIRootSignatureLayout Layout{};
 	std::vector<ShaderRootBindingSlot> Slots{};
 };

@@ -3,8 +3,8 @@
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderContext.h"
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderImpl.h"
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderReflectionConvert.h"
-#include <d3d12shader.h>
 
+#include <d3d12shader.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -13,30 +13,30 @@ DxcShaderReflectionBackend::DxcShaderReflectionBackend(DxcShaderContext* context
 {
 }
 
-ShaderReflectionResult DxcShaderReflectionBackend::Reflect(
+Result<ShaderReflectionData> DxcShaderReflectionBackend::Reflect(
 	const ShaderBytecode& bytecode,
 	ShaderStage stage)
 {
-	ShaderReflectionResult result{};
-	result.Data.Stage = stage;
-
 	if (m_context == nullptr || !m_context->IsInitialized())
 	{
-		result.Errors = "DXC shader context is not initialized.";
-		return result;
+		return MakeFail<ShaderReflectionData>(
+			ErrorCode::ShaderReflectionFailed,
+			"DXC shader context is not initialized.");
 	}
 
 	DxcShaderImpl& impl = m_context->GetImpl();
 	if (impl.utils == nullptr)
 	{
-		result.Errors = "DXC utils is not initialized.";
-		return result;
+		return MakeFail<ShaderReflectionData>(
+			ErrorCode::ShaderReflectionFailed,
+			"DXC utils is not initialized.");
 	}
 
 	if (bytecode.Data.empty())
 	{
-		result.Errors = "Shader bytecode is empty.";
-		return result;
+		return MakeFail<ShaderReflectionData>(
+			ErrorCode::InvalidArgument,
+			"Shader bytecode is empty.");
 	}
 
 	DxcBuffer shaderBuffer{};
@@ -50,11 +50,12 @@ ShaderReflectionResult DxcShaderReflectionBackend::Reflect(
 		IID_PPV_ARGS(d3dReflection.GetAddressOf()));
 	if (FAILED(reflectionHr) || d3dReflection == nullptr)
 	{
-		result.Errors = "IDxcUtils::CreateReflection failed.";
-		return result;
+		return MakeFail<ShaderReflectionData>(
+			ErrorCode::ShaderReflectionFailed,
+			"IDxcUtils::CreateReflection failed.");
 	}
 
-	result.Data = ConvertD3D12ShaderReflection(d3dReflection.Get(), stage);
-	result.Succeeded = true;
-	return result;
+	ShaderReflectionData data = ConvertD3D12ShaderReflection(d3dReflection.Get(), stage);
+	data.Stage = stage;
+	return MakeOk(std::move(data));
 }

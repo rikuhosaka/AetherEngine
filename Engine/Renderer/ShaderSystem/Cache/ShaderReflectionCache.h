@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Containers/ResourcePool.h"
+#include "Engine/Core/Log/Result.h"
 
 #include <unordered_map>
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderCacheTypes.h"
@@ -22,11 +23,11 @@ public:
 
 	explicit ShaderReflectionCache(IShaderReflectionBackend* backend);
 
-	[[nodiscard]] ShaderReflectionHandle GetOrReflect(
+	[[nodiscard]] Result<ShaderReflectionHandle> GetOrReflect(
 		const ShaderBytecode& bytecode,
 		ShaderStage stage);
 
-	[[nodiscard]] ShaderReflectionHandle GetOrReflect(
+	[[nodiscard]] Result<ShaderReflectionHandle> GetOrReflect(
 		ShaderBytecodeHandle bytecodeHandle,
 		ShaderBytecodeCache& bytecodeCache,
 		ShaderStage stage);

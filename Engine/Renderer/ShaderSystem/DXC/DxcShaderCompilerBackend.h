@@ -9,7 +9,7 @@ class DxcShaderCompilerBackend : public IShaderCompilerBackend
 public:
 	explicit DxcShaderCompilerBackend(DxcShaderContext* context);
 
-	ShaderCompileResult Compile(const ShaderCompileDesc& desc) override;
+	Result<ShaderBytecode> Compile(const ShaderCompileDesc& desc) override;
 
 private:
 	DxcShaderContext* m_context{};

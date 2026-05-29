@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Containers/ResourcePool.h"
+#include "Engine/Core/Log/Result.h"
 
 #include <unordered_map>
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderCacheTypes.h"
@@ -20,7 +21,7 @@ public:
 
 	explicit ShaderBytecodeCache(IShaderCompilerBackend* backend);
 
-	[[nodiscard]] ShaderBytecodeHandle GetOrCompile(const ShaderCompileDesc& desc);
+	[[nodiscard]] Result<ShaderBytecodeHandle> GetOrCompile(const ShaderCompileDesc& desc);
 
 	[[nodiscard]] const ShaderBytecode* GetBytecode(ShaderBytecodeHandle handle);
 
