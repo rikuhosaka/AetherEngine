@@ -1,7 +1,10 @@
 #include "Runtime/RuntimeSubsystemSetup.h"
 
+#include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
+#include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Runtime/Subsystems/RHISubsystem.h"
 #include "Runtime/Subsystems/WindowSubsystem.h"
 
 #include <cstring>
@@ -10,6 +13,7 @@
 void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConfig& config)
 {
 	registry.Register(std::make_unique<WindowSubsystem>(config));
+	registry.Register(CreateRHISubsystem());
 }
 
 WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)
@@ -23,4 +27,9 @@ WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)
 	}
 
 	return nullptr;
+}
+
+RHIServices* FindRHIServices(const SubsystemContext& context)
+{
+	return context.GetService<RHIServices>();
 }
