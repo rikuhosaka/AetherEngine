@@ -104,10 +104,17 @@ Result<std::unique_ptr<RHISwapChain>> DX12Device::CreateSwapChain(
 	HWND hwnd,
 	uint32_t width,
 	uint32_t height,
+	uint32_t bufferCount,
 	const RHICommandQueue* commandQueue)
 {
 	return CastResourceResult<RHISwapChain, DX12SwapChain>(
-		DX12SwapChain::Create(hwnd, width, height, static_cast<const DX12CommandQueue*>(commandQueue), this));
+		DX12SwapChain::Create(
+			hwnd,
+			width,
+			height,
+			bufferCount,
+			static_cast<const DX12CommandQueue*>(commandQueue),
+			this));
 }
 
 Result<std::unique_ptr<RHIVertexBuffer>> DX12Device::CreateVertexBuffer(

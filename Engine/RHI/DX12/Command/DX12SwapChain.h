@@ -38,6 +38,7 @@ protected:
 		HWND hwnd,
 		uint32_t width,
 		uint32_t height,
+		uint32_t bufferCount,
 		const DX12CommandQueue* commandQueue,
 		const DX12Device* dxDevice);
 

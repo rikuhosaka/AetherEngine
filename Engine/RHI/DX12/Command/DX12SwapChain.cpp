@@ -29,16 +29,23 @@ Result<std::unique_ptr<DX12SwapChain>> DX12SwapChain::Create(
 	HWND hwnd,
 	uint32_t width,
 	uint32_t height,
+	uint32_t bufferCount,
 	const DX12CommandQueue* commandQueue,
 	const DX12Device* dxDevice)
 {
-	constexpr uint32_t kDefaultBufferCount = 2;
+	if (bufferCount == 0)
+	{
+		return MakeFail<std::unique_ptr<DX12SwapChain>>(
+			ErrorCode::InvalidArgument,
+			"Swap chain buffer count must be non-zero");
+	}
+
 	return MakeResourceResult(
 		std::unique_ptr<DX12SwapChain>(new DX12SwapChain(
 			hwnd,
 			width,
 			height,
-			kDefaultBufferCount,
+			bufferCount,
 			commandQueue,
 			dxDevice)),
 		"Failed to create swap chain");

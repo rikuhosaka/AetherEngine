@@ -31,7 +31,12 @@ Result<std::unique_ptr<DisplayContext>> DisplayContext::Create(
 	display->m_device = device;
 	display->m_config = config;
 
-	auto swapChainResult = device->CreateSwapChain(hwnd, config.width, config.height, graphicsQueue);
+	auto swapChainResult = device->CreateSwapChain(
+		hwnd,
+		config.width,
+		config.height,
+		config.bufferCount,
+		graphicsQueue);
 	if (!swapChainResult)
 	{
 		return MakeFail<std::unique_ptr<DisplayContext>>(

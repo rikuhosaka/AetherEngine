@@ -1,5 +1,6 @@
 #pragma once
 
+class DisplayServices;
 class EngineLoopConfig;
 class RHIServices;
 class SubsystemContext;
@@ -10,3 +11,4 @@ void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConf
 
 [[nodiscard]] WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry);
 [[nodiscard]] RHIServices* FindRHIServices(const SubsystemContext& context);
+[[nodiscard]] DisplayServices* FindDisplayServices(const SubsystemContext& context);

@@ -45,6 +45,7 @@ public:
 		HWND hwnd,
 		uint32_t width,
 		uint32_t height,
+		uint32_t bufferCount,
 		const RHICommandQueue* commandQueue) = 0;
 
 	// Resource Creation
