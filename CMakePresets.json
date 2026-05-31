@@ -1,41 +1,65 @@
 {
-    "version": 3,
-  
-    "configurePresets": [
-      {
-        "name": "debug",
-  
-        "generator": "Ninja",
-  
-        "binaryDir": "${sourceDir}/build/debug",
-  
-        "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Debug",
-  
-          "CMAKE_C_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
-  
-          "CMAKE_CXX_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
-  
-          "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-        }
-      },
-  
-      {
-        "name": "release",
-  
-        "generator": "Ninja",
-  
-        "binaryDir": "${sourceDir}/build/release",
-  
-        "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Release",
-  
-          "CMAKE_C_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
-  
-          "CMAKE_CXX_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
-  
-          "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-        }
+  "version": 3,
+
+  "configurePresets": [
+    {
+      "name": "debug",
+      "displayName": "Ninja + Clang-cl (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
-    ]
-  }
+    },
+    {
+      "name": "release",
+      "displayName": "Ninja + Clang-cl (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "C:/Program Files/LLVM/bin/clang-cl.exe",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "vs2022",
+      "displayName": "Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/vs2022",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "debug",
+      "displayName": "Build (Ninja Debug)",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "displayName": "Build (Ninja Release)",
+      "configurePreset": "release"
+    },
+    {
+      "name": "vs2022-debug",
+      "displayName": "Build (VS Debug)",
+      "configurePreset": "vs2022",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2022-release",
+      "displayName": "Build (VS Release)",
+      "configurePreset": "vs2022",
+      "configuration": "Release"
+    }
+  ]
+}

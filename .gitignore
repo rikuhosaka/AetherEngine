@@ -19,6 +19,7 @@ cmake_install.cmake
 Makefile
 
 # === VS / VSCode 関連 ===
+.vs/
 .vscode/
 *.suo
 *.user

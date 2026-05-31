@@ -81,7 +81,6 @@ Result<void> SubsystemRegistry::BuildOrders()
 	for (const auto& [name, subsystem] : subsystemByName)
 	{
 		inDegree[name] = 0;
-		dependents[name] = {};
 
 		for (const char* const dependencyName : subsystem->GetDependencies())
 		{

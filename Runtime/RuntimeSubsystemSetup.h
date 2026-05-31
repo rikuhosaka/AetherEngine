@@ -1,7 +1,7 @@
 #pragma once
 
 class DisplayServices;
-class EngineLoopConfig;
+struct EngineLoopConfig;
 class RenderServices;
 class RHIServices;
 class SubsystemContext;
