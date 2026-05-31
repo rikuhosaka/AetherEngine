@@ -34,6 +34,11 @@ void WindowSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 	m_services = {};
 }
 
+bool WindowSubsystem::ProcessPlatformMessages()
+{
+	return ProcessMessages();
+}
+
 bool WindowSubsystem::ProcessMessages()
 {
 	if (m_window == nullptr)

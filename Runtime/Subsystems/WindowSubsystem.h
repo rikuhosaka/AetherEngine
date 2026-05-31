@@ -2,12 +2,13 @@
 
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
+#include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 #include "Engine/Platform/GameWindow.h"
 
 #include <memory>
 
-class WindowSubsystem final : public ISubsystem
+class WindowSubsystem final : public ISubsystem, public IEngineLoopPlatform
 {
 public:
 	explicit WindowSubsystem(EngineLoopConfig config);
@@ -17,12 +18,13 @@ public:
 	Result<void> Initialize(SubsystemContext& ctx) override;
 	void Shutdown(SubsystemContext& ctx) override;
 
-	[[nodiscard]] bool ProcessMessages();
-	[[nodiscard]] bool HasPendingResize() const;
-	void ClearPendingResize();
-	[[nodiscard]] uint32_t GetPendingWidth() const;
-	[[nodiscard]] uint32_t GetPendingHeight() const;
+	bool ProcessPlatformMessages() override;
+	[[nodiscard]] bool HasPendingResize() const override;
+	void ClearPendingResize() override;
+	[[nodiscard]] uint32_t GetPendingWidth() const override;
+	[[nodiscard]] uint32_t GetPendingHeight() const override;
 
+	[[nodiscard]] bool ProcessMessages();
 	[[nodiscard]] const WindowServices& GetServices() const noexcept { return m_services; }
 
 private:

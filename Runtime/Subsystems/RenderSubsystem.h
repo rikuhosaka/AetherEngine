@@ -2,6 +2,7 @@
 
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
+#include "Engine/Application/Subsystem/IEngineLoopRender.h"
 #include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 
@@ -13,7 +14,7 @@ class RHIDescriptorAllocator;
 
 class RenderSubsystemImpl;
 
-class RenderSubsystem final : public ISubsystem
+class RenderSubsystem final : public ISubsystem, public IEngineLoopRender
 {
 public:
 	explicit RenderSubsystem(EngineLoopConfig config);
@@ -27,7 +28,7 @@ public:
 	Result<void> PostInitialize(SubsystemContext& ctx) override;
 	void Shutdown(SubsystemContext& ctx) override;
 
-	Result<void> RenderFrame(SubsystemContext& ctx);
+	Result<void> RenderFrame(SubsystemContext& ctx) override;
 
 	[[nodiscard]] const RenderServices& GetServices() const noexcept { return m_services; }
 

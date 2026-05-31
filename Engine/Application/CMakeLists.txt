@@ -17,6 +17,7 @@ target_link_libraries(Application
     PUBLIC
         Core
         Frame
+        RHI_Interface
 )
 
 target_precompile_headers(Application PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
