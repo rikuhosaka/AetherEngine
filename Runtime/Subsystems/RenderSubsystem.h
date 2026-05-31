@@ -25,7 +25,6 @@ public:
 	[[nodiscard]] std::span<const char* const> GetDependencies() const override;
 
 	Result<void> Initialize(SubsystemContext& ctx) override;
-	Result<void> PostInitialize(SubsystemContext& ctx) override;
 	void Shutdown(SubsystemContext& ctx) override;
 
 	Result<void> RenderFrame(SubsystemContext& ctx) override;
@@ -36,7 +35,6 @@ private:
 	EngineLoopConfig m_config{};
 	std::unique_ptr<RenderSubsystemImpl> m_impl{};
 	RenderServices m_services{};
-	ISceneExtractor* m_sceneExtractor = nullptr;
 };
 
 std::unique_ptr<ISubsystem> CreateRenderSubsystem(const EngineLoopConfig& config);

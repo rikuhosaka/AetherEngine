@@ -89,16 +89,6 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	return MakeOk();
 }
 
-Result<void> RenderSubsystem::PostInitialize(SubsystemContext& ctx)
-{
-	if (auto* registry = ctx.GetService<SubsystemRegistry>())
-	{
-		m_sceneExtractor = registry->GetSceneExtractor();
-	}
-
-	return MakeOk();
-}
-
 Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 {
 	auto* rhiServices = ctx.GetService<RHIServices>();
@@ -132,9 +122,12 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	m_impl->renderer->BeginFrame(slot);
 
 	std::vector<ExtractedObject> extractedObjects;
-	if (m_sceneExtractor != nullptr)
+	if (auto* registry = ctx.GetService<SubsystemRegistry>())
 	{
-		m_sceneExtractor->Extract(extractedObjects);
+		if (ISceneExtractor* sceneExtractor = registry->GetSceneExtractor())
+		{
+			sceneExtractor->Extract(extractedObjects);
+		}
 	}
 	m_impl->renderer->ExtractScene(extractedObjects);
 
@@ -165,5 +158,4 @@ void RenderSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 	m_impl->renderer.reset();
 	m_impl->descriptorAllocator.reset();
 	m_services = {};
-	m_sceneExtractor = nullptr;
 }
