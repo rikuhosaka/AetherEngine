@@ -19,6 +19,9 @@ set_target_properties(Renderer PROPERTIES FOLDER "Engine")
 add_subdirectory(Platform)
 set_target_properties(Platform PROPERTIES FOLDER "Engine")
 
+add_subdirectory(Application)
+set_target_properties(Application PROPERTIES FOLDER "Engine/Application")
+
 
 
 target_link_libraries(Engine INTERFACE
@@ -31,6 +34,7 @@ target_link_libraries(Engine INTERFACE
     Renderer
     DirectXTex
     Platform
+    Application
 )
 
 target_include_directories(Engine INTERFACE

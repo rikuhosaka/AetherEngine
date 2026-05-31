@@ -1,41 +1,43 @@
 #include "InputManager.h"
-#include <Engine/Platform/Window.h>
 
-void InputManager::Init() {
+void InputManager::Initialize(HWND hwnd, uint32_t clientWidth, uint32_t clientHeight)
+{
 	std::memset(keys, 0, sizeof(keys));
 	std::memset(lastKeys, 0, sizeof(lastKeys));
 	std::memset(keyState, 0, sizeof(keyState));
-
-	// マウス更新
-	POINT p;
-	GetCursorPos(&p);
-	ScreenToClient(g_hwnd, &p);
-	lastMousePos = mousePos;
-	mousePos.x = static_cast<float>(p.x);
-	mousePos.y = static_cast<float>(p.y);
-
-	mousePos.x = (2.0f * mousePos.x / g_windowWidth) - 1.0f;
-	mousePos.y = (2.0f * mousePos.y / g_windowHeight) - 1.0f;
+	UpdateMousePosition(hwnd, clientWidth, clientHeight);
 }
 
-void
-InputManager::Update() {
+void InputManager::Update(HWND hwnd, uint32_t clientWidth, uint32_t clientHeight)
+{
 	std::memcpy(lastKeys, keys, sizeof(keys));
 
-	if (GetKeyboardState(keyState)) {
+	if (GetKeyboardState(keyState))
+	{
 		for (int i = 0; i < 256; ++i)
+		{
 			keys[i] = (keyState[i] & 0x80) != 0;
+		}
 	}
 
-	// マウス更新
-	POINT p;
-	GetCursorPos(&p);
-	ScreenToClient(g_hwnd, &p);
-	lastMousePos = mousePos;
-	mousePos.x = static_cast<float>(p.x);
-	mousePos.y = static_cast<float>(p.y);
-
-	mousePos.x = (2.0f * mousePos.x / g_windowWidth) - 1.0f;
-	mousePos.y = (2.0f * mousePos.y / g_windowHeight) - 1.0f;
+	UpdateMousePosition(hwnd, clientWidth, clientHeight);
 }
 
+void InputManager::UpdateMousePosition(HWND hwnd, uint32_t clientWidth, uint32_t clientHeight)
+{
+	if (hwnd == nullptr || clientWidth == 0 || clientHeight == 0)
+	{
+		return;
+	}
+
+	POINT point{};
+	GetCursorPos(&point);
+	ScreenToClient(hwnd, &point);
+
+	lastMousePos = mousePos;
+	mousePos.x = static_cast<float>(point.x);
+	mousePos.y = static_cast<float>(point.y);
+
+	mousePos.x = (2.0f * mousePos.x / static_cast<float>(clientWidth)) - 1.0f;
+	mousePos.y = (2.0f * mousePos.y / static_cast<float>(clientHeight)) - 1.0f;
+}
