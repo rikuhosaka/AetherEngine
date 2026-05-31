@@ -37,6 +37,19 @@ const char* ToString(LogCategory category)
     return "Unknown";
 }
 
+const char* Basename(const char* path)
+{
+    const char* last = path;
+    for (const char* p = path; *p != '\0'; ++p)
+    {
+        if (*p == '/' || *p == '\\')
+        {
+            last = p + 1;
+        }
+    }
+    return last;
+}
+
 }
 
 Logger& Logger::Instance()
@@ -76,7 +89,7 @@ void Logger::Write(
             "[{}][{}][{}:{}] {}\n",
             ToString(category),
             ToString(level),
-            location.file_name(),
+            Basename(location.file_name()),
             location.line(),
             message);
 

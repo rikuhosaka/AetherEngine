@@ -3,29 +3,35 @@
 #include "Log.h"
 #include "Result.h"
 
+#include <source_location>
+
 #define LOG_INFO(category, msg) \
     Logger::Instance().Write( \
         category, \
         LogLevel::Info, \
-        msg)
+        msg, \
+        std::source_location::current())
 
 #define LOG_WARN(category, msg) \
     Logger::Instance().Write( \
         category, \
         LogLevel::Warning, \
-        msg)
+        msg, \
+        std::source_location::current())
 
 #define LOG_ERROR(category, msg) \
     Logger::Instance().Write( \
         category, \
         LogLevel::Error, \
-        msg)
+        msg, \
+        std::source_location::current())
 
 #define LOG_FATAL(category, msg) \
     Logger::Instance().Write( \
         category, \
         LogLevel::Fatal, \
-        msg)
+        msg, \
+        std::source_location::current())
 
 #define TRY_LOG(expr, category)     \
 {                                   \

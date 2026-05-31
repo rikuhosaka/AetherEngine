@@ -4,6 +4,7 @@
 #include "Log.h"
 #include "LogCommon.h"
 
+#include <source_location>
 #include <string>
 #include <utility>
 
@@ -63,7 +64,8 @@ inline Result<void> MakeFail(ErrorCode code, std::string message)
 template<typename T>
 void LogResult(
     const Result<T>& result,
-    LogCategory category)
+    LogCategory category,
+    const std::source_location& location = std::source_location::current())
 {
     if (result)
     {
@@ -73,13 +75,15 @@ void LogResult(
     Logger::Instance().Write(
         category,
         LogLevel::Error,
-        result.error.message);
+        result.error.message,
+        location);
 }
 
 template<typename T>
 void LogFatalResult(
     const Result<T>& result,
-    LogCategory category)
+    LogCategory category,
+    const std::source_location& location = std::source_location::current())
 {
     if (result)
     {
@@ -89,16 +93,18 @@ void LogFatalResult(
     Logger::Instance().Write(
         category,
         LogLevel::Fatal,
-        result.error.message);
+        result.error.message,
+        location);
 }
 
 template<typename T>
 Result<T> FailRuntime(
     LogCategory category,
     ErrorCode code,
-    std::string message)
+    std::string message,
+    const std::source_location& location = std::source_location::current())
 {
-    Logger::Instance().Write(category, LogLevel::Error, message);
+    Logger::Instance().Write(category, LogLevel::Error, message, location);
     return MakeFail<T>(code, std::move(message));
 }
 
@@ -106,26 +112,29 @@ template<typename T>
 Result<T> FailInternal(
     LogCategory category,
     ErrorCode code,
-    std::string message)
+    std::string message,
+    const std::source_location& location = std::source_location::current())
 {
-    Logger::Instance().Write(category, LogLevel::Fatal, message);
+    Logger::Instance().Write(category, LogLevel::Fatal, message, location);
     return MakeFail<T>(code, std::move(message));
 }
 
 inline Result<void> FailRuntime(
     LogCategory category,
     ErrorCode code,
-    std::string message)
+    std::string message,
+    const std::source_location& location = std::source_location::current())
 {
-    Logger::Instance().Write(category, LogLevel::Error, message);
+    Logger::Instance().Write(category, LogLevel::Error, message, location);
     return MakeFail(code, std::move(message));
 }
 
 inline Result<void> FailInternal(
     LogCategory category,
     ErrorCode code,
-    std::string message)
+    std::string message,
+    const std::source_location& location = std::source_location::current())
 {
-    Logger::Instance().Write(category, LogLevel::Fatal, message);
+    Logger::Instance().Write(category, LogLevel::Fatal, message, location);
     return MakeFail(code, std::move(message));
 }
