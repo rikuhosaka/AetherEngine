@@ -6,6 +6,7 @@
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Runtime/Subsystems/DisplaySubsystem.h"
+#include "Runtime/Subsystems/RenderSubsystem.h"
 #include "Runtime/Subsystems/RHISubsystem.h"
 #include "Runtime/Subsystems/WindowSubsystem.h"
 
@@ -17,6 +18,7 @@ void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConf
 	registry.Register(std::make_unique<WindowSubsystem>(config));
 	registry.Register(CreateRHISubsystem());
 	registry.Register(CreateDisplaySubsystem(config));
+	registry.Register(CreateRenderSubsystem(config));
 }
 
 WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)
@@ -26,6 +28,19 @@ WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)
 		if (subsystem != nullptr && std::strcmp(subsystem->GetName(), "Window") == 0)
 		{
 			return static_cast<WindowSubsystem*>(subsystem);
+		}
+	}
+
+	return nullptr;
+}
+
+RenderSubsystem* FindRenderSubsystem(const SubsystemRegistry& registry)
+{
+	for (ISubsystem* subsystem : registry.GetInitOrder())
+	{
+		if (subsystem != nullptr && std::strcmp(subsystem->GetName(), "Render") == 0)
+		{
+			return static_cast<RenderSubsystem*>(subsystem);
 		}
 	}
 
