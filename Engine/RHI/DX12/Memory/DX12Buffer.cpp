@@ -1,5 +1,6 @@
 #include "DX12Buffer.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"

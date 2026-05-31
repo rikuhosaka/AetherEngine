@@ -1,5 +1,7 @@
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/RootSignatureHash.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
 
@@ -22,7 +24,8 @@ Result<RootSignatureHandle> RootSignatureCache::GetOrCreateRootSignature(
 
 	if (m_device == nullptr)
 	{
-		return MakeFail<RootSignatureHandle>(
+		return FailInternal<RootSignatureHandle>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"Root signature cache requires a valid RHIDevice.");
 	}

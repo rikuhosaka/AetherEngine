@@ -1,5 +1,6 @@
 #include "Engine/RHI/DX12/Memory/DX12UploadBuffer.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
@@ -39,6 +40,7 @@ DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxD
 {
 	if (m_capacity == 0)
 	{
+		LOG_FATAL(LogCategory::RHI, "Upload buffer capacity must be non-zero");
 		return;
 	}
 

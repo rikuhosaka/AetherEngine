@@ -4,6 +4,7 @@
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemTypes.h"
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Graphics/DisplayConfig.h"
 #include "Engine/Graphics/DisplayContext.h"
@@ -42,17 +43,20 @@ Result<void> DisplaySubsystem::Initialize(SubsystemContext& ctx)
 	auto* rhiServices = ctx.GetService<RHIServices>();
 	if (windowServices == nullptr || rhiServices == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "DisplaySubsystem requires WindowServices and RHIServices");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"DisplaySubsystem requires WindowServices and RHIServices");
 	}
 
 	if (windowServices->hwnd == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "DisplaySubsystem requires a valid window handle");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"DisplaySubsystem requires a valid window handle");
 	}
 
 	if (windowServices->clientWidth == 0 || windowServices->clientHeight == 0)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "DisplaySubsystem requires non-zero client dimensions");
+		return FailRuntime(LogCategory::Core, ErrorCode::InvalidArgument,
+			"DisplaySubsystem requires non-zero client dimensions");
 	}
 
 	DisplayConfig displayConfig{};

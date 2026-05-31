@@ -36,3 +36,13 @@
         return result;              \
     }                               \
 }
+
+#define TRY_LOG_FATAL(expr, category) \
+{                                     \
+    auto result = (expr);             \
+    if (!result)                      \
+    {                                 \
+        LogFatalResult(result, category);\
+        return result;                \
+    }                                 \
+}

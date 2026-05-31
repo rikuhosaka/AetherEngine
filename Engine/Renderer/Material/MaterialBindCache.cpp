@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Material/MaterialBindCache.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
@@ -20,6 +21,7 @@ bool MaterialBindCache::Bind(
 {
 	if (m_device == nullptr || commandList == nullptr || frameContext.transientDescriptors == nullptr)
 	{
+		LOG_FATAL(LogCategory::Renderer, "MaterialBindCache::Bind called with invalid dependencies");
 		return false;
 	}
 
@@ -45,6 +47,7 @@ bool MaterialBindCache::Bind(
 		const uint32_t descriptorIndex = frameContext.transientDescriptors->Allocate();
 		if (descriptorIndex == UINT32_MAX)
 		{
+			LOG_ERROR(LogCategory::RHI, "Transient descriptor allocation failed during material bind");
 			return false;
 		}
 
@@ -55,12 +58,14 @@ bool MaterialBindCache::Bind(
 		{
 			if (textureIndex >= instance.boundTextures.size())
 			{
+				LOG_FATAL(LogCategory::Renderer, "Material instance missing bound texture");
 				return false;
 			}
 
 			Texture* texture = textureServices.GetTexture(instance.boundTextures[textureIndex]);
 			if (texture == nullptr || texture->resource == nullptr)
 			{
+				LOG_ERROR(LogCategory::Renderer, "Material bound texture is invalid");
 				return false;
 			}
 
@@ -71,12 +76,14 @@ bool MaterialBindCache::Bind(
 		{
 			if (constantIndex >= instance.constantBuffers.size() || frameContext.uploadBuffer == nullptr)
 			{
+				LOG_FATAL(LogCategory::Renderer, "Material instance missing constant buffer data");
 				return false;
 			}
 
 			const std::vector<std::byte>& constantData = instance.constantBuffers[constantIndex];
 			if (constantData.empty())
 			{
+				LOG_ERROR(LogCategory::Renderer, "Material constant buffer data is empty");
 				return false;
 			}
 
@@ -84,6 +91,7 @@ bool MaterialBindCache::Bind(
 			RHIUploadAllocation allocation = frameContext.uploadBuffer->Allocate(constantSize, 256);
 			if (allocation.cpuAddress == nullptr)
 			{
+				LOG_ERROR(LogCategory::RHI, "Upload buffer allocation failed during material bind");
 				return false;
 			}
 

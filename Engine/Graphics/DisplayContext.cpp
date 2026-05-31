@@ -1,5 +1,6 @@
 #include "Engine/Graphics/DisplayContext.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Common/RHITexture.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
@@ -22,7 +23,8 @@ Result<std::unique_ptr<DisplayContext>> DisplayContext::Create(
 {
 	if (device == nullptr || graphicsQueue == nullptr || hwnd == nullptr)
 	{
-		return MakeFail<std::unique_ptr<DisplayContext>>(
+		return FailInternal<std::unique_ptr<DisplayContext>>(
+			LogCategory::Core,
 			ErrorCode::InvalidArgument,
 			"DisplayContext::Create received null argument");
 	}
@@ -48,7 +50,8 @@ Result<std::unique_ptr<DisplayContext>> DisplayContext::Create(
 	const uint32_t bufferCount = display->m_swapChain->GetBufferCount();
 	if (bufferCount == 0)
 	{
-		return MakeFail<std::unique_ptr<DisplayContext>>(
+		return FailInternal<std::unique_ptr<DisplayContext>>(
+			LogCategory::RHI,
 			ErrorCode::ResourceCreationFailed,
 			"Swap chain returned zero back buffers");
 	}
@@ -92,7 +95,8 @@ Result<void> DisplayContext::Resize(uint32_t width, uint32_t height)
 {
 	if (width == 0 || height == 0)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "DisplayContext::Resize requires non-zero dimensions");
+		return FailRuntime(LogCategory::Core, ErrorCode::InvalidArgument,
+			"DisplayContext::Resize requires non-zero dimensions");
 	}
 
 	if (width == m_config.width && height == m_config.height)
@@ -213,7 +217,8 @@ Result<void> DisplayContext::CreateBackBufferViews()
 {
 	if (m_swapChain == nullptr || m_rtvAllocator == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "DisplayContext render target dependencies are null");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"DisplayContext render target dependencies are null");
 	}
 
 	const uint32_t bufferCount = m_swapChain->GetBufferCount();
@@ -224,7 +229,8 @@ Result<void> DisplayContext::CreateBackBufferViews()
 		RHITexture* backBuffer = m_swapChain->GetBackBuffer(bufferIndex);
 		if (backBuffer == nullptr)
 		{
-			return MakeFail(ErrorCode::ResourceCreationFailed, "Swap chain back buffer is null");
+			return FailRuntime(LogCategory::RHI, ErrorCode::ResourceCreationFailed,
+				"Swap chain back buffer is null");
 		}
 
 		m_backBufferRtvs[bufferIndex] = m_rtvAllocator->Allocate();

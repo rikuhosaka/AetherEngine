@@ -1,5 +1,6 @@
 #include "DX12CommandList.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Command/CommandImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
@@ -395,7 +396,7 @@ DX12CommandList::ResourceBarrier(RHIResource* resource, ERHIResourceState newSta
 {
 	if (!resource)
 	{
-		LOG_ERROR(LogCategory::RHI, "Resource is null");
+		LOG_FATAL(LogCategory::RHI, "ResourceBarrier called with null resource");
 		return;
 	}
 	resource->TransitionResource(newState, this);

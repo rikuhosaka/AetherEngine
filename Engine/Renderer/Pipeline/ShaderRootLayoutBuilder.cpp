@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Pipeline/ShaderRootLayoutBuilder.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 
 #include <bit>
@@ -304,7 +305,10 @@ namespace
 
 	[[nodiscard]] Result<ShaderRootLayoutData> MakeLayoutFail(std::string error)
 	{
-		return MakeFail<ShaderRootLayoutData>(ErrorCode::InvalidArgument, std::move(error));
+		return FailRuntime<ShaderRootLayoutData>(
+			LogCategory::Renderer,
+			ErrorCode::InvalidArgument,
+			std::move(error));
 	}
 
 	[[nodiscard]] ShaderStageFlags StageToFlags(ShaderStage stage)

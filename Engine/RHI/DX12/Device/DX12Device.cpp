@@ -1,5 +1,7 @@
 #include "DX12Device.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Command/DX12CommandList.h"
 #include "Engine/RHI/DX12/Command/DX12CommandQueue.h"
@@ -49,7 +51,8 @@ Result<void> DX12Device::Initialize()
 	auto result = CreateDXGIFactory2(flagsDXGI, IID_PPV_ARGS(&dxgiFactory));
 	if (FAILED(result))
 	{
-		return MakeFail(ErrorCode::DeviceLost, "Failed to create DXGIFactory");
+		return FailRuntime(LogCategory::RHI, ErrorCode::DeviceLost,
+			"Failed to create DXGIFactory");
 	}
 	std::vector<ComPtr<IDXGIAdapter>> adapters;
 	ComPtr<IDXGIAdapter> tmpAdapter = nullptr;
@@ -81,7 +84,8 @@ Result<void> DX12Device::Initialize()
 	}
 	if (!device)
 	{
-		return MakeFail(ErrorCode::DeviceLost, "Failed to create D3D12 device");
+		return FailRuntime(LogCategory::RHI, ErrorCode::DeviceLost,
+			"Failed to create D3D12 device");
 	}
 	m_impl = std::make_unique<DeviceImpl>();
 	m_impl->device = device;
@@ -162,7 +166,8 @@ Result<CbvSrvUavHandle> DX12Device::CreateShaderResourceView(
 {
 	if (texture == nullptr || allocator == nullptr)
 	{
-		return MakeFail<CbvSrvUavHandle>(ErrorCode::InvalidArgument, "Texture or allocator is null");
+		return FailInternal<CbvSrvUavHandle>(LogCategory::RHI, ErrorCode::InvalidArgument,
+			"Texture or allocator is null");
 	}
 
 	auto* dxTexture = static_cast<DX12Texture*>(texture);
@@ -170,7 +175,8 @@ Result<CbvSrvUavHandle> DX12Device::CreateShaderResourceView(
 	ResourceImpl* resource = dxTexture->GetResourceImpl();
 	if (resource == nullptr || resource->resource == nullptr)
 	{
-		return MakeFail<CbvSrvUavHandle>(ErrorCode::InvalidArgument, "Texture resource is invalid");
+		return FailRuntime<CbvSrvUavHandle>(LogCategory::RHI, ErrorCode::InvalidArgument,
+			"Texture resource is invalid");
 	}
 
 	const uint32_t index = dxAllocator->Allocate();

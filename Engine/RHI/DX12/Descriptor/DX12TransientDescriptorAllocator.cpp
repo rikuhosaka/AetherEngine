@@ -1,5 +1,6 @@
 #include "Engine/RHI/DX12/Descriptor/DX12TransientDescriptorAllocator.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
@@ -32,6 +33,7 @@ DX12TransientDescriptorAllocator::DX12TransientDescriptorAllocator(uint32_t numD
 {
 	if (m_totalCount == 0)
 	{
+		LOG_FATAL(LogCategory::RHI, "Transient descriptor allocator requires non-zero descriptor count");
 		return;
 	}
 
@@ -64,6 +66,7 @@ uint32_t DX12TransientDescriptorAllocator::Allocate()
 {
 	if (!m_impl || !m_impl->heap || m_totalCount == 0)
 	{
+		LOG_FATAL(LogCategory::RHI, "Transient descriptor allocator heap is not initialized");
 		return kInvalidDescriptorIndex;
 	}
 	if (m_currentOffset >= m_totalCount)

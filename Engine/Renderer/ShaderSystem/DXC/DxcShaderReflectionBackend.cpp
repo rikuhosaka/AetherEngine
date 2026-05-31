@@ -1,5 +1,7 @@
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderReflectionBackend.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderContext.h"
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderImpl.h"
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderReflectionConvert.h"
@@ -19,7 +21,8 @@ Result<ShaderReflectionData> DxcShaderReflectionBackend::Reflect(
 {
 	if (m_context == nullptr || !m_context->IsInitialized())
 	{
-		return MakeFail<ShaderReflectionData>(
+		return FailInternal<ShaderReflectionData>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderReflectionFailed,
 			"DXC shader context is not initialized.");
 	}
@@ -27,14 +30,16 @@ Result<ShaderReflectionData> DxcShaderReflectionBackend::Reflect(
 	DxcShaderImpl& impl = m_context->GetImpl();
 	if (impl.utils == nullptr)
 	{
-		return MakeFail<ShaderReflectionData>(
+		return FailInternal<ShaderReflectionData>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderReflectionFailed,
 			"DXC utils is not initialized.");
 	}
 
 	if (bytecode.Data.empty())
 	{
-		return MakeFail<ShaderReflectionData>(
+		return FailRuntime<ShaderReflectionData>(
+			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
 			"Shader bytecode is empty.");
 	}
@@ -50,7 +55,8 @@ Result<ShaderReflectionData> DxcShaderReflectionBackend::Reflect(
 		IID_PPV_ARGS(d3dReflection.GetAddressOf()));
 	if (FAILED(reflectionHr) || d3dReflection == nullptr)
 	{
-		return MakeFail<ShaderReflectionData>(
+		return FailRuntime<ShaderReflectionData>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderReflectionFailed,
 			"IDxcUtils::CreateReflection failed.");
 	}

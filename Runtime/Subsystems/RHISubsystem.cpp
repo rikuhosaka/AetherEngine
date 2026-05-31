@@ -2,6 +2,7 @@
 
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
@@ -52,7 +53,8 @@ Result<void> RHISubsystem::Initialize(SubsystemContext& ctx)
 {
 	if (ctx.GetService<WindowServices>() == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "RHISubsystem requires WindowServices");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"RHISubsystem requires WindowServices");
 	}
 
 	m_impl->device = std::make_unique<DX12Device>();

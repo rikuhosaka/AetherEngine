@@ -106,7 +106,8 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 {
 	if (m_context == nullptr || !m_context->IsInitialized())
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailInternal<ShaderBytecode>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderCompileFailed,
 			"DXC shader context is not initialized.");
 	}
@@ -114,14 +115,16 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 	DxcShaderImpl& impl = m_context->GetImpl();
 	if (impl.utils == nullptr || impl.compiler == nullptr || impl.includeHandler == nullptr)
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailInternal<ShaderBytecode>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderCompileFailed,
 			"DXC compiler backend is not initialized.");
 	}
 
 	if (desc.FilePath.empty())
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailRuntime<ShaderBytecode>(
+			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
 			"Shader source path is empty.");
 	}
@@ -130,7 +133,8 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 	const HRESULT loadHr = impl.utils->LoadFile(desc.FilePath.c_str(), nullptr, sourceBlob.GetAddressOf());
 	if (FAILED(loadHr) || sourceBlob == nullptr)
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailRuntime<ShaderBytecode>(
+			LogCategory::Asset,
 			ErrorCode::FileNotFound,
 			"Failed to load shader source: " + desc.FilePath.string());
 	}
@@ -184,7 +188,8 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 
 	if (FAILED(compileHr) || compileResult == nullptr)
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailRuntime<ShaderBytecode>(
+			LogCategory::Asset,
 			ErrorCode::ShaderCompileFailed,
 			"DXC Compile call failed.");
 	}
@@ -200,14 +205,16 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 	HRESULT status = E_FAIL;
 	if (FAILED(compileResult->GetStatus(&status)))
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailRuntime<ShaderBytecode>(
+			LogCategory::Asset,
 			ErrorCode::ShaderCompileFailed,
 			diagnostics.empty() ? "DXC compilation failed." : diagnostics);
 	}
 
 	if (FAILED(status))
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailRuntime<ShaderBytecode>(
+			LogCategory::Asset,
 			ErrorCode::ShaderCompileFailed,
 			diagnostics.empty() ? "DXC compilation failed." : diagnostics);
 	}
@@ -216,7 +223,8 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 	if (FAILED(compileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shaderBlob.GetAddressOf()), nullptr))
 		|| shaderBlob == nullptr)
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailRuntime<ShaderBytecode>(
+			LogCategory::Asset,
 			ErrorCode::ShaderCompileFailed,
 			"DXC did not produce shader bytecode.");
 	}
@@ -227,7 +235,8 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 	bytecode.Data.assign(bytecodeBegin, bytecodeBegin + bytecodeSize);
 	if (bytecode.Data.empty())
 	{
-		return MakeFail<ShaderBytecode>(
+		return FailRuntime<ShaderBytecode>(
+			LogCategory::Asset,
 			ErrorCode::ShaderCompileFailed,
 			"DXC produced empty shader bytecode.");
 	}

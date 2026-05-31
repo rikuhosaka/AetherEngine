@@ -2,6 +2,7 @@
 
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Platform/InputManager.h"
 
@@ -25,7 +26,8 @@ Result<void> InputSubsystem::Initialize(SubsystemContext& ctx)
 	auto* windowServices = ctx.GetService<WindowServices>();
 	if (windowServices == nullptr || windowServices->hwnd == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "InputSubsystem requires WindowServices");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"InputSubsystem requires WindowServices");
 	}
 
 	InputManager& input = InputManager::Get();

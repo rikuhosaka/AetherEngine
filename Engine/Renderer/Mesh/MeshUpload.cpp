@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Mesh/MeshUpload.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Common/RHIResource.h"
 #include "Engine/RHI/Interface/RHIBuffer.h"
@@ -27,7 +28,8 @@ Result<std::unique_ptr<Mesh>> MeshUpload::CreateMesh(
 {
 	if (m_device == nullptr || frameContext.uploadBuffer == nullptr || commandList == nullptr)
 	{
-		return MakeFail<std::unique_ptr<Mesh>>(
+		return FailInternal<std::unique_ptr<Mesh>>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"Mesh upload requires a valid device, upload buffer, and command list");
 	}
@@ -36,7 +38,8 @@ Result<std::unique_ptr<Mesh>> MeshUpload::CreateMesh(
 	const size_t indexBytes = desc.indices.size();
 	if (vertexBytes == 0 || indexBytes == 0 || desc.vertexStride == 0)
 	{
-		return MakeFail<std::unique_ptr<Mesh>>(
+		return FailRuntime<std::unique_ptr<Mesh>>(
+			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
 			"Mesh upload requires non-empty vertex and index data");
 	}
@@ -45,7 +48,8 @@ Result<std::unique_ptr<Mesh>> MeshUpload::CreateMesh(
 	RHIUploadAllocation indexAllocation = frameContext.uploadBuffer->Allocate(indexBytes, 16);
 	if (vertexAllocation.cpuAddress == nullptr || indexAllocation.cpuAddress == nullptr)
 	{
-		return MakeFail<std::unique_ptr<Mesh>>(
+		return FailRuntime<std::unique_ptr<Mesh>>(
+			LogCategory::Renderer,
 			ErrorCode::OutOfMemory,
 			"Upload buffer allocation failed for mesh data");
 	}

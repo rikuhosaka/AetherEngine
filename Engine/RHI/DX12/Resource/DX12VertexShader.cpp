@@ -1,5 +1,6 @@
 #include "DX12VertexShader.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Resource/ShaderImpl.h"
 

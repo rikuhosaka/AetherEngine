@@ -1,5 +1,7 @@
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/PipelineStateHash.h"
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 #include "Engine/RHI/Common/RHIPipeline.h"
@@ -51,7 +53,8 @@ Result<PipelineStateHandle> PipelineStateCache::GetOrCreatePipelineState(
 
 	if (m_device == nullptr || m_rootSignatureCache == nullptr)
 	{
-		return MakeFail<PipelineStateHandle>(
+		return FailInternal<PipelineStateHandle>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"Pipeline state cache is not initialized.");
 	}
@@ -69,7 +72,8 @@ Result<PipelineStateHandle> PipelineStateCache::GetOrCreatePipelineState(
 		m_rootSignatureCache->GetRootSignature(rootSignatureResult.value);
 	if (rootSignature == nullptr)
 	{
-		return MakeFail<PipelineStateHandle>(
+		return FailInternal<PipelineStateHandle>(
+			LogCategory::Renderer,
 			ErrorCode::PipelineCreationFailed,
 			"Root signature handle is invalid.");
 	}

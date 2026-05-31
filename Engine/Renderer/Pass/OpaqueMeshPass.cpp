@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Pass/OpaqueMeshPass.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
@@ -22,6 +23,7 @@ void OpaqueMeshPass::Execute(
 {
 	if (commandList == nullptr)
 	{
+		LOG_FATAL(LogCategory::Renderer, "OpaqueMeshPass::Execute called with null command list");
 		return;
 	}
 
@@ -57,6 +59,7 @@ void OpaqueMeshPass::Execute(
 				*instance,
 				materialServices.GetTextureServices()))
 		{
+			LOG_ERROR(LogCategory::Renderer, "Failed to bind material for render item");
 			continue;
 		}
 

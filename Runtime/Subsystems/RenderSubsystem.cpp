@@ -6,6 +6,7 @@
 #include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Graphics/DisplayContext.h"
 #include "Engine/Renderer/Core/Renderer.h"
@@ -53,12 +54,14 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	auto* rhiServices = ctx.GetService<RHIServices>();
 	if (rhiServices == nullptr || rhiServices->device == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "RenderSubsystem requires RHIServices");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"RenderSubsystem requires RHIServices");
 	}
 
 	if (m_config.shaderRoot.empty())
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "RenderSubsystem requires a valid shader root path");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"RenderSubsystem requires a valid shader root path");
 	}
 
 	auto descriptorAllocatorResult =
@@ -97,7 +100,8 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	if (rhiServices == nullptr || displayServices == nullptr || displayServices->display == nullptr
 		|| m_impl->renderer == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "RenderSubsystem::RenderFrame missing required services");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"RenderSubsystem::RenderFrame missing required services");
 	}
 
 	if (windowServices != nullptr
@@ -134,7 +138,8 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	RHICommandList* commandList = frameContext.graphicsCommandList;
 	if (commandList == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "RenderSubsystem::RenderFrame missing command list");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"RenderSubsystem::RenderFrame missing command list");
 	}
 
 	m_impl->renderer->BuildScene(commandList);

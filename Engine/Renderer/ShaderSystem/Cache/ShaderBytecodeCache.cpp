@@ -1,5 +1,7 @@
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderBytecodeCache.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderCacheHash.h"
 #include "Engine/Renderer/ShaderSystem/Compiler/IShaderCompilerBackend.h"
 
@@ -34,7 +36,8 @@ Result<ShaderBytecodeHandle> ShaderBytecodeCache::GetOrCompile(const ShaderCompi
 
 	if (m_backend == nullptr)
 	{
-		return MakeFail<ShaderBytecodeHandle>(
+		return FailInternal<ShaderBytecodeHandle>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"Shader compiler backend is not available.");
 	}
@@ -49,7 +52,8 @@ Result<ShaderBytecodeHandle> ShaderBytecodeCache::GetOrCompile(const ShaderCompi
 				compileResult.error.message);
 		}
 
-		return MakeFail<ShaderBytecodeHandle>(
+		return FailRuntime<ShaderBytecodeHandle>(
+			LogCategory::Asset,
 			ErrorCode::ShaderCompileFailed,
 			"Shader compile produced empty bytecode.");
 	}

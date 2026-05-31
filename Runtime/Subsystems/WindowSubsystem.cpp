@@ -1,6 +1,7 @@
 #include "Runtime/Subsystems/WindowSubsystem.h"
 
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Platform/GameWindow.h"
 
@@ -43,6 +44,7 @@ bool WindowSubsystem::ProcessMessages()
 {
 	if (m_window == nullptr)
 	{
+		LOG_FATAL(LogCategory::Core, "WindowSubsystem::ProcessMessages called without a window");
 		return false;
 	}
 

@@ -1,10 +1,14 @@
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
+
 Result<std::unique_ptr<MeshSystemServices>> MeshSystemServices::Create(RHIDevice* device)
 {
 	if (device == nullptr)
 	{
-		return MakeFail<std::unique_ptr<MeshSystemServices>>(
+		return FailInternal<std::unique_ptr<MeshSystemServices>>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"MeshSystemServices requires a valid RHIDevice");
 	}

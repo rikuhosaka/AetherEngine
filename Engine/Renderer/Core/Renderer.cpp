@@ -1,5 +1,6 @@
 #include "Renderer.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Core/RendererPassScheduler.h"
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
@@ -23,7 +24,8 @@ Result<void> Renderer::Initialize(
 {
 	if (device == nullptr || descriptorAllocator == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "Renderer requires a valid device and descriptor allocator");
+		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
+			"Renderer requires a valid device and descriptor allocator");
 	}
 
 	auto shaderServicesResult = ShaderSystemServices::Create();
@@ -88,10 +90,16 @@ void Renderer::ExtractScene(std::span<const ExtractedObject> objects)
 
 void Renderer::BuildScene(RHICommandList* commandList)
 {
-	assert(m_frameContext != nullptr);
-	assert(m_resourceServices != nullptr);
-	assert(commandList != nullptr);
-	assert(!m_shaderRoot.empty());
+	if (m_frameContext == nullptr || m_resourceServices == nullptr || commandList == nullptr)
+	{
+		LOG_FATAL(LogCategory::Renderer, "Renderer::BuildScene called with invalid state");
+		return;
+	}
+	if (m_shaderRoot.empty())
+	{
+		LOG_FATAL(LogCategory::Renderer, "Renderer::BuildScene called without shader root");
+		return;
+	}
 
 	m_scene.Build(*m_frameContext, commandList, *m_resourceServices);
 	m_sceneBuilt = true;
@@ -103,10 +111,11 @@ void Renderer::EndFrame()
 
 void Renderer::Render(RHICommandList* commandList)
 {
-	assert(m_frameContext != nullptr);
-	assert(m_resourceServices != nullptr);
-	assert(commandList != nullptr);
-	assert(m_sceneBuilt);
+	if (m_frameContext == nullptr || m_resourceServices == nullptr || commandList == nullptr || !m_sceneBuilt)
+	{
+		LOG_FATAL(LogCategory::Renderer, "Renderer::Render called with invalid state");
+		return;
+	}
 
 	RendererPassScheduler::ExecuteAll(
 		*m_frameContext,

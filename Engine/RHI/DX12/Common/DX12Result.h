@@ -2,6 +2,7 @@
 
 
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 
 
@@ -19,6 +20,8 @@ template<typename T>
 Result<std::unique_ptr<T>> FailResourceCreation(std::string message)
 
 {
+
+    LOG_ERROR(LogCategory::RHI, message);
 
     return MakeFail<std::unique_ptr<T>>(
 

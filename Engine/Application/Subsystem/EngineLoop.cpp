@@ -4,7 +4,8 @@
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
 #include "Engine/Application/Subsystem/IEngineLoopRender.h"
-#include "Engine/Core/Log/Log.h"
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHIFence.h"
 
 EngineLoop::EngineLoop(EngineLoopConfig config, SubsystemRegistry registry)
@@ -55,7 +56,8 @@ Result<void> EngineLoop::ResolveHosts()
 
 	if (m_platform == nullptr || m_render == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "EngineLoop requires platform and render subsystems");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"EngineLoop requires platform and render subsystems");
 	}
 
 	return MakeOk();
@@ -65,6 +67,7 @@ int EngineLoop::Run()
 {
 	if (!m_running)
 	{
+		LOG_FATAL(LogCategory::Core, "EngineLoop::Run called before successful initialization");
 		return -1;
 	}
 
@@ -126,7 +129,8 @@ Result<void> EngineLoop::ApplyPendingResize()
 	auto* rhiServices = m_context.GetService<RHIServices>();
 	if (windowServices == nullptr || rhiServices == nullptr || rhiServices->frameFence == nullptr)
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "EngineLoop::ApplyPendingResize missing required services");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"EngineLoop::ApplyPendingResize missing required services");
 	}
 
 	if (m_pendingWidth == 0 || m_pendingHeight == 0)
@@ -147,6 +151,7 @@ Result<void> EngineLoop::ApplyPendingResize()
 	{
 		if (auto resizeResult = subsystem->OnResize(m_context, m_pendingWidth, m_pendingHeight); !resizeResult)
 		{
+			LogResult(resizeResult, LogCategory::Core);
 			return resizeResult;
 		}
 	}

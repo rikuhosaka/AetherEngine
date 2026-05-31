@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Texture/TextureUpload.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Common/RHIResource.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
@@ -36,14 +37,16 @@ Result<std::unique_ptr<Texture>> TextureUpload::CreateTexture(
 {
 	if (m_device == nullptr || frameContext.uploadBuffer == nullptr || commandList == nullptr)
 	{
-		return MakeFail<std::unique_ptr<Texture>>(
+		return FailInternal<std::unique_ptr<Texture>>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"Texture upload requires a valid device, upload buffer, and command list");
 	}
 
 	if (desc.mips.empty() || desc.width == 0 || desc.height == 0)
 	{
-		return MakeFail<std::unique_ptr<Texture>>(
+		return FailRuntime<std::unique_ptr<Texture>>(
+			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
 			"Texture upload requires valid dimensions and mip data");
 	}
@@ -57,7 +60,8 @@ Result<std::unique_ptr<Texture>> TextureUpload::CreateTexture(
 	RHIUploadAllocation allocation = frameContext.uploadBuffer->Allocate(uploadSize, 256);
 	if (allocation.cpuAddress == nullptr)
 	{
-		return MakeFail<std::unique_ptr<Texture>>(
+		return FailRuntime<std::unique_ptr<Texture>>(
+			LogCategory::Renderer,
 			ErrorCode::OutOfMemory,
 			"Upload buffer allocation failed for texture data");
 	}

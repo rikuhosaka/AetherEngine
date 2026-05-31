@@ -6,6 +6,8 @@
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/)
 {
+	Logger::Instance().Initialize("Engine.log");
+
 	EngineLoopConfig config{};
 	config.hInstance = hInstance;
 	config.shaderRoot = ResolveCompiledShaderRoot();

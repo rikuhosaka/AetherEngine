@@ -1,6 +1,8 @@
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
 
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
 
 #include <algorithm>
 #include <queue>
@@ -62,12 +64,14 @@ Result<void> SubsystemRegistry::BuildOrders()
 		const std::string_view name = subsystem->GetName();
 		if (name.empty())
 		{
-			return MakeFail(ErrorCode::InvalidArgument, "Subsystem name must not be empty");
+			return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+				"Subsystem name must not be empty");
 		}
 
 		if (subsystemByName.contains(name))
 		{
-			return MakeFail(
+			return FailInternal(
+				LogCategory::Core,
 				ErrorCode::InvalidArgument,
 				std::string("Duplicate subsystem name: ") + std::string(name));
 		}
@@ -92,7 +96,8 @@ Result<void> SubsystemRegistry::BuildOrders()
 			const std::string_view dependencyView = dependencyName;
 			if (!subsystemByName.contains(dependencyView))
 			{
-				return MakeFail(
+				return FailInternal(
+					LogCategory::Core,
 					ErrorCode::InvalidArgument,
 					std::string("Subsystem '")
 						+ std::string(name)
@@ -137,7 +142,8 @@ Result<void> SubsystemRegistry::BuildOrders()
 
 	if (m_initOrder.size() != subsystemByName.size())
 	{
-		return MakeFail(ErrorCode::InvalidArgument, "Circular subsystem dependency detected");
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"Circular subsystem dependency detected");
 	}
 
 	for (ISubsystem* subsystem : m_initOrder)
@@ -165,6 +171,7 @@ Result<void> SubsystemRegistry::InitializeAll(SubsystemContext& ctx)
 	{
 		if (auto initResult = subsystem->Initialize(ctx); !initResult)
 		{
+			LogResult(initResult, LogCategory::Core);
 			return initResult;
 		}
 	}
@@ -183,6 +190,7 @@ Result<void> SubsystemRegistry::PostInitializeAll(SubsystemContext& ctx)
 	{
 		if (auto postInitResult = subsystem->PostInitialize(ctx); !postInitResult)
 		{
+			LogResult(postInitResult, LogCategory::Core);
 			return postInitResult;
 		}
 	}
@@ -196,6 +204,7 @@ void SubsystemRegistry::ShutdownAll(SubsystemContext& ctx)
 	{
 		if (auto buildResult = BuildOrders(); !buildResult)
 		{
+			LogFatalResult(buildResult, LogCategory::Core);
 			return;
 		}
 	}

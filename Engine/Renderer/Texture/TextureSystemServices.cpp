@@ -1,12 +1,16 @@
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
+
 Result<std::unique_ptr<TextureSystemServices>> TextureSystemServices::Create(
 	RHIDevice* device,
 	RHIDescriptorAllocator* descriptorAllocator)
 {
 	if (device == nullptr)
 	{
-		return MakeFail<std::unique_ptr<TextureSystemServices>>(
+		return FailInternal<std::unique_ptr<TextureSystemServices>>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"TextureSystemServices requires a valid RHIDevice");
 	}

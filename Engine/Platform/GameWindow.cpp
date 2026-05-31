@@ -1,5 +1,8 @@
 #include "Engine/Platform/GameWindow.h"
 
+#include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Core/Log/Result.h"
+
 #include <string>
 
 namespace
@@ -11,14 +14,16 @@ Result<std::unique_ptr<GameWindow>> GameWindow::Create(const CreateDesc& desc)
 {
 	if (desc.hInstance == nullptr)
 	{
-		return MakeFail<std::unique_ptr<GameWindow>>(
+		return FailInternal<std::unique_ptr<GameWindow>>(
+			LogCategory::Core,
 			ErrorCode::InvalidArgument,
 			"GameWindow::Create requires a valid HINSTANCE");
 	}
 
 	if (desc.clientWidth == 0 || desc.clientHeight == 0)
 	{
-		return MakeFail<std::unique_ptr<GameWindow>>(
+		return FailRuntime<std::unique_ptr<GameWindow>>(
+			LogCategory::Core,
 			ErrorCode::InvalidArgument,
 			"GameWindow::Create requires non-zero client dimensions");
 	}
@@ -64,7 +69,8 @@ Result<void> GameWindow::RegisterWindowClass(const CreateDesc& desc)
 
 	if (RegisterClassExW(&m_windowClass) == 0)
 	{
-		return MakeFail(ErrorCode::ResourceCreationFailed, "Failed to register window class");
+		return FailRuntime(LogCategory::Core, ErrorCode::ResourceCreationFailed,
+			"Failed to register window class");
 	}
 
 	m_classRegistered = true;
@@ -100,7 +106,8 @@ Result<void> GameWindow::CreateNativeWindow(const CreateDesc& desc)
 
 	if (m_hwnd == nullptr)
 	{
-		return MakeFail(ErrorCode::ResourceCreationFailed, "Failed to create window");
+		return FailRuntime(LogCategory::Core, ErrorCode::ResourceCreationFailed,
+			"Failed to create window");
 	}
 
 	SetWindowLongPtrW(m_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));

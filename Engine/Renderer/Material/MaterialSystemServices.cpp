@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
@@ -31,13 +32,15 @@ Result<std::unique_ptr<MaterialSystemServices>> MaterialSystemServices::Create(
 {
 	if (device == nullptr || shaderServices == nullptr || !shaderServices->IsInitialized())
 	{
-		return MakeFail<std::unique_ptr<MaterialSystemServices>>(
+		return FailInternal<std::unique_ptr<MaterialSystemServices>>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"ShaderSystemServices is not initialized");
 	}
 	if (rootSignatureCache == nullptr || pipelineStateCache == nullptr || textureServices == nullptr)
 	{
-		return MakeFail<std::unique_ptr<MaterialSystemServices>>(
+		return FailInternal<std::unique_ptr<MaterialSystemServices>>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"Renderer caches are not initialized");
 	}
@@ -69,7 +72,8 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 {
 	if (m_shaderServices == nullptr || m_device == nullptr)
 	{
-		return MakeFail<MaterialHandle>(
+		return FailInternal<MaterialHandle>(
+			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"MaterialSystemServices is not initialized");
 	}
@@ -107,7 +111,8 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 	const ShaderBytecode* psBytecode = bytecodeCache.GetBytecode(psBytecodeResult.value);
 	if (vsBytecode == nullptr || psBytecode == nullptr)
 	{
-		return MakeFail<MaterialHandle>(
+		return FailRuntime<MaterialHandle>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderCompileFailed,
 			"Failed to resolve compiled material shader bytecode.");
 	}
@@ -134,7 +139,8 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 	const ShaderReflectionData* psReflection = reflectionCache.GetData(psReflectionResult.value);
 	if (vsReflection == nullptr || psReflection == nullptr)
 	{
-		return MakeFail<MaterialHandle>(
+		return FailRuntime<MaterialHandle>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderReflectionFailed,
 			"Failed to resolve reflected material shader data.");
 	}

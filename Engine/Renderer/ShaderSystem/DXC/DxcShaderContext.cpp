@@ -1,5 +1,6 @@
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderContext.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/ShaderSystem/DXC/DxcShaderImpl.h"
 
@@ -15,7 +16,8 @@ Result<std::unique_ptr<DxcShaderContext>> DxcShaderContext::Create()
 	std::string initError{};
 	if (!context->m_impl->Initialize(initError))
 	{
-		return MakeFail<std::unique_ptr<DxcShaderContext>>(
+		return FailRuntime<std::unique_ptr<DxcShaderContext>>(
+			LogCategory::Renderer,
 			ErrorCode::ShaderCompileFailed,
 			initError.empty() ? "Failed to initialize DXC." : initError);
 	}

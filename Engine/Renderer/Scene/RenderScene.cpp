@@ -1,5 +1,6 @@
 #include "Engine/Renderer/Scene/RenderScene.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -327,6 +328,8 @@ void RenderScene::Build(
 			m_shaderRoot,
 			&placeholderError))
 	{
+		LOG_ERROR(LogCategory::Renderer,
+			placeholderError.empty() ? "Failed to initialize render placeholders" : placeholderError);
 		return;
 	}
 

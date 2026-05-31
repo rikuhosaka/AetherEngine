@@ -1,5 +1,6 @@
 #include "DX12SwapChain.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
@@ -35,7 +36,8 @@ Result<std::unique_ptr<DX12SwapChain>> DX12SwapChain::Create(
 {
 	if (bufferCount == 0)
 	{
-		return MakeFail<std::unique_ptr<DX12SwapChain>>(
+		return FailInternal<std::unique_ptr<DX12SwapChain>>(
+			LogCategory::RHI,
 			ErrorCode::InvalidArgument,
 			"Swap chain buffer count must be non-zero");
 	}
@@ -116,7 +118,8 @@ Result<void> DX12SwapChain::CreateBackBuffers()
 		if (FAILED(result))
 		{
 			m_impl->backBuffers.clear();
-			return MakeFail(ErrorCode::ResourceCreationFailed, "Failed to get swap chain back buffer");
+			return FailRuntime(LogCategory::RHI, ErrorCode::ResourceCreationFailed,
+				"Failed to get swap chain back buffer");
 		}
 
 		const D3D12_RESOURCE_DESC resourceDesc = backBuffer->GetDesc();
@@ -196,7 +199,8 @@ Result<void> DX12SwapChain::Resize(uint32_t width, uint32_t height)
 		0);
 	if (FAILED(result))
 	{
-		return MakeFail(ErrorCode::ResourceCreationFailed, "Failed to resize swap chain buffers");
+		return FailRuntime(LogCategory::RHI, ErrorCode::ResourceCreationFailed,
+			"Failed to resize swap chain buffers");
 	}
 
 	return CreateBackBuffers();

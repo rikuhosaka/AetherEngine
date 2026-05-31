@@ -1,5 +1,6 @@
 #include "Engine/RHI/DX12/Descriptor/DX12DescriptorAllocator.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
@@ -25,6 +26,7 @@ DX12DescriptorAllocator::DX12DescriptorAllocator(uint32_t numDescriptors, const 
 {
 	if (m_totalCount == 0)
 	{
+		LOG_FATAL(LogCategory::RHI, "Descriptor allocator requires non-zero descriptor count");
 		return;
 	}
 
@@ -59,6 +61,7 @@ uint32_t DX12DescriptorAllocator::Allocate()
 {
 	if (!m_impl || !m_impl->heap || m_totalCount == 0)
 	{
+		LOG_FATAL(LogCategory::RHI, "Descriptor allocator heap is not initialized");
 		return UINT32_MAX;
 	}
 	if (m_frameSize == 0)

@@ -5,6 +5,7 @@
 
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
 
@@ -34,6 +35,7 @@ Result<void> GameSubsystem::Initialize(SubsystemContext& ctx)
 
 	if (auto initResult = m_module->OnInit(*m_host); !initResult)
 	{
+		LogResult(initResult, LogCategory::Core);
 		return initResult;
 	}
 
