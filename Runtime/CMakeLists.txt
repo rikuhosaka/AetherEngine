@@ -41,3 +41,13 @@ if (MSVC)
 endif()
 
 target_precompile_headers(Runtime PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
+
+if (EXISTS "${CMAKE_SOURCE_DIR}/dx12_debug.json")
+    add_custom_command(
+        TARGET Runtime
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/dx12_debug.json"
+            "$<TARGET_FILE_DIR:Runtime>/dx12_debug.json"
+        COMMENT "Copy dx12_debug.json to Runtime output directory")
+endif()

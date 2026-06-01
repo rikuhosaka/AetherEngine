@@ -65,6 +65,9 @@ public:
 	// Barrier
 	void ResourceBarrier(RHIResource* resource, ERHIResourceState stateAfter) override;
 
+	void BeginDebugEvent(const char* name) override;
+	void EndDebugEvent() override;
+
 	[[nodiscard]] bool IsValid() const;
 
 private:

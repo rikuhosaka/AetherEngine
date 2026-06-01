@@ -72,6 +72,10 @@ public:
     // Barrier
 	virtual void ResourceBarrier(RHIResource* resource, ERHIResourceState stateAfter) = 0;
 
+	// GPU debug markers (PIX / RenderDoc). No-op when disabled.
+	virtual void BeginDebugEvent(const char* name) = 0;
+	virtual void EndDebugEvent() = 0;
+
 protected:
 	RHICommandList() = default;
 };

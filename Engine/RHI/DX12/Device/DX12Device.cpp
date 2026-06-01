@@ -24,6 +24,7 @@
 #include "Engine/RHI/DX12/Debug/DX12Debug.h"
 #include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
 #include "Engine/RHI/DX12/Debug/DX12Dred.h"
+#include "Engine/RHI/DX12/Debug/DX12DebugSettings.h"
 
 DeviceImpl* DX12Device::GetImpl() const
 {
@@ -46,7 +47,8 @@ DX12Device::~DX12Device()
 
 Result<void> DX12Device::Initialize()
 {
-	DX12Debug::Initialize();
+	DX12DebugSettingsData::LoadFromFile("dx12_debug.json");
+	DX12Debug::Initialize(DX12DebugSettingsData::Get());
 
 	const UINT flagsDXGI = DX12Debug::GetDxgiFactoryFlags();
 	D3D_FEATURE_LEVEL levels[] = {

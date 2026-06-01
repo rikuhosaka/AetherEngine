@@ -160,6 +160,7 @@ void DisplayContext::BeginMainRenderPass(FrameContext& frameContext, RHICommandL
 	assert(frameContext.backBufferRtv.cpu.ptr != 0);
 	assert(frameContext.depthDsv.cpu.ptr != 0);
 
+	commandList->BeginDebugEvent("MainRenderPass");
 	frameContext.backBuffer->TransitionResource(ERHIResourceState::RenderTarget, commandList);
 	frameContext.depthTexture->TransitionResource(ERHIResourceState::DepthWrite, commandList);
 
@@ -185,6 +186,7 @@ void DisplayContext::EndMainRenderPass(FrameContext& frameContext, RHICommandLis
 	assert(frameContext.backBuffer != nullptr);
 
 	frameContext.backBuffer->TransitionResource(ERHIResourceState::Present, commandList);
+	commandList->EndDebugEvent();
 }
 
 void DisplayContext::Present(uint32_t syncInterval, uint32_t flags)

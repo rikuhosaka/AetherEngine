@@ -6,6 +6,7 @@
 #include "Engine/Renderer/Pipeline/PipelineStateCache.h"
 #include "Engine/Renderer/Pipeline/RootSignatureCache.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
+#include "Engine/RHI/Common/RHIScopedDebugEvent.h"
 
 namespace
 {
@@ -27,6 +28,7 @@ void OpaqueMeshPass::Execute(
 		return;
 	}
 
+	const RHIScopedDebugEvent passEvent(commandList, "OpaqueMeshPass");
 	for (const RenderItem& item : items)
 	{
 		Mesh* mesh = meshServices.GetMesh(item.mesh);

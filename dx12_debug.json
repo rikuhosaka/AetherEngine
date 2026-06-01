@@ -1,0 +1,8 @@
+{
+  "enableDebugLayer": true,
+  "gpuBasedValidation": false,
+  "enableDred": true,
+  "enableGpuMarkers": true,
+  "enableFrameBarrierReport": false,
+  "logInfoQueueVerbose": false
+}

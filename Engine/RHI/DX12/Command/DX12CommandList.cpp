@@ -20,6 +20,7 @@
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 #include "Engine/RHI/Interface/RHIBuffer.h"
 #include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuMarkers.h"
 
 #include <atomic>
 #include <format>
@@ -411,4 +412,14 @@ DX12CommandList::ResourceBarrier(RHIResource* resource, ERHIResourceState newSta
 		return;
 	}
 	resource->TransitionResource(newState, this);
+}
+
+void DX12CommandList::BeginDebugEvent(const char* name)
+{
+	DX12GpuMarkers::BeginEvent(m_impl != nullptr ? m_impl->commandList.Get() : nullptr, name);
+}
+
+void DX12CommandList::EndDebugEvent()
+{
+	DX12GpuMarkers::EndEvent(m_impl != nullptr ? m_impl->commandList.Get() : nullptr);
 }

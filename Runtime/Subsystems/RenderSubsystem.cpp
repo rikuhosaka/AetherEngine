@@ -17,6 +17,8 @@
 #include "Engine/RHI/Interface/RHIDescriptorAllocator.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
 #include "Engine/RHI/Interface/RHIFence.h"
+#include "Engine/RHI/Common/RHIScopedDebugEvent.h"
+#include "Engine/RHI/DX12/Debug/DX12BarrierValidator.h"
 
 namespace
 {
@@ -122,6 +124,8 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	ctx.SetFrameSlot(slot);
 	m_impl->renderer->SetFrameContext(&frameContext);
 
+	DX12BarrierValidator::BeginFrame();
+
 	displayServices->display->BeginFrame(frameContext);
 	m_impl->renderer->BeginFrame(slot);
 
@@ -142,6 +146,7 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 			"RenderSubsystem::RenderFrame missing command list");
 	}
 
+	const RHIScopedDebugEvent frameEvent(commandList, "Frame");
 	m_impl->renderer->BuildScene(commandList);
 	displayServices->display->BeginMainRenderPass(frameContext, commandList);
 	m_impl->renderer->Render(commandList);
@@ -152,6 +157,7 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	frameContext.fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
 
 	displayServices->display->Present(m_config.vsync ? 1u : 0u, 0u);
+	DX12BarrierValidator::EndFrame();
 
 	rhiServices->currentFrameSlot = (slot + 1) % RHIServices::kFrameCount;
 	ctx.SetFrameSlot(rhiServices->currentFrameSlot);
