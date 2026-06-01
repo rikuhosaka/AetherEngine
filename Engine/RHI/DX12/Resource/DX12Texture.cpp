@@ -1,6 +1,8 @@
 #include "DX12Texture.h"
 
 #include "Engine/RHI/DX12/Common/DX12Format.h"
+#include "Engine/RHI/DX12/Common/DX12Flag.h"
+#include "Engine/RHI/DX12/Common/DX12Resource.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
@@ -37,19 +39,51 @@ DX12Texture::DX12Texture(const RHITextureDesc& desc, const DX12Device* dxDevice)
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	ComPtr<ID3D12Resource> texture;
 	const DXGI_FORMAT dxgiFormat = ToDxgiFormat(desc.Format);
+
+    D3D12_RESOURCE_FLAGS flag = ToResourceFlags(desc.Usage);
+
+	D3D12_RESOURCE_STATES initialState = ToResourceState(ERHIResourceState::CopyDest);
+
+    D3D12_CLEAR_VALUE clearValue{};
+    D3D12_CLEAR_VALUE* pClearValue = nullptr;
+    if (desc.Usage == ERHITextureUsage::RenderTarget)
+    {
+		initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		m_impl->SetInitialState(ERHIResourceState::RenderTarget);
+        clearValue.Format = dxgiFormat;
+        clearValue.Color[0] = 0.0f;
+        clearValue.Color[1] = 0.0f;
+        clearValue.Color[2] = 0.0f;
+        clearValue.Color[3] = 0.0f;
+    }
+	if (desc.Usage == ERHITextureUsage::DepthStencil)
+    {
+		initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+		m_impl->SetInitialState(ERHIResourceState::DepthWrite);
+        clearValue.Format = dxgiFormat;
+        clearValue.DepthStencil.Depth = 1.0f;
+        clearValue.DepthStencil.Stencil = 0;
+        pClearValue = &clearValue;
+    }
 	const auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 	const auto resourceDesc = CD3DX12_RESOURCE_DESC::Tex2D(
 		dxgiFormat,
 		desc.Width,
 		desc.Height,
 		static_cast<UINT16>(desc.ArraySize),
-		static_cast<UINT16>(desc.MipLevels));
+		static_cast<UINT16>(desc.MipLevels),
+		1,
+		0,
+		flag,
+		D3D12_TEXTURE_LAYOUT_UNKNOWN,
+		0
+	);
 	const HRESULT result = device->CreateCommittedResource(
 		&heapProps,
 		D3D12_HEAP_FLAG_NONE,
 		&resourceDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
+		initialState,
+		pClearValue,
 		IID_PPV_ARGS(&texture));
 	if (FAILED(result))
 	{
