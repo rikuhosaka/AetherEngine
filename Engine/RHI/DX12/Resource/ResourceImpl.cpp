@@ -1,6 +1,7 @@
 #include "ResourceImpl.h"
 #include "Engine/RHI/DX12/Command/DX12CommandList.h"
 #include "Engine/RHI/DX12/Command/CommandImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12BarrierValidator.h"
 
 
 D3D12_RESOURCE_STATES ConvertToD3D12ResourceState(ERHIResourceState state)
@@ -38,6 +39,16 @@ D3D12_RESOURCE_STATES ConvertToD3D12ResourceState(ERHIResourceState state)
 
 void ResourceImpl::TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList)
 {
+	DX12BarrierValidator::TransitionContext validationContext{};
+	validationContext.resource = resource.Get();
+	validationContext.currentState = m_currentState;
+	validationContext.newState = newState;
+	validationContext.stateInitialized = IsStateInitialized();
+	if (!DX12BarrierValidator::ValidateTransition(validationContext))
+	{
+		return;
+	}
+
 	const DX12CommandList* dxCommandList = static_cast<const DX12CommandList*>(rhiCommandList);
 	ID3D12GraphicsCommandList* commandList = dxCommandList->GetImpl()->commandList.Get();
 

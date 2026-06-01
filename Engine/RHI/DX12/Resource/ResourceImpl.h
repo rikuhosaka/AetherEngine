@@ -12,5 +12,9 @@ public:
 
 	void TransitionResource(ERHIResourceState newState, const RHICommandList* rhiCommandList) override;
 
-	void SetInitialState(ERHIResourceState state) { m_currentState = state; }
+	void SetInitialState(ERHIResourceState state)
+	{
+		m_currentState = state;
+		MarkStateInitialized();
+	}
 };

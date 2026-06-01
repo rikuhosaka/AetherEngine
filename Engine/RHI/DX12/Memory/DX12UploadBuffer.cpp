@@ -78,6 +78,7 @@ DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxD
 		return;
 	}
 	m_impl->resource = resource;
+	m_impl->SetInitialState(ERHIResourceState::Common);
 
 	static std::atomic<uint32_t> s_instanceCounter = 0;
 	const uint32_t instanceId = s_instanceCounter.fetch_add(1, std::memory_order_relaxed);

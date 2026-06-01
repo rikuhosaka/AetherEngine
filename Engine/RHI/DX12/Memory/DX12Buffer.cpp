@@ -36,6 +36,7 @@ DX12Buffer::DX12Buffer(
 			return;
 		}
 		m_impl->resource = buffer;
+		m_impl->SetInitialState(ERHIResourceState::Common);
 	}
 	else if (bufferDesc.MemoryType == ERHIMemoryType::Default)
 	{
@@ -53,6 +54,7 @@ DX12Buffer::DX12Buffer(
 			return;
 		}
 		m_impl->resource = buffer;
+		m_impl->SetInitialState(ERHIResourceState::CopyDest);
 	}
 
 	if (!IsValid())
