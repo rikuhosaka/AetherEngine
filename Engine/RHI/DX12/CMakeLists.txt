@@ -29,6 +29,7 @@ target_include_directories(DX12
         ${CMAKE_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/include
         ${CMAKE_SOURCE_DIR}/ThirdParty/DirectX-Headers/include/directX
+        ${CMAKE_SOURCE_DIR}/ThirdParty/WinPixEventRuntime/include
 )
 
 # 依存する内部モジュール・外部ライブラリ
