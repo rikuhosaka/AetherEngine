@@ -3,6 +3,8 @@
   "gpuBasedValidation": false,
   "enableDred": true,
   "enableGpuMarkers": true,
+  "usePixMarkers": true,
+  "loadPixGpuCapturer": false,
   "enableFrameBarrierReport": false,
   "logInfoQueueVerbose": false
 }

@@ -51,3 +51,13 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/dx12_debug.json")
             "$<TARGET_FILE_DIR:Runtime>/dx12_debug.json"
         COMMENT "Copy dx12_debug.json to Runtime output directory")
 endif()
+
+if(AETHER_ENABLE_PIX)
+    add_custom_command(
+        TARGET Runtime
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:WinPixEventRuntime>"
+            "$<TARGET_FILE_DIR:Runtime>"
+        COMMENT "Copy WinPixEventRuntime.dll next to Runtime.exe")
+endif()

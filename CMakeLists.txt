@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(AetherEngine)
 
+option(AETHER_ENABLE_PIX "Link WinPixEventRuntime for PIX GPU markers (NuGet fetch on configure)" OFF)
+
 #変数
 
 set(CMAKE_CXX_STANDARD 20)
@@ -20,7 +22,10 @@ foreach(OUTPUTCONFIG DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/lib/${OUTPUTCONFIG})
 endforeach()
 
-# サブプロジェクト
+# サブプロジェクト（ThirdParty は Engine より先 — DirectXTex / WinPixEventRuntime 等）
+add_subdirectory(ThirdParty)
+set_target_properties(ThirdParty PROPERTIES FOLDER "ThirdParty")
+
 add_subdirectory(Engine)
 set_target_properties(Engine PROPERTIES FOLDER "Engine")
 
@@ -29,9 +34,6 @@ set_target_properties(Runtime PROPERTIES FOLDER "Runtime")
 
 add_subdirectory(Game)
 set_target_properties(Game PROPERTIES FOLDER "Game")
-
-add_subdirectory(ThirdParty)
-set_target_properties(ThirdParty PROPERTIES FOLDER "ThirdParty")
 
 # Assets フォルダ内のすべてのファイルを再帰的に取得
 file(GLOB_RECURSE ASSETS_FILES

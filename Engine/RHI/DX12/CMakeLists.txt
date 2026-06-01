@@ -2,6 +2,10 @@
 
 option(AETHER_ENABLE_DX12_DEBUG "Enable D3D12/DXGI debug layer for all build configurations" OFF)
 
+if(AETHER_ENABLE_PIX AND NOT TARGET WinPixEventRuntime)
+    message(FATAL_ERROR "AETHER_ENABLE_PIX=ON requires WinPixEventRuntime (ThirdParty/WinPixEventRuntime)")
+endif()
+
 # .cpp と .h ファイルをすべて収集（再帰的に）
 file(GLOB_RECURSE DX12_SRC
     CONFIGURE_DEPENDS
@@ -47,6 +51,11 @@ else()
     target_compile_definitions(DX12 PRIVATE
         $<$<CONFIG:Debug>:AETHER_DX12_DEBUG=1>
     )
+endif()
+
+if(AETHER_ENABLE_PIX)
+    target_link_libraries(DX12 PRIVATE WinPixEventRuntime)
+    target_compile_definitions(DX12 PRIVATE AETHER_PIX=1 USE_PIX=1)
 endif()
 
 # Visual Studio 等での仮想フォルダ分け（任意）

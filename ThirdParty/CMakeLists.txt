@@ -14,6 +14,11 @@ set_target_properties(Fbxsdk PROPERTIES FOLDER "ThirdParty")
 add_subdirectory(Jolt)
 set_target_properties(Jolt PROPERTIES FOLDER "ThirdParty")
 
+if(AETHER_ENABLE_PIX AND NOT TARGET WinPixEventRuntime)
+    add_subdirectory(WinPixEventRuntime)
+    set_target_properties(WinPixEventRuntime PROPERTIES FOLDER "ThirdParty")
+endif()
+
 target_include_directories(ThirdParty INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
