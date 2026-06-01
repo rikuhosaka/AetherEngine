@@ -60,10 +60,12 @@ Result<std::unique_ptr<Mesh>> MeshUpload::CreateMesh(
 	RHIBufferDesc vertexDesc{};
 	vertexDesc.Size = vertexBytes;
 	vertexDesc.MemoryType = ERHIMemoryType::Default;
+	vertexDesc.DebugName = desc.DebugName;
 
 	RHIBufferDesc indexDesc{};
 	indexDesc.Size = indexBytes;
 	indexDesc.MemoryType = ERHIMemoryType::Default;
+	indexDesc.DebugName = desc.DebugName;
 
 	auto mesh = std::make_unique<Mesh>();
 	auto vertexResult = m_device->CreateVertexBuffer(vertexDesc, desc.vertexStride);

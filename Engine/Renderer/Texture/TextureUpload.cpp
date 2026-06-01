@@ -74,6 +74,7 @@ Result<std::unique_ptr<Texture>> TextureUpload::CreateTexture(
 	textureDesc.MipLevels = desc.mipLevels;
 	textureDesc.Usage = desc.usage;
 	textureDesc.Format = desc.format;
+	textureDesc.DebugName = desc.DebugName;
 
 	auto texture = std::make_unique<Texture>();
 	texture->desc = textureDesc;

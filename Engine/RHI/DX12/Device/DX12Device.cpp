@@ -21,6 +21,8 @@
 #include "Engine/RHI/DX12/Pipeline/DX12PipelineState.h"
 #include "Engine/RHI/DX12/Sync/DX12Fence.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
+#include "Engine/RHI/DX12/Debug/DX12Debug.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
 
 DeviceImpl* DX12Device::GetImpl() const
 {
@@ -31,16 +33,21 @@ DX12Device::DX12Device() = default;
 
 DX12Device::~DX12Device()
 {
+	DX12Debug::DetachDevice();
+	DX12Debug::DetachFactory();
 	if (m_impl)
 	{
 		m_impl->device = nullptr;
+		m_impl->factory = nullptr;
 		m_impl = nullptr;
 	}
 }
 
 Result<void> DX12Device::Initialize()
 {
-	UINT flagsDXGI = 0;
+	DX12Debug::Initialize();
+
+	const UINT flagsDXGI = DX12Debug::GetDxgiFactoryFlags();
 	D3D_FEATURE_LEVEL levels[] = {
 		D3D_FEATURE_LEVEL_12_1,
 		D3D_FEATURE_LEVEL_12_0,
@@ -60,6 +67,14 @@ Result<void> DX12Device::Initialize()
 	{
 		adapters.push_back(tmpAdapter);
 	}
+
+	if (DX12Debug::IsEnabled())
+	{
+		DX12Debug::LogAdapters(dxgiFactory.Get());
+	}
+
+	DX12Debug::AttachFactory(dxgiFactory.Get());
+
 	for (auto adpt : adapters)
 	{
 		DXGI_ADAPTER_DESC adesc = {};
@@ -90,6 +105,10 @@ Result<void> DX12Device::Initialize()
 	m_impl = std::make_unique<DeviceImpl>();
 	m_impl->device = device;
 	m_impl->factory = dxgiFactory;
+
+	DX12Debug::AttachDevice(device.Get());
+	DX12GpuNaming::SetName(device.Get(), "Device/D3D12");
+
 	(void)featureLevel;
 	return MakeOk();
 }

@@ -121,6 +121,9 @@ struct RHIRootSignatureLayout
 	std::vector<RHIRootStaticSampler> staticSamplers;
 	RHIRootSignatureFlags flags = RHIRootSignatureFlags::AllowInputAssembler;
 
+	// Optional label for GPU debug tools (PIX, RenderDoc). UTF-8.
+	const char* DebugName = nullptr;
+
 	bool operator==(const RHIRootSignatureLayout&) const = default;
 };
 

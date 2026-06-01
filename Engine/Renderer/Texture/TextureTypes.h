@@ -27,6 +27,9 @@ struct TextureUploadDesc
 	ERHITextureUsage usage = ERHITextureUsage::ShaderResource;
 	ERHIFormat format = ERHIFormat::R8G8B8A8_UNORM;
 	std::vector<TextureMipData> mips{};
+
+	// Optional label forwarded to RHITextureDesc::DebugName. UTF-8.
+	const char* DebugName = nullptr;
 };
 
 struct Texture

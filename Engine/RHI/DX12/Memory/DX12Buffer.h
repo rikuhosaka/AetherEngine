@@ -5,6 +5,8 @@
 #include "Engine/RHI/Interface/RHIBuffer.h"
 #include "Engine/Core/Log/Result.h"
 
+#include <string_view>
+
 class DX12Device;
 class ResourceImpl;
 
@@ -23,7 +25,7 @@ public:
 	[[nodiscard]] bool IsValid() const;
 
 private:
-	DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice);
+	DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice, std::string_view namePrefix);
 
 	size_t m_size = 0;
 	uint64_t m_gpuAddress = 0;

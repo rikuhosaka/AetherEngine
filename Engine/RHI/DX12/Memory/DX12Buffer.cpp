@@ -5,13 +5,17 @@
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
 
 bool DX12Buffer::IsValid() const
 {
 	return m_impl != nullptr && m_impl->resource != nullptr;
 }
 
-DX12Buffer::DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice)
+DX12Buffer::DX12Buffer(
+	const RHIBufferDesc& bufferDesc,
+	const DX12Device* dxDevice,
+	std::string_view namePrefix)
 	: m_impl(std::make_unique<ResourceImpl>())
 {
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
@@ -58,6 +62,7 @@ DX12Buffer::DX12Buffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevi
 
 	m_gpuAddress = buffer->GetGPUVirtualAddress();
 	m_size = bufferDesc.Size;
+	DX12GpuNaming::SetResourceName(m_impl->resource.Get(), namePrefix, bufferDesc.DebugName);
 }
 
 DX12Buffer::~DX12Buffer()
@@ -122,7 +127,7 @@ DX12VertexBuffer::DX12VertexBuffer(
 	const RHIBufferDesc& bufferDesc,
 	uint32_t stride,
 	const DX12Device* dxDevice)
-	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice, "VB")))
 	, m_stride(stride)
 {
 }
@@ -148,7 +153,7 @@ DX12IndexBuffer::DX12IndexBuffer(
 	const RHIBufferDesc& bufferDesc,
 	IndexFormat indexFormat,
 	const DX12Device* dxDevice)
-	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice, "IB")))
 	, m_indexFormat(indexFormat)
 {
 }
@@ -170,7 +175,7 @@ bool DX12ConstantBuffer::IsValid() const
 }
 
 DX12ConstantBuffer::DX12ConstantBuffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice)
-	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice, "CB")))
 {
 }
 
@@ -191,7 +196,7 @@ bool DX12StructuredBuffer::IsValid() const
 }
 
 DX12StructuredBuffer::DX12StructuredBuffer(const RHIBufferDesc& bufferDesc, const DX12Device* dxDevice)
-	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice)))
+	: m_buffer(std::unique_ptr<DX12Buffer>(new DX12Buffer(bufferDesc, dxDevice, "SB")))
 {
 }
 

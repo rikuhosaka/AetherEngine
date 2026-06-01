@@ -28,4 +28,7 @@ struct RHIBufferDesc
 {
 	size_t Size = 0;
 	ERHIMemoryType MemoryType;
+
+	// Optional label for GPU debug tools (PIX, RenderDoc). UTF-8.
+	const char* DebugName = nullptr;
 };

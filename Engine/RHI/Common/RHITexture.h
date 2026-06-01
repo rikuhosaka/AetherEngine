@@ -20,4 +20,7 @@ struct RHITextureDesc
 	uint32_t SampleQuality = 0;
 	ERHITextureUsage Usage = ERHITextureUsage::ShaderResource;
 	ERHIFormat Format = ERHIFormat::R8G8B8A8_UNORM;
+
+	// Optional label for GPU debug tools (PIX, RenderDoc). UTF-8.
+	const char* DebugName = nullptr;
 };

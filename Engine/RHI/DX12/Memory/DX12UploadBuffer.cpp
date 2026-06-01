@@ -5,6 +5,10 @@
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+
+#include <atomic>
+#include <format>
 
 namespace
 {
@@ -74,6 +78,10 @@ DX12UploadBuffer::DX12UploadBuffer(size_t capacityInBytes, const DX12Device* dxD
 		return;
 	}
 	m_impl->resource = resource;
+
+	static std::atomic<uint32_t> s_instanceCounter = 0;
+	const uint32_t instanceId = s_instanceCounter.fetch_add(1, std::memory_order_relaxed);
+	DX12GpuNaming::SetName(resource.Get(), std::format("Upload/Ring/{}", instanceId));
 }
 
 DX12UploadBuffer::~DX12UploadBuffer()

@@ -7,6 +7,7 @@
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Sync/DX12Fence.h"
 #include "Engine/RHI/DX12/Sync/FenceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
 
 bool DX12CommandQueue::IsValid() const
 {
@@ -36,6 +37,7 @@ DX12CommandQueue::DX12CommandQueue(const DX12Device* dxDevice)
 		return;
 	}
 	m_impl->commandQueue = commandQueue;
+	DX12GpuNaming::SetName(commandQueue.Get(), "Queue/Graphics");
 }
 
 DX12CommandQueue::~DX12CommandQueue()

@@ -19,6 +19,10 @@
 #include "Engine/RHI/DX12/Common/DX12Format.h"
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 #include "Engine/RHI/Interface/RHIBuffer.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+
+#include <atomic>
+#include <format>
 
 
 
@@ -74,6 +78,13 @@ DX12CommandList::DX12CommandList(const DX12Device* dxDevice)
 		return;
 	}
 	m_impl->commandList = commandList;
+
+	static std::atomic<uint32_t> s_instanceCounter = 0;
+	const uint32_t instanceId = s_instanceCounter.fetch_add(1, std::memory_order_relaxed);
+	const std::string allocatorName = std::format("CmdAllocator/Direct/{}", instanceId);
+	const std::string commandListName = std::format("CmdList/Direct/{}", instanceId);
+	DX12GpuNaming::SetName(commandAllocator.Get(), allocatorName);
+	DX12GpuNaming::SetName(commandList.Get(), commandListName);
 }
 
 

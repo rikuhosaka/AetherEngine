@@ -5,6 +5,9 @@
 #include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+
+#include <format>
 
 namespace
 {
@@ -53,6 +56,10 @@ DX12TransientDescriptorAllocator::DX12TransientDescriptorAllocator(uint32_t numD
 	m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	m_cpuStart = m_impl->heap->GetCPUDescriptorHandleForHeapStart().ptr;
 	m_gpuStart = m_impl->heap->GetGPUDescriptorHandleForHeapStart().ptr;
+
+	DX12GpuNaming::SetName(
+		m_impl->heap.Get(),
+		std::format("Heap/CBV_SRV_UAV/Transient/{}", m_totalCount));
 }
 
 DX12TransientDescriptorAllocator::~DX12TransientDescriptorAllocator() = default;

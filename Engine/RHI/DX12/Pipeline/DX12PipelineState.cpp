@@ -8,6 +8,7 @@
 #include "Engine/RHI/DX12/Resource/ShaderImpl.h"
 #include "Engine/RHI/DX12/Pipeline/PipelineImpl.h"
 #include "Engine/RHI/DX12/Pipeline/DX12RootSignature.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
 
 
 PipelineStateImpl*
@@ -104,6 +105,7 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 		return;
 	}
 	m_impl->pipelineState = pipelineState;
+	DX12GpuNaming::SetResourceName(pipelineState.Get(), "PSO", pipelineDesc.DebugName);
 }
 
 DX12PipelineState::~DX12PipelineState()

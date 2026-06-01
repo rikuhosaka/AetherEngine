@@ -171,6 +171,7 @@ Result<void> SubsystemRegistry::InitializeAll(SubsystemContext& ctx)
 	{
 		if (auto initResult = subsystem->Initialize(ctx); !initResult)
 		{
+			LOG_ERROR(LogCategory::Core, std::string("Subsystem '") + std::string(subsystem->GetName()) + "' failed to initialize");
 			LogResult(initResult, LogCategory::Core);
 			return initResult;
 		}

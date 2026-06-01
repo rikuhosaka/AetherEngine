@@ -4,6 +4,7 @@
 #include "Engine/RHI/DX12/Sync/FenceImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
 
 bool DX12Fence::IsValid() const
 {
@@ -33,6 +34,8 @@ DX12Fence::DX12Fence(const DX12Device* dxDevice)
 		m_impl->fence.Reset();
 		return;
 	}
+
+	DX12GpuNaming::SetName(m_impl->fence.Get(), "Fence/Frame");
 }
 
 DX12Fence::~DX12Fence()

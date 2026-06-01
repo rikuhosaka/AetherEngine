@@ -5,6 +5,9 @@
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+
+#include <format>
 
 bool DX12Texture::IsValid() const
 {
@@ -54,12 +57,30 @@ DX12Texture::DX12Texture(const RHITextureDesc& desc, const DX12Device* dxDevice)
 	}
 	m_impl->resource = texture;
 	m_impl->SetInitialState(ERHIResourceState::CopyDest);
+
+	if (desc.DebugName != nullptr && desc.DebugName[0] != '\0')
+	{
+		DX12GpuNaming::SetResourceName(texture.Get(), "Tex", desc.DebugName);
+	}
+	else
+	{
+		DX12GpuNaming::SetName(
+			texture.Get(),
+			std::format("Tex/{}x{}", desc.Width, desc.Height));
+	}
 }
 
 DX12Texture::DX12Texture(const RHITextureDesc& desc, std::unique_ptr<ResourceImpl> resource)
 	: m_desc(desc)
 	, m_impl(std::move(resource))
 {
+	if (m_impl != nullptr && m_impl->resource != nullptr)
+	{
+		if (desc.DebugName != nullptr && desc.DebugName[0] != '\0')
+		{
+			DX12GpuNaming::SetResourceName(m_impl->resource.Get(), "Tex", desc.DebugName);
+		}
+	}
 }
 
 DX12Texture::~DX12Texture()

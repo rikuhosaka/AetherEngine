@@ -200,6 +200,7 @@ Result<void> DisplayContext::CreateDepthResources()
 	depthDesc.Height = m_config.height;
 	depthDesc.Usage = ERHITextureUsage::DepthStencil;
 	depthDesc.Format = ERHIFormat::D32_FLOAT;
+	depthDesc.DebugName = "DisplayDepth";
 
 	auto depthTextureResult = m_device->CreateTexture(depthDesc);
 	if (!depthTextureResult)

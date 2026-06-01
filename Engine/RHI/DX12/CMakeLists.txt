@@ -1,5 +1,7 @@
 # DX12 モジュール
 
+option(AETHER_ENABLE_DX12_DEBUG "Enable D3D12/DXGI debug layer for all build configurations" OFF)
+
 # .cpp と .h ファイルをすべて収集（再帰的に）
 file(GLOB_RECURSE DX12_SRC
     CONFIGURE_DEPENDS
@@ -33,11 +35,19 @@ target_link_libraries(DX12
         dxgi
         d3d12
         d3dcompiler
+        dxguid
         DirectXTex
 )
 
 target_precompile_headers(DX12 PRIVATE "${CMAKE_SOURCE_DIR}/Engine/RHI/DX12/pch.h")
 
+if(AETHER_ENABLE_DX12_DEBUG)
+    target_compile_definitions(DX12 PRIVATE AETHER_DX12_DEBUG=1)
+else()
+    target_compile_definitions(DX12 PRIVATE
+        $<$<CONFIG:Debug>:AETHER_DX12_DEBUG=1>
+    )
+endif()
 
 # Visual Studio 等での仮想フォルダ分け（任意）
 set_target_properties(DX12 PROPERTIES FOLDER "Engine/RHI/")

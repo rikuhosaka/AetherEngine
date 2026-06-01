@@ -30,6 +30,8 @@ struct RHIPipelineStateLayout
     // --- Root（Layout 参照で PSO と RS の整合をコンパイル時に縛る）---
     RHIRootSignatureLayout rootSignature;
 
+    // Optional label for GPU debug tools (PIX, RenderDoc). UTF-8.
+    const char* DebugName = nullptr;
 };
 
 // 既存 RHIPipelineDesc からの移行用

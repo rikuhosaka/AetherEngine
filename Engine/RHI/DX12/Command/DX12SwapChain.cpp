@@ -8,6 +8,10 @@
 #include "Engine/RHI/DX12/Command/CommandImpl.h"
 #include "Engine/RHI/DX12/Resource/DX12Texture.h"
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12InfoQueue.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+
+#include <format>
 
 class DX12SwapChain::Impl
 {
@@ -133,6 +137,10 @@ Result<void> DX12SwapChain::CreateBackBuffers()
 		textureDesc.Usage = ERHITextureUsage::RenderTarget;
 		textureDesc.Format = ERHIFormat::R8G8B8A8_UNORM;
 
+		DX12GpuNaming::SetName(
+			backBuffer.Get(),
+			std::format("BackBuffer[{}]", bufferIndex));
+
 		auto resourceImpl = std::make_unique<ResourceImpl>();
 		resourceImpl->resource = backBuffer;
 		resourceImpl->SetInitialState(ERHIResourceState::Present);
@@ -209,4 +217,5 @@ Result<void> DX12SwapChain::Resize(uint32_t width, uint32_t height)
 void DX12SwapChain::Present(uint32_t syncInterval, uint32_t flags)
 {
 	m_impl->swapChain->Present(syncInterval, flags);
+	DX12InfoQueue::FlushPendingMessages();
 }

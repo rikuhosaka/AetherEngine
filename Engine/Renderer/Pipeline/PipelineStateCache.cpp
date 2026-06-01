@@ -29,6 +29,7 @@ RHIPipelineDesc ToPipelineDesc(
 		desc.rtvFormats[i] = layout.rtvFormats[i];
 	}
 	desc.rootSignature = rootSignature;
+	desc.DebugName = layout.DebugName;
 	return desc;
 }
 } // namespace

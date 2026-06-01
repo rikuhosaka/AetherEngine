@@ -4,6 +4,9 @@
 #include "Engine/RHI/DX12/Descriptor/AllocatorImpl.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+
+#include <format>
 
 bool DX12RTVAllocator::IsValid() const
 {
@@ -37,6 +40,10 @@ DX12RTVAllocator::DX12RTVAllocator(uint32_t numDescriptors, const DX12Device* dx
 	m_impl->heap = descriptorHeap;
 	m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	m_cpuStart = m_impl->heap->GetCPUDescriptorHandleForHeapStart().ptr;
+
+	DX12GpuNaming::SetName(
+		m_impl->heap.Get(),
+		std::format("Heap/RTV/{}", numDescriptors));
 }
 
 DX12RTVAllocator::~DX12RTVAllocator()

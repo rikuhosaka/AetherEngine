@@ -21,6 +21,9 @@ struct MeshUploadDesc
 	VertexLayoutId layoutId = VertexLayoutId::PositionTex;
 	std::vector<SubmeshRange> submeshes{};
 	MeshBounds bounds{};
+
+	// Optional mesh label used for GPU buffer debug names. UTF-8.
+	const char* DebugName = nullptr;
 };
 
 class MeshUpload

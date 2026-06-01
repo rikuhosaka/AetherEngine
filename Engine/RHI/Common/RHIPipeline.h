@@ -32,4 +32,7 @@ struct RHIPipelineDesc
 
 	// Root
 	RHIRootSignature* rootSignature;
+
+	// Optional label for GPU debug tools (PIX, RenderDoc). UTF-8.
+	const char* DebugName = nullptr;
 };

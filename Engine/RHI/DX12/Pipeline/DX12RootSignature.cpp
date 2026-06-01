@@ -4,6 +4,7 @@
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Pipeline/PipelineImpl.h"
+#include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
 
 namespace
 {
@@ -282,6 +283,7 @@ DX12RootSignature::DX12RootSignature(const DX12Device* dxDevice, const RHIRootSi
 	}
 
 	m_impl->rootSignature = rootSignature;
+	DX12GpuNaming::SetResourceName(rootSignature.Get(), "RootSignature", layout.DebugName);
 }
 
 DX12RootSignature::~DX12RootSignature() = default;
