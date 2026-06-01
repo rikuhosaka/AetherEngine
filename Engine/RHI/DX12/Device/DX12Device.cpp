@@ -23,6 +23,7 @@
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Debug/DX12Debug.h"
 #include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+#include "Engine/RHI/DX12/Debug/DX12Dred.h"
 
 DeviceImpl* DX12Device::GetImpl() const
 {
@@ -107,6 +108,7 @@ Result<void> DX12Device::Initialize()
 	m_impl->factory = dxgiFactory;
 
 	DX12Debug::AttachDevice(device.Get());
+	DX12Dred::ConfigureDevice(device.Get());
 	DX12GpuNaming::SetName(device.Get(), "Device/D3D12");
 
 	(void)featureLevel;

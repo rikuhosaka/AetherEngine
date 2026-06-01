@@ -10,12 +10,14 @@
 #include "Engine/RHI/DX12/Resource/ResourceImpl.h"
 #include "Engine/RHI/DX12/Debug/DX12InfoQueue.h"
 #include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+#include "Engine/RHI/DX12/Debug/DX12Dred.h"
 
 #include <format>
 
 class DX12SwapChain::Impl
 {
 public:
+	ComPtr<ID3D12Device> device;
 	ComPtr<IDXGISwapChain4> swapChain{};
 	uint32_t width = 0;
 	uint32_t height = 0;
@@ -104,6 +106,7 @@ DX12SwapChain::DX12SwapChain(
 		return;
 	}
 
+	m_impl->device = dxDevice->GetImpl()->device;
 	m_impl->swapChain = swapChain4;
 	(void)CreateBackBuffers();
 }
@@ -205,6 +208,7 @@ Result<void> DX12SwapChain::Resize(uint32_t width, uint32_t height)
 		height,
 		DXGI_FORMAT_R8G8B8A8_UNORM,
 		0);
+	DX12Dred::CheckHresult(m_impl->device.Get(), result, "SwapChain::ResizeBuffers");
 	if (FAILED(result))
 	{
 		return FailRuntime(LogCategory::RHI, ErrorCode::ResourceCreationFailed,
@@ -216,6 +220,8 @@ Result<void> DX12SwapChain::Resize(uint32_t width, uint32_t height)
 
 void DX12SwapChain::Present(uint32_t syncInterval, uint32_t flags)
 {
-	m_impl->swapChain->Present(syncInterval, flags);
+	const HRESULT presentResult = m_impl->swapChain->Present(syncInterval, flags);
+	DX12Dred::CheckHresult(m_impl->device.Get(), presentResult, "SwapChain::Present");
+	DX12Dred::CheckDeviceHealth(m_impl->device.Get(), "SwapChain::Present");
 	DX12InfoQueue::FlushPendingMessages();
 }

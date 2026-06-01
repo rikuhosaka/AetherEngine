@@ -5,6 +5,7 @@
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/DX12/Device/DeviceImpl.h"
 #include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+#include "Engine/RHI/DX12/Debug/DX12Dred.h"
 
 bool DX12Fence::IsValid() const
 {
@@ -22,7 +23,8 @@ DX12Fence::DX12Fence(const DX12Device* dxDevice)
 {
 	m_impl = std::make_unique<FenceImpl>();
 	auto deviceImpl = dxDevice->GetImpl();
-	auto result = deviceImpl->device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_impl->fence));
+	m_impl->device = deviceImpl->device;
+	const HRESULT result = m_impl->device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_impl->fence));
 	if (FAILED(result))
 	{
 		return;
@@ -61,7 +63,19 @@ void DX12Fence::WaitCPU(uint64_t value)
 {
 	if (!IsComplete(value))
 	{
-		m_impl->fence->SetEventOnCompletion(value, m_impl->fenceEvent);
-		WaitForSingleObject(m_impl->fenceEvent, INFINITE);
+		const HRESULT setEventResult =
+			m_impl->fence->SetEventOnCompletion(value, m_impl->fenceEvent);
+		DX12Dred::CheckHresult(m_impl->device.Get(), setEventResult, "Fence::SetEventOnCompletion");
+
+		const DWORD waitResult = WaitForSingleObject(m_impl->fenceEvent, INFINITE);
+		if (waitResult == WAIT_FAILED)
+		{
+			DX12Dred::CheckHresult(
+				m_impl->device.Get(),
+				HRESULT_FROM_WIN32(GetLastError()),
+				"Fence::WaitForSingleObject");
+		}
 	}
+
+	DX12Dred::CheckDeviceHealth(m_impl->device.Get(), "Fence::WaitCPU");
 }
