@@ -43,6 +43,7 @@ DX12Texture::DX12Texture(const RHITextureDesc& desc, const DX12Device* dxDevice)
     D3D12_RESOURCE_FLAGS flag = ToResourceFlags(desc.Usage);
 
 	D3D12_RESOURCE_STATES initialState = ToResourceState(ERHIResourceState::CopyDest);
+	m_impl->SetInitialState(ERHIResourceState::CopyDest);
 
     D3D12_CLEAR_VALUE clearValue{};
     D3D12_CLEAR_VALUE* pClearValue = nullptr;
@@ -90,7 +91,6 @@ DX12Texture::DX12Texture(const RHITextureDesc& desc, const DX12Device* dxDevice)
 		return;
 	}
 	m_impl->resource = texture;
-	m_impl->SetInitialState(ERHIResourceState::CopyDest);
 
 	if (desc.DebugName != nullptr && desc.DebugName[0] != '\0')
 	{
