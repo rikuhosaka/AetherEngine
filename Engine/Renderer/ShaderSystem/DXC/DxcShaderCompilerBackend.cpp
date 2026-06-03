@@ -77,23 +77,37 @@ namespace
 class DxcArguments
 {
 public:
-	void Add(std::wstring argument)
+
+	void Add(std::wstring arg)
 	{
-		m_storage.push_back(std::move(argument));
-		m_pointers.push_back(m_storage.back().c_str());
+		m_storage.push_back(std::move(arg));
 	}
 
-	void AddUtf8(std::string_view argument)
+	void AddUtf8(std::string_view arg)
 	{
-		Add(ToWide(std::string(argument)));
+		Add(ToWide(std::string(arg)));
 	}
 
-	[[nodiscard]] LPCWSTR* Data() noexcept { return m_pointers.data(); }
-	[[nodiscard]] UINT32 Count() const noexcept { return static_cast<UINT32>(m_pointers.size()); }
+	LPCWSTR* Data()
+	{
+		m_pointers.clear();
+
+		for (auto& s : m_storage)
+		{
+			m_pointers.push_back(s.c_str());
+		}
+
+		return m_pointers.data();
+	}
+	UINT32 Count() const
+	{
+		return static_cast<UINT32>(m_storage.size());
+	}
 
 private:
-	std::vector<std::wstring> m_storage{};
-	std::vector<LPCWSTR> m_pointers{};
+
+	std::vector<std::wstring> m_storage;
+	std::vector<LPCWSTR> m_pointers;
 };
 } // namespace
 
@@ -177,6 +191,13 @@ Result<ShaderBytecode> DxcShaderCompilerBackend::Compile(const ShaderCompileDesc
 	{
 		arguments.Add(L"-WX");
 	}
+
+	auto profile = BuildTargetProfile(desc);
+
+	LOG_INFO(
+		LogCategory::Renderer,
+		"Profile=[" + profile + "] Length=" +
+		std::to_string(profile.size()));
 
 	ComPtr<IDxcResult> compileResult{};
 	const HRESULT compileHr = impl.compiler->Compile(

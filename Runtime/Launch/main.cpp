@@ -10,7 +10,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 
 	EngineLoopConfig config{};
 	config.hInstance = hInstance;
-	config.shaderRoot = ResolveCompiledShaderRoot();
+	config.shaderRoot = "C:\\AetherEngine\\Assets\\Shaders\\";
 
 	SubsystemRegistry registry;
 	RegisterRuntimeSubsystems(registry, config);

@@ -146,11 +146,13 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 			"RenderSubsystem::RenderFrame missing command list");
 	}
 
-	const RHIScopedDebugEvent frameEvent(commandList, "Frame");
-	m_impl->renderer->BuildScene(commandList);
-	displayServices->display->BeginMainRenderPass(frameContext, commandList);
-	m_impl->renderer->Render(commandList);
-	displayServices->display->EndMainRenderPass(frameContext, commandList);
+	{
+		const RHIScopedDebugEvent frameEvent(commandList, "Frame");
+		m_impl->renderer->BuildScene(commandList);
+		displayServices->display->BeginMainRenderPass(frameContext, commandList);
+		m_impl->renderer->Render(commandList);
+		displayServices->display->EndMainRenderPass(frameContext, commandList);
+	}
 
 	commandList->Close();
 	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });

@@ -15,6 +15,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+if(WIN32)
+    include(ResolveAetherDxc)
+    aether_resolve_dxc(AETHER_DXC_EXECUTABLE)
+endif()
+
 # 出力ディレクトリを構成別に設定
 foreach(OUTPUTCONFIG DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
     string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG_UPPER)
@@ -65,24 +72,8 @@ file(GLOB_RECURSE HLSL_SHADERS "${CMAKE_SOURCE_DIR}/Assets/Shaders/*.hlsl")
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/CompiledShaders")
 file(MAKE_DIRECTORY ${SHADER_OUTPUT_DIR})
 
-# CSO output dir must not be confused with the HLSL compiler: dxc comes from Windows SDK or PATH.
 if(WIN32)
-    find_program(DXC_EXECUTABLE NAMES dxc
-        HINTS
-            "$ENV{WindowsSdkDir}bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
-            "$ENV{WindowsSdkDir}Bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
-    )
-    if(NOT DXC_EXECUTABLE)
-        file(GLOB _DXC_SDK_CANDIDATES "C:/Program Files (x86)/Windows Kits/10/bin/*/x64/dxc.exe")
-        if(_DXC_SDK_CANDIDATES)
-            list(SORT _DXC_SDK_CANDIDATES ORDER ASCENDING COMPARE STRING)
-            list(GET _DXC_SDK_CANDIDATES -1 DXC_EXECUTABLE)
-        endif()
-    endif()
-    if(NOT DXC_EXECUTABLE)
-        message(FATAL_ERROR "dxc.exe not found (Windows SDK HLSL compiler). Install the Windows 10/11 SDK with the Desktop C++ workload, or add dxc to PATH and re-configure.")
-    endif()
-    message(STATUS "HLSL compiler: ${DXC_EXECUTABLE}")
+    set(DXC_EXECUTABLE "${AETHER_DXC_EXECUTABLE}")
 
     #region agent log
     file(APPEND "${CMAKE_SOURCE_DIR}/debug-4f4115.log"
@@ -102,11 +93,11 @@ foreach(HLSL_FILE IN LISTS HLSL_SHADERS)
     # ターゲットプロファイルをファイル名に基づいて決定
     set(SHADER_TARGET "")
     if(FILENAME MATCHES ".*VS\\.hlsl$")
-        set(SHADER_TARGET "vs_6_0")
+        set(SHADER_TARGET "vs_6_6")
     elseif(FILENAME MATCHES ".*PS\\.hlsl$")
-        set(SHADER_TARGET "ps_6_0")
+        set(SHADER_TARGET "ps_6_6")
     elseif(FILENAME MATCHES ".*CS\\.hlsl$")
-        set(SHADER_TARGET "cs_6_0")
+        set(SHADER_TARGET "cs_6_6")
     else()
         message(WARNING "Unknown shader type: ${FILENAME}")
         continue()
