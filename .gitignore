@@ -1,6 +1,5 @@
 # === ビルド生成物 ===
 build/
-Engine/**/Debug/
 *.obj
 *.lib
 *.pdb
@@ -30,11 +29,11 @@ Makefile
 *.sdf
 *.ipch
 
-# === デバッグ/中間生成物 ===
-Debug/
-Release/
-RelWithDebInfo/
-MinSizeRel/
+# === ビルド構成フォルダ（build 配下のみ）===
+build/**/Debug/
+build/**/Release/
+build/**/RelWithDebInfo/
+build/**/MinSizeRel/
 
 # === IDE & OS固有のファイル ===
 .DS_Store
