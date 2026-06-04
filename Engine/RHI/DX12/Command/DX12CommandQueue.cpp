@@ -64,7 +64,15 @@ uint64_t DX12CommandQueue::Signal(RHIFence* fence)
 {
 	DX12Fence* dxFence = static_cast<DX12Fence*>(fence);
 	dxFence->Increment();
-	return m_impl->commandQueue->Signal(dxFence->GetImpl()->fence.Get(), dxFence->GetImpl()->currentFenceValue);
+	uint64_t fenceValue = dxFence->GetImpl()->currentFenceValue;
+	HRESULT result = m_impl->commandQueue->Signal(dxFence->GetImpl()->fence.Get(), dxFence->GetImpl()->currentFenceValue);
+	if (FAILED(result))
+	{
+		LOG_ERROR_F(LogCategory::Renderer,
+			"DX12CommandQueue::Signal failed to signal fence: {}", fenceValue);
+		return 0;
+	}
+	return fenceValue;
 }
 
 void DX12CommandQueue::WaitGPU(RHIFence* fence, uint64_t value)
