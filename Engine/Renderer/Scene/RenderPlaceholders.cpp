@@ -62,12 +62,13 @@ bool RenderPlaceholders::EnsureInitialized(
 		return false;
 	}
 
-	const std::array<PositionTexVertex, 3> vertices = {
-		PositionTexVertex{ { 0.0f, 0.5f, 0.0f }, { 0.5f, 0.0f } },
+	const std::array<PositionTexVertex, 4> vertices = {
+		PositionTexVertex{ { -0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
+		PositionTexVertex{ { 0.5f, 0.5f, 0.0f }, { 1.0f, 0.0f } },
 		PositionTexVertex{ { 0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f } },
 		PositionTexVertex{ { -0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f } },
 	};
-	const std::array<uint32_t, 3> indices = { 0, 1, 2 };
+	const std::array<uint32_t, 6> indices = { 0, 1, 2, 0, 2, 3 };
 
 	MeshUploadDesc meshDesc{};
 	meshDesc.vertices = std::span<const std::byte>(

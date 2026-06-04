@@ -1,15 +1,17 @@
-#include "Engine/Renderer/Test/RendererResourceSmokeTest.h"
+#include "Game/QuadSceneAssets.h"
 
+#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshUpload.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
-#include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/Renderer/Texture/TextureUpload.h"
 #include "Engine/RHI/Common/RHIInput.h"
+#include "Engine/RHI/Interface/RHICommandList.h"
 
 #include <array>
 #include <cstring>
@@ -30,48 +32,37 @@ void MakeIdentity(float* outMatrix4x4)
 	outMatrix4x4[10] = 1.0f;
 	outMatrix4x4[15] = 1.0f;
 }
-
-void FillExtractedObjectOverrides(
-	ExtractedObject& object,
-	const TextureHandle& textureHandle,
-	const RendererResourceSmokeSceneConstants& sceneConstants,
-	const RendererResourceSmokeMaterialConstants& materialConstants)
-{
-	object.overrides.baseColor = textureHandle;
-	object.overrides.normal = {};
-
-	object.overrides.parameters.clear();
-	object.overrides.parameters.reserve(2);
-
-	MaterialParameterBlock sceneBlock{};
-	sceneBlock.bindingSlot = 0;
-	sceneBlock.data = std::span<const std::byte>(
-		reinterpret_cast<const std::byte*>(&sceneConstants),
-		sizeof(sceneConstants));
-	object.overrides.parameters.push_back(sceneBlock);
-
-	MaterialParameterBlock materialBlock{};
-	materialBlock.bindingSlot = 1;
-	materialBlock.data = std::span<const std::byte>(
-		reinterpret_cast<const std::byte*>(&materialConstants),
-		sizeof(materialConstants));
-	object.overrides.parameters.push_back(materialBlock);
-}
 } // namespace
 
-RendererResourceSmokeResult BuildRendererResourceSmokeScene(
+Result<void> QuadSceneAssets::EnsureInitialized(
 	Renderer& renderer,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
-	const std::filesystem::path& shaderRoot)
+	const std::filesystem::path& shaderRoot,
+	const QuadMaterialConstants& color)
 {
-	RendererResourceSmokeResult result{};
+	if (m_ready)
+	{
+		return MakeOk();
+	}
+
+	if (commandList == nullptr)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"QuadSceneAssets requires a valid command list");
+	}
+
+	if (shaderRoot.empty())
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"QuadSceneAssets requires a valid shader root path");
+	}
 
 	RenderResourceServices* resources = renderer.GetResourceServices();
-	if (resources == nullptr || commandList == nullptr)
+	if (resources == nullptr)
 	{
-		result.error = "Renderer resource services are not initialized";
-		return result;
+		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
+			"QuadSceneAssets requires renderer resource services");
 	}
 
 	const std::array<PositionTexVertex, 4> vertices = {
@@ -96,16 +87,13 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 	meshDesc.layoutId = VertexLayoutId::PositionTex;
 	meshDesc.DebugName = "ScreenQuad";
 
-	const Result<MeshHandle> meshResult = resources->GetMeshServices().UploadMesh(
-		meshDesc,
-		frameContext,
-		commandList);
+	const Result<MeshHandle> meshResult =
+		resources->GetMeshServices().UploadMesh(meshDesc, frameContext, commandList);
 	if (!meshResult)
 	{
-		result.error = meshResult.error.message;
-		return result;
+		return MakeFail(meshResult.error.code, meshResult.error.message);
 	}
-	const MeshHandle meshHandle = meshResult.value;
+	m_mesh = meshResult.value;
 
 	const std::array<std::byte, 4> whitePixel = {
 		std::byte{ 255 },
@@ -129,10 +117,9 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 		commandList);
 	if (!textureResult)
 	{
-		result.error = textureResult.error.message;
-		return result;
+		return MakeFail(textureResult.error.code, textureResult.error.message);
 	}
-	const TextureHandle textureHandle = textureResult.value;
+	m_whiteTexture = textureResult.value;
 
 	MaterialCreateDesc materialDesc{};
 	materialDesc.vertexShaderPath = shaderRoot / "SimpleVS.hlsl";
@@ -146,28 +133,40 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 		resources->GetMaterialServices().CreateMaterial(materialDesc);
 	if (!materialResult)
 	{
-		result.error = materialResult.error.message;
-		return result;
+		return MakeFail(materialResult.error.code, materialResult.error.message);
 	}
-	const MaterialHandle materialHandle = materialResult.value;
+	m_material = materialResult.value;
 
-	MakeIdentity(result.sceneConstants.mvp);
+	MakeIdentity(m_sceneConstants.mvp);
+	m_materialConstants = color;
 
-	ExtractedObject& object = result.extractedObject;
-	object.objectId.Index = 0;
-	object.objectId.Generation = 1;
-	object.mesh = meshHandle;
-	object.material = materialHandle;
+	m_ready = true;
+	LOG_INFO(LogCategory::Core, "QuadSceneAssets initialized (screen quad mesh and solid-color material)");
+	return MakeOk();
+}
+
+void QuadSceneAssets::FillExtractedObject(ExtractedObject& object) const
+{
+	object.mesh = m_mesh;
+	object.material = m_material;
 	object.submeshIndex = 0;
-	object.layerMask = RenderLayer::Opaque;
-	object.visible = true;
-	MakeIdentity(object.worldMatrix);
-	FillExtractedObjectOverrides(
-		object,
-		textureHandle,
-		result.sceneConstants,
-		result.materialConstants);
+	object.overrides.baseColor = m_whiteTexture;
+	object.overrides.normal = {};
 
-	result.success = true;
-	return result;
+	object.overrides.parameters.clear();
+	object.overrides.parameters.reserve(2);
+
+	MaterialParameterBlock sceneBlock{};
+	sceneBlock.bindingSlot = 0;
+	sceneBlock.data = std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(&m_sceneConstants),
+		sizeof(m_sceneConstants));
+	object.overrides.parameters.push_back(sceneBlock);
+
+	MaterialParameterBlock materialBlock{};
+	materialBlock.bindingSlot = 1;
+	materialBlock.data = std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(&m_materialConstants),
+		sizeof(m_materialConstants));
+	object.overrides.parameters.push_back(materialBlock);
 }

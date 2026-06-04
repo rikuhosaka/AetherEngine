@@ -1,6 +1,7 @@
 #include "Game/GameHost.h"
 
 #include "Engine/Application/Services/InputServices.h"
+#include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Platform/InputManager.h"
 
@@ -28,4 +29,20 @@ InputManager& GameHost::GetInput()
 float GameHost::GetDeltaSeconds() const
 {
 	return m_context.GetDeltaSeconds();
+}
+
+RenderServices* GameHost::GetRenderServices()
+{
+	return m_context.GetService<RenderServices>();
+}
+
+std::filesystem::path GameHost::GetShaderRoot() const
+{
+	const RenderServices* renderServices = m_context.GetService<RenderServices>();
+	if (renderServices == nullptr)
+	{
+		return {};
+	}
+
+	return renderServices->shaderRoot;
 }

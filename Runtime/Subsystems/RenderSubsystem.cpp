@@ -90,6 +90,7 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	}
 
 	m_services.renderer = m_impl->renderer.get();
+	m_services.shaderRoot = m_config.shaderRoot;
 	ctx.RegisterService(&m_services);
 	return MakeOk();
 }
@@ -129,22 +130,28 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	displayServices->display->BeginFrame(frameContext);
 	m_impl->renderer->BeginFrame(slot);
 
-	std::vector<ExtractedObject> extractedObjects;
-	if (auto* registry = ctx.GetService<SubsystemRegistry>())
-	{
-		if (ISceneExtractor* sceneExtractor = registry->GetSceneExtractor())
-		{
-			sceneExtractor->Extract(extractedObjects);
-		}
-	}
-	m_impl->renderer->ExtractScene(extractedObjects);
-
 	RHICommandList* commandList = frameContext.graphicsCommandList;
 	if (commandList == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"RenderSubsystem::RenderFrame missing command list");
 	}
+
+	std::vector<ExtractedObject> extractedObjects;
+	if (auto* registry = ctx.GetService<SubsystemRegistry>())
+	{
+		if (ISceneExtractor* sceneExtractor = registry->GetSceneExtractor())
+		{
+			if (auto prepareResult = sceneExtractor->PrepareRender(ctx, frameContext, commandList);
+				!prepareResult)
+			{
+				return prepareResult;
+			}
+
+			sceneExtractor->Extract(extractedObjects);
+		}
+	}
+	m_impl->renderer->ExtractScene(extractedObjects);
 
 	{
 		const RHIScopedDebugEvent frameEvent(commandList, "Frame");

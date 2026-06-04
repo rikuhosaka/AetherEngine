@@ -11,7 +11,7 @@
 
 namespace
 {
-constexpr const char* kDependencies[] = { "Input" };
+constexpr const char* kDependencies[] = { "Input", "Render" };
 } // namespace
 
 GameSubsystem::GameSubsystem() = default;
@@ -58,6 +58,19 @@ void GameSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
 	{
 		m_module->OnTick(*m_host, deltaSeconds);
 	}
+}
+
+Result<void> GameSubsystem::PrepareRender(
+	SubsystemContext& /*ctx*/,
+	FrameContext& frameContext,
+	RHICommandList* commandList)
+{
+	if (m_module == nullptr || m_host == nullptr)
+	{
+		return MakeOk();
+	}
+
+	return m_module->OnPrepareRender(*m_host, frameContext, commandList);
 }
 
 void GameSubsystem::Extract(std::vector<ExtractedObject>& outObjects)

@@ -14,7 +14,7 @@ struct RendererResourceSmokeSceneConstants
 
 struct RendererResourceSmokeMaterialConstants
 {
-	float tint[4]{};
+	float tint[4]{ 0.26f, 0.52f, 0.96f, 1.0f };
 };
 
 struct RendererResourceSmokeResult
