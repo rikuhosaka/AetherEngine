@@ -21,6 +21,8 @@ enum class ErrorCode
 
     ResourceCreationFailed,
 
+    RuntimeError,
+
     ShaderReflectionFailed
 };
 

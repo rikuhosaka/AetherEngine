@@ -48,10 +48,10 @@ DX12DSVAllocator::DX12DSVAllocator(uint32_t numDescriptors, const DX12Device* dx
 
 DX12DSVAllocator::~DX12DSVAllocator()
 {
-	if (m_impl->heap)
+	// ComPtr owns the COM object lifetime; avoid manual Release() (double-release).
+	if (m_impl != nullptr)
 	{
-		m_impl->heap->Release();
-		m_impl->heap = nullptr;
+		m_impl->heap.Reset();
 	}
 }
 

@@ -8,6 +8,65 @@
 #include "Engine/RHI/DX12/Sync/DX12Fence.h"
 #include "Engine/RHI/DX12/Sync/FenceImpl.h"
 #include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
+#include "Engine/RHI/DX12/Debug/DX12Dred.h"
+
+namespace
+{
+void WaitForQueueIdle(ID3D12Device* device, ID3D12CommandQueue* commandQueue)
+{
+	if (device == nullptr || commandQueue == nullptr)
+	{
+		return;
+	}
+
+	ComPtr<ID3D12Fence> fence;
+	const HRESULT createFenceResult = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	if (FAILED(createFenceResult))
+	{
+		DX12Dred::CheckHresult(device, createFenceResult, "CommandQueue::WaitForIdle::CreateFence");
+		return;
+	}
+
+	constexpr uint64_t kIdleFenceValue = 1;
+	const HRESULT signalResult = commandQueue->Signal(fence.Get(), kIdleFenceValue);
+	if (FAILED(signalResult))
+	{
+		DX12Dred::CheckHresult(device, signalResult, "CommandQueue::WaitForIdle::Signal");
+		return;
+	}
+
+	if (fence->GetCompletedValue() < kIdleFenceValue)
+	{
+		HANDLE waitEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		if (waitEvent == nullptr)
+		{
+			DX12Dred::CheckHresult(
+				device,
+				HRESULT_FROM_WIN32(GetLastError()),
+				"CommandQueue::WaitForIdle::CreateEvent");
+			return;
+		}
+
+		const HRESULT setEventResult = fence->SetEventOnCompletion(kIdleFenceValue, waitEvent);
+		if (FAILED(setEventResult))
+		{
+			CloseHandle(waitEvent);
+			DX12Dred::CheckHresult(device, setEventResult, "CommandQueue::WaitForIdle::SetEventOnCompletion");
+			return;
+		}
+
+		const DWORD waitResult = WaitForSingleObject(waitEvent, INFINITE);
+		CloseHandle(waitEvent);
+		if (waitResult == WAIT_FAILED)
+		{
+			DX12Dred::CheckHresult(
+				device,
+				HRESULT_FROM_WIN32(GetLastError()),
+				"CommandQueue::WaitForIdle::WaitForSingleObject");
+		}
+	}
+}
+} // namespace
 
 bool DX12CommandQueue::IsValid() const
 {
@@ -42,10 +101,10 @@ DX12CommandQueue::DX12CommandQueue(const DX12Device* dxDevice)
 
 DX12CommandQueue::~DX12CommandQueue()
 {
-	if (m_impl->commandQueue)
+	// ComPtr owns the COM object lifetime; avoid manual Release() (double-release).
+	if (m_impl != nullptr)
 	{
-		m_impl->commandQueue->Release();
-		m_impl->commandQueue = nullptr;
+		m_impl->commandQueue.Reset();
 	}
 }
 
@@ -82,4 +141,20 @@ void DX12CommandQueue::WaitGPU(RHIFence* fence, uint64_t value)
 	{
 		m_impl->commandQueue->Wait(dxFence->GetImpl()->fence.Get(), value);
 	}
+}
+
+void DX12CommandQueue::WaitForIdle()
+{
+	if (m_impl == nullptr || m_impl->commandQueue == nullptr)
+	{
+		return;
+	}
+
+	ComPtr<ID3D12Device> device;
+	if (FAILED(m_impl->commandQueue->GetDevice(IID_PPV_ARGS(&device))))
+	{
+		return;
+	}
+
+	WaitForQueueIdle(device.Get(), m_impl->commandQueue.Get());
 }

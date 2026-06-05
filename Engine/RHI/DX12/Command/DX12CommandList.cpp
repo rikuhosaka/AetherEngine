@@ -91,15 +91,11 @@ DX12CommandList::DX12CommandList(const DX12Device* dxDevice)
 
 DX12CommandList::~DX12CommandList()
 {
-	if (m_impl->commandList)
+	// ComPtr owns the COM object lifetime; avoid manual Release() (double-release).
+	if (m_impl != nullptr)
 	{
-		m_impl->commandList->Release();
-		m_impl->commandList = nullptr;
-	}
-	if (m_impl->commandAllocator)
-	{
-		m_impl->commandAllocator->Release();
-		m_impl->commandAllocator = nullptr;
+		m_impl->commandList.Reset();
+		m_impl->commandAllocator.Reset();
 	}
 }
 

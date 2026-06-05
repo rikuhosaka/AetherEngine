@@ -110,9 +110,9 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 
 DX12PipelineState::~DX12PipelineState()
 {
-	if (m_impl->pipelineState)
+	// ComPtr owns the COM object lifetime; avoid manual Release() (double-release).
+	if (m_impl != nullptr)
 	{
-		m_impl->pipelineState->Release();
-		m_impl->pipelineState = nullptr;
+		m_impl->pipelineState.Reset();
 	}
 }

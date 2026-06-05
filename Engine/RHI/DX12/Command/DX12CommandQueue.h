@@ -15,6 +15,7 @@ public:
 	void ExecuteCommandLists(const std::vector<RHICommandList*>& commandLists) override;
 	uint64_t Signal(RHIFence* fence) override;
 	void WaitGPU(RHIFence* fence, uint64_t value) override;
+	void WaitForIdle() override;
 
 	[[nodiscard]] bool IsValid() const;
 

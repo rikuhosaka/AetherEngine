@@ -18,12 +18,69 @@ class DX12SwapChain::Impl
 {
 public:
 	ComPtr<ID3D12Device> device;
+	ComPtr<ID3D12CommandQueue> commandQueue;
 	ComPtr<IDXGISwapChain4> swapChain{};
 	uint32_t width = 0;
 	uint32_t height = 0;
 	uint32_t bufferCount = 2;
 	std::vector<std::unique_ptr<DX12Texture>> backBuffers{};
 };
+
+namespace
+{
+Result<void> WaitForQueueIdle(ID3D12Device* device, ID3D12CommandQueue* commandQueue)
+{
+	if (device == nullptr || commandQueue == nullptr)
+	{
+		return FailInternal(LogCategory::RHI, ErrorCode::InvalidArgument,
+			"WaitForQueueIdle requires valid device and queue");
+	}
+
+	ComPtr<ID3D12Fence> fence;
+	const HRESULT createFenceResult = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	if (FAILED(createFenceResult))
+	{
+		return FailRuntime(LogCategory::RHI, ErrorCode::RuntimeError,
+			"Failed to create resize fence");
+	}
+
+	constexpr uint64_t kResizeFenceValue = 1;
+	const HRESULT signalResult = commandQueue->Signal(fence.Get(), kResizeFenceValue);
+	if (FAILED(signalResult))
+	{
+		return FailRuntime(LogCategory::RHI, ErrorCode::RuntimeError,
+			"Failed to signal resize fence");
+	}
+
+	if (fence->GetCompletedValue() < kResizeFenceValue)
+	{
+		HANDLE waitEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		if (waitEvent == nullptr)
+		{
+			return FailRuntime(LogCategory::RHI, ErrorCode::RuntimeError,
+				"Failed to create resize wait event");
+		}
+
+		const HRESULT setEventResult = fence->SetEventOnCompletion(kResizeFenceValue, waitEvent);
+		if (FAILED(setEventResult))
+		{
+			CloseHandle(waitEvent);
+			return FailRuntime(LogCategory::RHI, ErrorCode::DeviceLost,
+				"Failed to set resize fence completion event");
+		}
+
+		const DWORD waitResult = WaitForSingleObject(waitEvent, INFINITE);
+		CloseHandle(waitEvent);
+		if (waitResult == WAIT_FAILED)
+		{
+			return FailRuntime(LogCategory::RHI, ErrorCode::DeviceLost,
+				"Failed while waiting for resize fence completion");
+		}
+	}
+
+	return MakeOk();
+}
+} // namespace
 
 bool DX12SwapChain::IsValid() const
 {
@@ -107,11 +164,20 @@ DX12SwapChain::DX12SwapChain(
 	}
 
 	m_impl->device = dxDevice->GetImpl()->device;
+	m_impl->commandQueue = commandQueue;
 	m_impl->swapChain = swapChain4;
 	(void)CreateBackBuffers();
 }
 
-DX12SwapChain::~DX12SwapChain() = default;
+DX12SwapChain::~DX12SwapChain()
+{
+	if (m_impl != nullptr)
+	{
+		// Defensive: back buffers must not be released while the graphics queue
+		// still references them (e.g. shutdown before subsystem-level sync).
+		(void)WaitForQueueIdle(m_impl->device.Get(), m_impl->commandQueue.Get());
+	}
+}
 
 Result<void> DX12SwapChain::CreateBackBuffers()
 {
@@ -200,6 +266,12 @@ Result<void> DX12SwapChain::Resize(uint32_t width, uint32_t height)
 
 	m_impl->width = width;
 	m_impl->height = height;
+
+	if (auto waitResult = WaitForQueueIdle(m_impl->device.Get(), m_impl->commandQueue.Get()); !waitResult)
+	{
+		return waitResult;
+	}
+
 	m_impl->backBuffers.clear();
 
 	const HRESULT result = m_impl->swapChain->ResizeBuffers(
