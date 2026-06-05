@@ -2,10 +2,49 @@
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
+#include "Engine/RHI/Common/RHIRootSignatureLayout.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
 #include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
 #include "Engine/RHI/Interface/RHIUploadBuffer.h"
+
+#include <cstring>
+#include <optional>
+
+namespace
+{
+std::optional<size_t> FindConstantLayoutIndex(
+	const Material& material,
+	uint32_t registerIndex,
+	uint32_t space)
+{
+	for (size_t layoutIndex = 0; layoutIndex < material.constantLayout.size(); ++layoutIndex)
+	{
+		const ShaderConstantBuffer& layout = material.constantLayout[layoutIndex];
+		if (layout.Register == registerIndex && layout.Space == space)
+		{
+			return layoutIndex;
+		}
+	}
+
+	return std::nullopt;
+}
+
+uint32_t ResolveRootConstantCount(const Material& material, const ShaderRootBindingSlot& slot)
+{
+	if (slot.RootParameterIndex < material.rootSignatureLayout.parameters.size())
+	{
+		const RHIRootParameterDesc& parameter =
+			material.rootSignatureLayout.parameters[slot.RootParameterIndex];
+		if (parameter.kind == RHIRootParameterKind::Constants)
+		{
+			return parameter.constants.num32BitValues;
+		}
+	}
+
+	return slot.BindCount;
+}
+} // namespace
 
 MaterialBindCache::MaterialBindCache(RHIDevice* device)
 	: m_device(device)
@@ -25,8 +64,6 @@ bool MaterialBindCache::Bind(
 		return false;
 	}
 
-	(void)material;
-
 	commandList->SetTransientDescriptorHeap(frameContext.transientDescriptors);
 
 	size_t textureIndex = 0;
@@ -36,6 +73,44 @@ bool MaterialBindCache::Bind(
 	{
 		if (slot.IsRootConstants)
 		{
+			const std::optional<size_t> layoutIndex =
+				FindConstantLayoutIndex(material, slot.Register, slot.Space);
+			if (!layoutIndex.has_value())
+			{
+				LOG_ERROR(LogCategory::Renderer,
+					"Material bind failed: root constants layout not found");
+				return false;
+			}
+
+			if (*layoutIndex >= instance.constantBuffers.size())
+			{
+				LOG_ERROR(LogCategory::Renderer,
+					"Material bind failed: root constants data missing from material instance");
+				return false;
+			}
+
+			const std::vector<std::byte>& constantData = instance.constantBuffers[*layoutIndex];
+			if (constantData.empty())
+			{
+				LOG_ERROR(LogCategory::Renderer,
+					"Material bind failed: root constants data is empty");
+				return false;
+			}
+
+			const uint32_t num32BitValues = ResolveRootConstantCount(material, slot);
+			const size_t requiredBytes = static_cast<size_t>(num32BitValues) * sizeof(uint32_t);
+			if (constantData.size() < requiredBytes)
+			{
+				LOG_ERROR(LogCategory::Renderer,
+					"Material bind failed: root constants data is too small");
+				return false;
+			}
+
+			commandList->SetGraphicsRoot32BitConstants(
+				slot.RootParameterIndex,
+				num32BitValues,
+				constantData.data(),
+				0);
 			continue;
 		}
 

@@ -44,6 +44,11 @@ public:
 		uint32_t bytesPerRow,
 		uint32_t numRows) = 0;
 	virtual void SetGraphicsRootDescriptorTable(uint32_t index, uint64_t baseDescriptor) = 0;
+	virtual void SetGraphicsRoot32BitConstants(
+		uint32_t rootParameterIndex,
+		uint32_t num32BitValues,
+		const void* data,
+		uint32_t destOffsetIn32BitValues = 0) = 0;
 
     // Input Assembler
     virtual void IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBuffer*> views) = 0;

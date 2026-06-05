@@ -45,7 +45,9 @@ Result<void> DefaultGameModule::OnPrepareRender(
 		*renderServices->renderer,
 		frameContext,
 		commandList,
-		shaderRoot);
+		shaderRoot,
+		{ 1.0f, 0.2f, 0.2f, 1.0f }
+	    );
 }
 
 void DefaultGameModule::OnTick(IGameHost& /*host*/, float /*deltaSeconds*/)

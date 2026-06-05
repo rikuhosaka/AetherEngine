@@ -268,6 +268,21 @@ DX12CommandList::SetGraphicsRootDescriptorTable(uint32_t index, uint64_t baseDes
 	}
 }
 
+void DX12CommandList::SetGraphicsRoot32BitConstants(
+	uint32_t rootParameterIndex,
+	uint32_t num32BitValues,
+	const void* data,
+	uint32_t destOffsetIn32BitValues)
+{
+	if (m_impl->commandList != nullptr && data != nullptr && num32BitValues > 0)
+	{
+		m_impl->commandList->SetGraphicsRoot32BitConstants(
+			rootParameterIndex,
+			num32BitValues,
+			data,
+			destOffsetIn32BitValues);
+	}
+}
 
 void
 DX12CommandList::IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBuffer*> views)

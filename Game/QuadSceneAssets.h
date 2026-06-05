@@ -19,7 +19,7 @@ struct QuadSceneConstants
 
 struct QuadMaterialConstants
 {
-	float tint[4]{ 0.26f, 0.52f, 0.96f, 1.0f };
+	float tint[4]{ 0.80f, 0.2f, 0.0f, 1.0f };
 };
 
 class QuadSceneAssets
