@@ -3,6 +3,7 @@
 #include "Engine/Core/Containers/ResourcePool.h"
 #include "Engine/Core/Log/Result.h"
 
+#include <filesystem>
 #include <unordered_map>
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderCacheTypes.h"
 #include "Engine/Renderer/ShaderSystem/Compiler/ShaderCompileDesc.h"
@@ -17,9 +18,12 @@ public:
 		std::uint32_t Hits{ 0 };
 		std::uint32_t Misses{ 0 };
 		std::uint32_t Compiles{ 0 };
+		std::uint32_t Loads{ 0 };
 	};
 
 	explicit ShaderBytecodeCache(IShaderCompilerBackend* backend);
+
+	[[nodiscard]] Result<ShaderBytecodeHandle> Acquire(const ShaderCompileDesc& desc);
 
 	[[nodiscard]] Result<ShaderBytecodeHandle> GetOrCompile(const ShaderCompileDesc& desc);
 
@@ -34,6 +38,16 @@ public:
 
 private:
 	[[nodiscard]] ShaderBytecodeHandle FindCached(const ShaderCompileDesc& desc) const;
+
+	[[nodiscard]] Result<ShaderBytecodeHandle> CompileAndCache(const ShaderCompileDesc& desc);
+
+	[[nodiscard]] Result<ShaderBytecodeHandle> LoadAndCache(const ShaderCompileDesc& desc);
+
+	[[nodiscard]] Result<ShaderBytecodeHandle> StoreBytecode(
+		const ShaderCompileDesc& desc,
+		ShaderBytecode bytecode);
+
+	[[nodiscard]] static bool IsPrecompiledShaderPath(const std::filesystem::path& filePath);
 
 	IShaderCompilerBackend* m_backend{};
 	std::unordered_map<std::uint64_t, ShaderBytecodeHandle> m_lookup{};

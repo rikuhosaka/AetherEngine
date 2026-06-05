@@ -1,9 +1,12 @@
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderBytecodeCache.h"
 
-#include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/ShaderSystem/Cache/ShaderCacheHash.h"
 #include "Engine/Renderer/ShaderSystem/Compiler/IShaderCompilerBackend.h"
+#include "Engine/Renderer/ShaderSystem/Loader/ShaderBytecodeFileLoader.h"
+
+#include <algorithm>
+#include <cctype>
 
 ShaderBytecodeCache::ShaderBytecodeCache(IShaderCompilerBackend* backend)
 	: m_backend(backend)
@@ -24,16 +27,61 @@ ShaderBytecodeHandle ShaderBytecodeCache::FindCached(const ShaderCompileDesc& de
 	return found->second;
 }
 
-Result<ShaderBytecodeHandle> ShaderBytecodeCache::GetOrCompile(const ShaderCompileDesc& desc)
+bool ShaderBytecodeCache::IsPrecompiledShaderPath(const std::filesystem::path& filePath)
 {
-	if (ShaderBytecodeHandle cached = FindCached(desc); cached.IsValid())
+	std::string extension = filePath.extension().string();
+	std::ranges::transform(extension, extension.begin(), [](unsigned char ch) {
+		return static_cast<char>(std::tolower(ch));
+	});
+	return extension == ".cso";
+}
+
+Result<ShaderBytecodeHandle> ShaderBytecodeCache::StoreBytecode(
+	const ShaderCompileDesc& desc,
+	ShaderBytecode bytecode)
+{
+	if (bytecode.Data.empty())
 	{
-		++m_stats.Hits;
-		return MakeOk(cached);
+		return FailRuntime<ShaderBytecodeHandle>(
+			LogCategory::Asset,
+			ErrorCode::ShaderCompileFailed,
+			"Shader bytecode is empty.");
 	}
 
-	++m_stats.Misses;
+	auto entry = std::make_unique<ShaderBytecodeEntry>();
+	entry->Desc = desc;
+	entry->Bytecode = std::move(bytecode);
 
+	const ShaderBytecodeHandle handle = m_pool.Add(std::move(entry));
+	const std::uint64_t lookupKey =
+		HashShaderCompileCacheLookupKey(BuildShaderCompileCacheKey(desc));
+	m_lookup.emplace(lookupKey, handle);
+
+	return MakeOk(handle);
+}
+
+Result<ShaderBytecodeHandle> ShaderBytecodeCache::LoadAndCache(const ShaderCompileDesc& desc)
+{
+	auto loadResult = LoadShaderBytecodeFromFile(desc.FilePath);
+	if (!loadResult)
+	{
+		return MakeFail<ShaderBytecodeHandle>(
+			loadResult.error.code,
+			loadResult.error.message);
+	}
+
+	auto storeResult = StoreBytecode(desc, std::move(loadResult.value));
+	if (!storeResult)
+	{
+		return storeResult;
+	}
+
+	++m_stats.Loads;
+	return storeResult;
+}
+
+Result<ShaderBytecodeHandle> ShaderBytecodeCache::CompileAndCache(const ShaderCompileDesc& desc)
+{
 	if (m_backend == nullptr)
 	{
 		return FailInternal<ShaderBytecodeHandle>(
@@ -58,17 +106,37 @@ Result<ShaderBytecodeHandle> ShaderBytecodeCache::GetOrCompile(const ShaderCompi
 			"Shader compile produced empty bytecode.");
 	}
 
-	auto entry = std::make_unique<ShaderBytecodeEntry>();
-	entry->Desc = desc;
-	entry->Bytecode = std::move(compileResult.value);
-
-	const ShaderBytecodeHandle handle = m_pool.Add(std::move(entry));
-	const std::uint64_t lookupKey =
-		HashShaderCompileCacheLookupKey(BuildShaderCompileCacheKey(desc));
-	m_lookup.emplace(lookupKey, handle);
+	auto storeResult = StoreBytecode(desc, std::move(compileResult.value));
+	if (!storeResult)
+	{
+		return storeResult;
+	}
 
 	++m_stats.Compiles;
-	return MakeOk(handle);
+	return storeResult;
+}
+
+Result<ShaderBytecodeHandle> ShaderBytecodeCache::Acquire(const ShaderCompileDesc& desc)
+{
+	if (ShaderBytecodeHandle cached = FindCached(desc); cached.IsValid())
+	{
+		++m_stats.Hits;
+		return MakeOk(cached);
+	}
+
+	++m_stats.Misses;
+
+	if (IsPrecompiledShaderPath(desc.FilePath))
+	{
+		return LoadAndCache(desc);
+	}
+
+	return CompileAndCache(desc);
+}
+
+Result<ShaderBytecodeHandle> ShaderBytecodeCache::GetOrCompile(const ShaderCompileDesc& desc)
+{
+	return Acquire(desc);
 }
 
 const ShaderBytecode* ShaderBytecodeCache::GetBytecode(ShaderBytecodeHandle handle)

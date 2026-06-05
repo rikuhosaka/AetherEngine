@@ -44,7 +44,8 @@ Result<void> Renderer::Initialize(
 		descriptorAllocator,
 		m_shaderServices.get(),
 		m_rootSignatureCache.get(),
-		m_pipelineStateCache.get());
+		m_pipelineStateCache.get(),
+		config);
 	if (!resourceServicesResult)
 	{
 		LogResult(resourceServicesResult, LogCategory::Renderer);

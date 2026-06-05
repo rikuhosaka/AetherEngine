@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Renderer/Core/RendererConfig.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
@@ -21,7 +22,8 @@ public:
 		RHIDescriptorAllocator* descriptorAllocator,
 		ShaderSystemServices* shaderServices,
 		RootSignatureCache* rootSignatureCache,
-		PipelineStateCache* pipelineStateCache);
+		PipelineStateCache* pipelineStateCache,
+		const RendererConfig& rendererConfig);
 
 	[[nodiscard]] MeshSystemServices& GetMeshServices() noexcept { return *m_meshServices; }
 	[[nodiscard]] TextureSystemServices& GetTextureServices() noexcept { return *m_textureServices; }

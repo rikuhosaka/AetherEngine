@@ -4,6 +4,7 @@
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/RHI/DX12/Debug/DX12DebugSettings.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHICommandQueue.h"
@@ -32,16 +33,17 @@ struct RHISubsystemImpl
 	std::array<std::unique_ptr<RHITransientDescriptorAllocator>, RHIServices::kFrameCount> transientAllocators{};
 };
 
-RHISubsystem::RHISubsystem()
+RHISubsystem::RHISubsystem(EngineLoopConfig config)
 	: m_impl(std::make_unique<RHISubsystemImpl>())
+	, m_config(std::move(config))
 {
 }
 
 RHISubsystem::~RHISubsystem() = default;
 
-std::unique_ptr<ISubsystem> CreateRHISubsystem()
+std::unique_ptr<ISubsystem> CreateRHISubsystem(const EngineLoopConfig& config)
 {
-	return std::make_unique<RHISubsystem>();
+	return std::make_unique<RHISubsystem>(config);
 }
 
 std::span<const char* const> RHISubsystem::GetDependencies() const
@@ -56,6 +58,8 @@ Result<void> RHISubsystem::Initialize(SubsystemContext& ctx)
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"RHISubsystem requires WindowServices");
 	}
+
+	DX12DebugSettingsData::LoadFromFile(m_config.dx12DebugConfigPath);
 
 	m_impl->device = std::make_unique<DX12Device>();
 	if (auto initResult = m_impl->device->Initialize(); !initResult)

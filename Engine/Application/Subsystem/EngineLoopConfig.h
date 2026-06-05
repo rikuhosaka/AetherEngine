@@ -11,6 +11,8 @@ struct EngineLoopConfig
 {
 	HINSTANCE hInstance = nullptr;
 	std::filesystem::path shaderRoot{};
+	std::filesystem::path compiledShaderRoot{};
+	std::filesystem::path dx12DebugConfigPath{};
 
 	uint32_t initialWidth = 1280;
 	uint32_t initialHeight = 720;

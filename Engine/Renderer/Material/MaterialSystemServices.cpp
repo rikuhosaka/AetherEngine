@@ -15,11 +15,81 @@
 #include "Engine/RHI/Interface/RHIDevice.h"
 #include "Engine/RHI/Interface/RHIShader.h"
 
+#include <algorithm>
+#include <cctype>
+
 namespace
 {
+struct ResolvedShaderAsset
+{
+	std::filesystem::path path{};
+	bool isPrecompiled = false;
+};
+
 std::string GetStemName(const std::filesystem::path& path)
 {
 	return path.stem().string();
+}
+
+bool IsPrecompiledShaderExtension(const std::filesystem::path& path)
+{
+	std::string extension = path.extension().string();
+	std::ranges::transform(extension, extension.begin(), [](unsigned char ch) {
+		return static_cast<char>(std::tolower(ch));
+	});
+	return extension == ".cso";
+}
+
+bool PathExists(const std::filesystem::path& path)
+{
+	std::error_code errorCode{};
+	return std::filesystem::exists(path, errorCode);
+}
+
+ResolvedShaderAsset ResolveShaderAssetPath(
+	const std::filesystem::path& sourcePath,
+	const std::filesystem::path& compiledShaderRoot,
+	ShaderSourcePolicy policy)
+{
+	if (IsPrecompiledShaderExtension(sourcePath))
+	{
+		return { sourcePath, true };
+	}
+
+	const std::filesystem::path csoPath = compiledShaderRoot.empty()
+		? std::filesystem::path{}
+		: compiledShaderRoot / (sourcePath.stem().string() + ".cso");
+	const bool csoExists = !csoPath.empty() && PathExists(csoPath);
+	const bool hlslExists = PathExists(sourcePath);
+
+	switch (policy)
+	{
+	case ShaderSourcePolicy::PrecompiledOnly:
+		return { csoPath, true };
+
+	case ShaderSourcePolicy::SourceOnly:
+		return { sourcePath, false };
+
+	case ShaderSourcePolicy::PreferPrecompiled:
+		if (csoExists)
+		{
+			return { csoPath, true };
+		}
+		return { sourcePath, false };
+
+	case ShaderSourcePolicy::PreferSource:
+		if (hlslExists)
+		{
+			return { sourcePath, false };
+		}
+		if (csoExists)
+		{
+			return { csoPath, true };
+		}
+		return { sourcePath, false };
+	}
+
+	return { sourcePath, false };
 }
 } // namespace
 
@@ -28,7 +98,9 @@ Result<std::unique_ptr<MaterialSystemServices>> MaterialSystemServices::Create(
 	ShaderSystemServices* shaderServices,
 	RootSignatureCache* rootSignatureCache,
 	PipelineStateCache* pipelineStateCache,
-	TextureSystemServices* textureServices)
+	TextureSystemServices* textureServices,
+	const std::filesystem::path& compiledShaderRoot,
+	ShaderSourcePolicy shaderSourcePolicy)
 {
 	if (device == nullptr || shaderServices == nullptr || !shaderServices->IsInitialized())
 	{
@@ -50,7 +122,9 @@ Result<std::unique_ptr<MaterialSystemServices>> MaterialSystemServices::Create(
 		shaderServices,
 		rootSignatureCache,
 		pipelineStateCache,
-		textureServices)));
+		textureServices,
+		compiledShaderRoot,
+		shaderSourcePolicy)));
 }
 
 MaterialSystemServices::MaterialSystemServices(
@@ -58,14 +132,43 @@ MaterialSystemServices::MaterialSystemServices(
 	ShaderSystemServices* shaderServices,
 	RootSignatureCache* rootSignatureCache,
 	PipelineStateCache* pipelineStateCache,
-	TextureSystemServices* textureServices)
+	TextureSystemServices* textureServices,
+	std::filesystem::path compiledShaderRoot,
+	ShaderSourcePolicy shaderSourcePolicy)
 	: m_device(device)
 	, m_shaderServices(shaderServices)
 	, m_rootSignatureCache(rootSignatureCache)
 	, m_pipelineStateCache(pipelineStateCache)
 	, m_textureServices(textureServices)
+	, m_compiledShaderRoot(std::move(compiledShaderRoot))
+	, m_shaderSourcePolicy(shaderSourcePolicy)
 	, m_bindCache(device)
 {
+}
+
+Result<ShaderBytecodeHandle> MaterialSystemServices::AcquireShaderBytecode(
+	const std::filesystem::path& sourcePath,
+	ShaderStage stage,
+	const std::string& entryPointOverride)
+{
+	const ResolvedShaderAsset asset = ResolveShaderAssetPath(
+		sourcePath,
+		m_compiledShaderRoot,
+		m_shaderSourcePolicy);
+
+	ShaderCompileDesc compileDesc{};
+	compileDesc.FilePath = asset.path;
+	compileDesc.Stage = stage;
+	compileDesc.EntryPoint = entryPointOverride.empty()
+		? GetStemName(sourcePath)
+		: entryPointOverride;
+
+	if (asset.isPrecompiled)
+	{
+		LOG_INFO(LogCategory::Renderer, "Using precompiled shader: " + asset.path.string());
+	}
+
+	return m_shaderServices->GetBytecodeCache().Acquire(compileDesc);
 }
 
 Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCreateDesc& desc)
@@ -78,30 +181,22 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 			"MaterialSystemServices is not initialized");
 	}
 
-	ShaderCompileDesc vsDesc{};
-	vsDesc.FilePath = desc.vertexShaderPath;
-	vsDesc.Stage = ShaderStage::Vertex;
-	vsDesc.EntryPoint = desc.vertexEntryPoint.empty()
-		? GetStemName(desc.vertexShaderPath)
-		: desc.vertexEntryPoint;
-
-	ShaderCompileDesc psDesc = vsDesc;
-	psDesc.FilePath = desc.pixelShaderPath;
-	psDesc.Stage = ShaderStage::Pixel;
-	psDesc.EntryPoint = desc.pixelEntryPoint.empty()
-		? GetStemName(desc.pixelShaderPath)
-		: desc.pixelEntryPoint;
-
 	ShaderBytecodeCache& bytecodeCache = m_shaderServices->GetBytecodeCache();
 	ShaderReflectionCache& reflectionCache = m_shaderServices->GetReflectionCache();
 
-	auto vsBytecodeResult = bytecodeCache.GetOrCompile(vsDesc);
+	auto vsBytecodeResult = AcquireShaderBytecode(
+		desc.vertexShaderPath,
+		ShaderStage::Vertex,
+		desc.vertexEntryPoint);
 	if (!vsBytecodeResult)
 	{
 		return MakeFail<MaterialHandle>(vsBytecodeResult.error.code, vsBytecodeResult.error.message);
 	}
 
-	auto psBytecodeResult = bytecodeCache.GetOrCompile(psDesc);
+	auto psBytecodeResult = AcquireShaderBytecode(
+		desc.pixelShaderPath,
+		ShaderStage::Pixel,
+		desc.pixelEntryPoint);
 	if (!psBytecodeResult)
 	{
 		return MakeFail<MaterialHandle>(psBytecodeResult.error.code, psBytecodeResult.error.message);

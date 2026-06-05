@@ -1,16 +1,27 @@
 #include "Engine/Application/Subsystem/EngineLoop.h"
 #include "Engine/Core/Log/Log.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
 #include "Runtime/RuntimePaths.h"
 #include "Runtime/RuntimeSubsystemSetup.h"
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/)
 {
-	Logger::Instance().Initialize("Engine.log");
+	Logger::Instance().Initialize(ResolveEngineLogPath().string());
+
+#ifdef _DEBUG
+	if (auto testResult = RunShaderBytecodeLoaderTests(ResolveCompiledShaderRoot()); !testResult)
+	{
+		LogResult(testResult, LogCategory::Core);
+		return -1;
+	}
+#endif
 
 	EngineLoopConfig config{};
 	config.hInstance = hInstance;
-	config.shaderRoot = "C:\\AetherEngine\\Assets\\Shaders\\";
+	config.shaderRoot = ResolveShaderRoot();
+	config.compiledShaderRoot = ResolveCompiledShaderRoot();
+	config.dx12DebugConfigPath = ResolveDx12DebugConfigPath();
 
 	SubsystemRegistry registry;
 	RegisterRuntimeSubsystems(registry, config);

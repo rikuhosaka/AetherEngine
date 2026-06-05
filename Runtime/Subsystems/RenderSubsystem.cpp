@@ -11,6 +11,7 @@
 #include "Engine/Graphics/DisplayContext.h"
 #include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Renderer/Core/RendererConfig.h"
+#include "Engine/Renderer/Core/ShaderSourcePolicy.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHICommandQueue.h"
@@ -79,6 +80,12 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	m_impl->renderer = std::make_unique<Renderer>();
 	RendererConfig rendererConfig{};
 	rendererConfig.shaderRoot = m_config.shaderRoot;
+	rendererConfig.compiledShaderRoot = m_config.compiledShaderRoot;
+#ifdef NDEBUG
+	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PreferPrecompiled;
+#else
+	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PreferSource;
+#endif
 
 	if (auto initResult = m_impl->renderer->Initialize(
 			rhiServices->device,

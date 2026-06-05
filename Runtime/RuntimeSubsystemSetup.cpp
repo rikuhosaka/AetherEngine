@@ -18,7 +18,7 @@
 void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConfig& config)
 {
 	registry.Register(std::make_unique<WindowSubsystem>(config));
-	registry.Register(CreateRHISubsystem());
+	registry.Register(CreateRHISubsystem(config));
 	registry.Register(CreateDisplaySubsystem(config));
 	registry.Register(CreateRenderSubsystem(config));
 	registry.Register(CreateInputSubsystem());

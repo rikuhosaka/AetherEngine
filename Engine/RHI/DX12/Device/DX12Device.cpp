@@ -48,7 +48,6 @@ DX12Device::~DX12Device()
 
 Result<void> DX12Device::Initialize()
 {
-	DX12DebugSettingsData::LoadFromFile("dx12_debug.json");
 	DX12Debug::Initialize(DX12DebugSettingsData::Get());
 	DX12Pix::Initialize();
 

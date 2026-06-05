@@ -19,7 +19,8 @@ Result<std::unique_ptr<RenderResourceServices>> RenderResourceServices::Create(
 	RHIDescriptorAllocator* descriptorAllocator,
 	ShaderSystemServices* shaderServices,
 	RootSignatureCache* rootSignatureCache,
-	PipelineStateCache* pipelineStateCache)
+	PipelineStateCache* pipelineStateCache,
+	const RendererConfig& rendererConfig)
 {
 	auto meshServicesResult = MeshSystemServices::Create(device);
 	if (!meshServicesResult)
@@ -42,7 +43,9 @@ Result<std::unique_ptr<RenderResourceServices>> RenderResourceServices::Create(
 		shaderServices,
 		rootSignatureCache,
 		pipelineStateCache,
-		textureServicesResult.value.get());
+		textureServicesResult.value.get(),
+		rendererConfig.compiledShaderRoot,
+		rendererConfig.shaderSourcePolicy);
 	if (!materialServicesResult)
 	{
 		return MakeFail<std::unique_ptr<RenderResourceServices>>(
