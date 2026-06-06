@@ -67,6 +67,12 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 			"RenderSubsystem requires a valid shader root path");
 	}
 
+	if (m_config.assetsRoot.empty())
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"RenderSubsystem requires a valid assets root path");
+	}
+
 	auto descriptorAllocatorResult =
 		rhiServices->device->CreateDescriptorAllocator(kPersistentDescriptorCount);
 	if (!descriptorAllocatorResult)
@@ -81,6 +87,7 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	RendererConfig rendererConfig{};
 	rendererConfig.shaderRoot = m_config.shaderRoot;
 	rendererConfig.compiledShaderRoot = m_config.compiledShaderRoot;
+	rendererConfig.assetsRoot = m_config.assetsRoot;
 #ifdef AETHER_PRECOMPILED_SHADERS_ONLY
 	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PrecompiledOnly;
 #elif defined(NDEBUG)

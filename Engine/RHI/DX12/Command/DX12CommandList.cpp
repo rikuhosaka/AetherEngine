@@ -25,7 +25,19 @@
 #include <atomic>
 #include <format>
 
+namespace
+{
+[[nodiscard]] uint32_t GetMipSlice(uint32_t subresource, uint32_t mipLevels)
+{
+	return mipLevels > 0 ? subresource % mipLevels : 0;
+}
 
+[[nodiscard]] uint32_t GetMipDimension(uint32_t dimension, uint32_t mipSlice)
+{
+	const uint32_t shifted = dimension >> mipSlice;
+	return shifted > 0 ? shifted : 1u;
+}
+}
 
 CommandListImpl*
 DX12CommandList::GetImpl() const
@@ -219,7 +231,6 @@ void DX12CommandList::CopyTextureRegion(
 	uint32_t bytesPerRow,
 	uint32_t numRows)
 {
-	(void)numRows;
 	if (dstTexture == nullptr || srcUpload == nullptr || m_impl->commandList == nullptr)
 	{
 		return;
@@ -232,6 +243,12 @@ void DX12CommandList::CopyTextureRegion(
 		return;
 	}
 
+	const uint32_t mipSlice = GetMipSlice(dstSubresource, dst->GetMipLevels());
+	const uint32_t mipWidth = GetMipDimension(dst->GetWidth(), mipSlice);
+	const uint32_t mipHeight = numRows != 0
+		? numRows
+		: GetMipDimension(dst->GetHeight(), mipSlice);
+
 	D3D12_TEXTURE_COPY_LOCATION dstLocation = {};
 	dstLocation.pResource = dst->GetResourceImpl()->resource.Get();
 	dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -239,8 +256,8 @@ void DX12CommandList::CopyTextureRegion(
 
 	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 	footprint.Footprint.Format = ToDxgiFormat(dst->GetFormat());
-	footprint.Footprint.Width = dst->GetWidth();
-	footprint.Footprint.Height = dst->GetHeight();
+	footprint.Footprint.Width = mipWidth;
+	footprint.Footprint.Height = mipHeight;
 	footprint.Footprint.Depth = 1;
 	footprint.Footprint.RowPitch = bytesPerRow;
 

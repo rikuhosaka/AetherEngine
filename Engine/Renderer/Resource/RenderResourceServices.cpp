@@ -30,7 +30,10 @@ Result<std::unique_ptr<RenderResourceServices>> RenderResourceServices::Create(
 			meshServicesResult.error.message);
 	}
 
-	auto textureServicesResult = TextureSystemServices::Create(device, descriptorAllocator);
+	auto textureServicesResult = TextureSystemServices::Create(
+		device,
+		descriptorAllocator,
+		rendererConfig.assetsRoot);
 	if (!textureServicesResult)
 	{
 		return MakeFail<std::unique_ptr<RenderResourceServices>>(

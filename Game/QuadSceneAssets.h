@@ -29,7 +29,7 @@ public:
 
 	[[nodiscard]] MeshHandle GetMesh() const noexcept { return m_mesh; }
 	[[nodiscard]] MaterialHandle GetMaterial() const noexcept { return m_material; }
-	[[nodiscard]] TextureHandle GetWhiteTexture() const noexcept { return m_whiteTexture; }
+	[[nodiscard]] TextureHandle GetBaseColorTexture() const noexcept { return m_baseColorTexture; }
 	[[nodiscard]] const QuadSceneConstants& GetSceneConstants() const noexcept { return m_sceneConstants; }
 	[[nodiscard]] const QuadMaterialConstants& GetMaterialConstants() const noexcept
 	{
@@ -49,7 +49,7 @@ private:
 	bool m_ready = false;
 	MeshHandle m_mesh{};
 	MaterialHandle m_material{};
-	TextureHandle m_whiteTexture{};
+	TextureHandle m_baseColorTexture{};
 	QuadSceneConstants m_sceneConstants{};
 	QuadMaterialConstants m_materialConstants{};
 };

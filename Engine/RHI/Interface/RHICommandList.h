@@ -36,6 +36,10 @@ public:
 		RHIUploadBuffer* srcUpload,
 		size_t srcOffset,
 		size_t numBytes) = 0;
+	// Copies one mip slice from a placed upload footprint into dstTexture.
+	// dstSubresource: D3D12 subresource index (mip slice for single-array 2D textures).
+	// bytesPerRow: source row pitch in bytes (may include padding).
+	// numRows: mip height in texels; when zero, derived from dstSubresource.
 	virtual void CopyTextureRegion(
 		RHITexture* dstTexture,
 		uint32_t dstSubresource,

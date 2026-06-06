@@ -21,6 +21,8 @@ endif()
 target_include_directories(Renderer
     PUBLIC
         ${CMAKE_SOURCE_DIR}
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/include
 )
 
 # 依存する内部モジュール・外部ライブラリ
@@ -35,6 +37,8 @@ target_link_libraries(Renderer
         dxgi
         d3d12
         dxcompiler
+        DirectXTex
+        ole32
 )
 
 target_precompile_headers(Renderer PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

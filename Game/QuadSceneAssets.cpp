@@ -8,8 +8,8 @@
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshUpload.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
+#include "Engine/Renderer/Texture/Loader/TextureLoadTypes.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
-#include "Engine/Renderer/Texture/TextureUpload.h"
 #include "Engine/RHI/Common/RHIInput.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 
@@ -95,31 +95,22 @@ Result<void> QuadSceneAssets::EnsureInitialized(
 	}
 	m_mesh = meshResult.value;
 
-	const std::array<std::byte, 4> whitePixel = {
-		std::byte{ 255 },
-		std::byte{ 255 },
-		std::byte{ 255 },
-		std::byte{ 255 },
-	};
-	TextureUploadDesc textureDesc{};
-	textureDesc.width = 1;
-	textureDesc.height = 1;
-	TextureMipData mip{};
-	mip.width = 1;
-	mip.height = 1;
-	mip.rowPitch = 4;
-	mip.pixels = whitePixel;
-	textureDesc.mips.push_back(mip);
+	TextureLoadDesc textureLoadDesc{};
+	textureLoadDesc.relativePath = "Textures/GameIcon.png";
+	textureLoadDesc.colorSpace = TextureColorSpace::Srgb;
+	textureLoadDesc.generateMips = true;
+	textureLoadDesc.debugName = "GameIcon";
 
-	const Result<TextureHandle> textureResult = resources->GetTextureServices().UploadTexture(
-		textureDesc,
-		frameContext,
-		commandList);
+	const Result<TextureHandle> textureResult =
+		resources->GetTextureServices().GetOrLoadTexture(
+			textureLoadDesc,
+			frameContext,
+			commandList);
 	if (!textureResult)
 	{
 		return MakeFail(textureResult.error.code, textureResult.error.message);
 	}
-	m_whiteTexture = textureResult.value;
+	m_baseColorTexture = textureResult.value;
 
 	MaterialCreateDesc materialDesc{};
 	materialDesc.vertexShaderPath = shaderRoot / "SimpleVS.hlsl";
@@ -141,7 +132,7 @@ Result<void> QuadSceneAssets::EnsureInitialized(
 	m_materialConstants = color;
 
 	m_ready = true;
-	LOG_INFO(LogCategory::Core, "QuadSceneAssets initialized (screen quad mesh and solid-color material)");
+	LOG_INFO(LogCategory::Core, "QuadSceneAssets initialized (screen quad with GameIcon texture)");
 	return MakeOk();
 }
 
@@ -150,7 +141,7 @@ void QuadSceneAssets::FillExtractedObject(ExtractedObject& object) const
 	object.mesh = m_mesh;
 	object.material = m_material;
 	object.submeshIndex = 0;
-	object.overrides.baseColor = m_whiteTexture;
+	object.overrides.baseColor = m_baseColorTexture;
 	object.overrides.normal = {};
 
 	object.overrides.parameters.clear();
