@@ -241,8 +241,19 @@ namespace DX12BarrierValidator
 
 bool ValidateTransition(const TransitionContext& context)
 {
-	(void)context;
-	return context.resource != nullptr;
+	if (context.resource == nullptr || !context.stateInitialized)
+	{
+		return false;
+	}
+
+	// Match debug-build behavior: skip redundant barriers. Emitting same-state
+	// transitions in release builds can fault the GPU without the debug layer.
+	if (context.currentState == context.newState)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 void BeginFrame() {}

@@ -46,7 +46,7 @@ DX12Buffer::DX12Buffer(
 			&heapProps,
 			D3D12_HEAP_FLAG_NONE,
 			&resourceDesc,
-			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_COMMON,
 			nullptr,
 			IID_PPV_ARGS(&buffer));
 		if (FAILED(result))
@@ -54,7 +54,7 @@ DX12Buffer::DX12Buffer(
 			return;
 		}
 		m_impl->resource = buffer;
-		m_impl->SetInitialState(ERHIResourceState::CopyDest);
+		m_impl->SetInitialState(ERHIResourceState::Common);
 	}
 
 	if (!IsValid())

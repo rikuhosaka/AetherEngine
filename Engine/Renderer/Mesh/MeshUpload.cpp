@@ -90,6 +90,9 @@ Result<std::unique_ptr<Mesh>> MeshUpload::CreateMesh(
 	mesh->submeshes = desc.submeshes;
 	mesh->bounds = desc.bounds;
 
+	commandList->ResourceBarrier(mesh->vertexBuffer.get(), ERHIResourceState::CopyDest);
+	commandList->ResourceBarrier(mesh->indexBuffer.get(), ERHIResourceState::CopyDest);
+
 	commandList->CopyBufferRegion(
 		mesh->vertexBuffer.get(),
 		0,
