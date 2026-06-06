@@ -42,6 +42,27 @@ endif()
 
 target_precompile_headers(Runtime PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
 
+if(AETHER_PRECOMPILED_SHADERS_ONLY)
+    target_compile_definitions(Runtime PRIVATE AETHER_PRECOMPILED_SHADERS_ONLY)
+endif()
+
+add_dependencies(Runtime CompileShaders)
+
+if(AETHER_COMPILED_SHADERS)
+    foreach(SHADER_CSO ${AETHER_COMPILED_SHADERS})
+        get_filename_component(SHADER_FILE_NAME "${SHADER_CSO}" NAME)
+        add_custom_command(
+            TARGET Runtime
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_FILE_DIR:Runtime>/CompiledShaders"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${SHADER_CSO}"
+                "$<TARGET_FILE_DIR:Runtime>/CompiledShaders/${SHADER_FILE_NAME}"
+            COMMENT "Copy ${SHADER_FILE_NAME} to Runtime output directory")
+    endforeach()
+endif()
+
 if (EXISTS "${CMAKE_SOURCE_DIR}/dx12_debug.json")
     add_custom_command(
         TARGET Runtime

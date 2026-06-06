@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.16)
 project(AetherEngine)
 
 option(AETHER_ENABLE_PIX "Link WinPixEventRuntime for PIX GPU markers (NuGet fetch on configure)" OFF)
+option(AETHER_PRECOMPILED_SHADERS_ONLY
+    "Load only precompiled .cso shaders at runtime (no HLSL fallback)"
+    OFF)
 
 #変数
 
@@ -35,12 +38,6 @@ set_target_properties(ThirdParty PROPERTIES FOLDER "ThirdParty")
 
 add_subdirectory(Engine)
 set_target_properties(Engine PROPERTIES FOLDER "Engine")
-
-add_subdirectory(Runtime)
-set_target_properties(Runtime PROPERTIES FOLDER "Runtime")
-
-add_subdirectory(Game)
-set_target_properties(Game PROPERTIES FOLDER "Game")
 
 # Assets フォルダ内のすべてのファイルを再帰的に取得
 file(GLOB_RECURSE ASSETS_FILES
@@ -127,5 +124,10 @@ foreach(HLSL_FILE IN LISTS HLSL_SHADERS)
 endforeach()
 
 add_custom_target(CompileShaders ALL DEPENDS ${COMPILED_SHADERS})
+set(AETHER_COMPILED_SHADERS ${COMPILED_SHADERS})
 
-add_dependencies(Runtime CompileShaders)
+add_subdirectory(Runtime)
+set_target_properties(Runtime PROPERTIES FOLDER "Runtime")
+
+add_subdirectory(Game)
+set_target_properties(Game PROPERTIES FOLDER "Game")

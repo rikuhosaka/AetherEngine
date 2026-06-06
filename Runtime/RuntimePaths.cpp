@@ -63,15 +63,35 @@ std::filesystem::path ResolveAssetsDirectory()
 
 std::filesystem::path ResolveCompiledShaderRoot()
 {
-	const auto buildRoot = FindAncestorContainingRelativePath(
-		ResolveExecutableDirectory(),
-		"CompiledShaders");
-	if (buildRoot.empty())
+	const auto exeDir = ResolveExecutableDirectory();
+
+	auto tryCompiledShaderRoot = [](const std::filesystem::path& root) -> std::filesystem::path
 	{
+		std::error_code errorCode{};
+		const std::filesystem::path canonicalRoot = CanonicalizeIfPossible(root);
+		if (std::filesystem::exists(canonicalRoot / "SimpleVS.cso", errorCode) && !errorCode)
+		{
+			return canonicalRoot;
+		}
+
 		return {};
+	};
+
+	if (std::filesystem::path exeAdjacentRoot = tryCompiledShaderRoot(exeDir / "CompiledShaders");
+		!exeAdjacentRoot.empty())
+	{
+		return exeAdjacentRoot;
 	}
 
-	return CanonicalizeIfPossible(buildRoot / "CompiledShaders");
+	const auto buildRoot = FindAncestorContainingRelativePath(
+		exeDir,
+		"CompiledShaders/SimpleVS.cso");
+	if (!buildRoot.empty())
+	{
+		return CanonicalizeIfPossible(buildRoot / "CompiledShaders");
+	}
+
+	return CanonicalizeIfPossible(exeDir / "CompiledShaders");
 }
 
 std::filesystem::path ResolveShaderRoot()

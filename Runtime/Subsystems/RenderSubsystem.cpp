@@ -81,7 +81,9 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	RendererConfig rendererConfig{};
 	rendererConfig.shaderRoot = m_config.shaderRoot;
 	rendererConfig.compiledShaderRoot = m_config.compiledShaderRoot;
-#ifdef NDEBUG
+#ifdef AETHER_PRECOMPILED_SHADERS_ONLY
+	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PrecompiledOnly;
+#elif defined(NDEBUG)
 	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PreferPrecompiled;
 #else
 	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PreferSource;
