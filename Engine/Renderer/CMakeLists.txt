@@ -23,6 +23,7 @@ target_include_directories(Renderer
         ${CMAKE_SOURCE_DIR}
     PRIVATE
         ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/include
+        ${CMAKE_SOURCE_DIR}/ThirdParty/Fbxsdk/include
 )
 
 # 依存する内部モジュール・外部ライブラリ
@@ -38,6 +39,7 @@ target_link_libraries(Renderer
         d3d12
         dxcompiler
         DirectXTex
+        Fbxsdk
         ole32
 )
 

@@ -2,6 +2,7 @@
 #include "Engine/Core/Log/Log.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
+#include "Engine/Renderer/Test/FbxModelFileLoaderTest.h"
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
 #include "Runtime/RuntimePaths.h"
 #include "Runtime/RuntimeSubsystemSetup.h"
@@ -20,6 +21,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 	if (auto textureTestResult = RunTextureFileLoaderTests(ResolveAssetsDirectory()); !textureTestResult)
 	{
 		LogResult(textureTestResult, LogCategory::Core);
+		return -1;
+	}
+
+	if (auto modelTestResult = RunFbxModelFileLoaderTests(ResolveAssetsDirectory()); !modelTestResult)
+	{
+		LogResult(modelTestResult, LogCategory::Core);
 		return -1;
 	}
 #endif
