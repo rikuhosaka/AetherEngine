@@ -89,6 +89,16 @@ void Renderer::ExtractScene(std::span<const ExtractedObject> objects)
 	m_scene.Extract(objects, m_frameIndex);
 }
 
+void Renderer::ExtractView(const ExtractedView& view)
+{
+	m_scene.ExtractView(view);
+}
+
+void Renderer::ExtractLighting(const ExtractedLighting& lighting)
+{
+	m_scene.ExtractLighting(lighting);
+}
+
 void Renderer::BuildScene(RHICommandList* commandList)
 {
 	if (m_frameContext == nullptr || m_resourceServices == nullptr || commandList == nullptr)

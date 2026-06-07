@@ -162,6 +162,10 @@ Result<ShaderBytecodeHandle> MaterialSystemServices::AcquireShaderBytecode(
 	compileDesc.EntryPoint = entryPointOverride.empty()
 		? GetStemName(sourcePath)
 		: entryPointOverride;
+	if (!asset.isPrecompiled)
+	{
+		compileDesc.IncludeDirectories.push_back(sourcePath.parent_path());
+	}
 
 	if (asset.isPrecompiled)
 	{

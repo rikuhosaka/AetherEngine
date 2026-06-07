@@ -32,6 +32,8 @@ public:
 
 	void BeginFrame(uint32_t frameIndex);
 	void ExtractScene(std::span<const ExtractedObject> objects);
+	void ExtractView(const ExtractedView& view);
+	void ExtractLighting(const ExtractedLighting& lighting);
 	void BuildScene(RHICommandList* commandList);
 	void Render(RHICommandList* commandList);
 	void EndFrame();

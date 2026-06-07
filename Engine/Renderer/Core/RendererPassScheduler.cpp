@@ -18,6 +18,7 @@ void RendererPassScheduler::ExecuteAll(
 	OpaqueMeshPass::Execute(
 		frameContext,
 		commandList,
+		snapshot,
 		snapshot.opaqueItems,
 		resources.GetMeshServices(),
 		resources.GetMaterialServices(),

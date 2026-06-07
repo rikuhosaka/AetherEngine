@@ -33,6 +33,7 @@ public:
 	[[nodiscard]] MaterialPool& GetPool() noexcept { return m_pool; }
 	[[nodiscard]] MaterialBindCache& GetBindCache() noexcept { return m_bindCache; }
 	[[nodiscard]] TextureSystemServices& GetTextureServices() const { return *m_textureServices; }
+	[[nodiscard]] RHIDevice* GetDevice() const noexcept { return m_device; }
 
 	[[nodiscard]] Result<MaterialHandle> CreateMaterial(const MaterialCreateDesc& desc);
 

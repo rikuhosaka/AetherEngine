@@ -20,6 +20,8 @@ public:
 	void BeginFrame();
 
 	void Extract(std::span<const ExtractedObject> objects, uint32_t frameIndex);
+	void ExtractView(const ExtractedView& view);
+	void ExtractLighting(const ExtractedLighting& lighting);
 
 	void Build(
 		FrameContext& frameContext,
@@ -58,6 +60,10 @@ private:
 
 	std::filesystem::path m_shaderRoot{};
 	ExtractedFrame m_extractedFrame{};
+	ExtractedView m_extractedView{};
+	ExtractedLighting m_extractedLighting{};
+	bool m_hasExtractedView = false;
+	bool m_hasExtractedLighting = false;
 	RenderFrameSnapshot m_snapshot{};
 	RenderPlaceholders m_placeholders{};
 	std::unordered_map<RenderObjectId, MaterialInstanceCacheEntry, RenderObjectIdHash> m_instanceCache{};

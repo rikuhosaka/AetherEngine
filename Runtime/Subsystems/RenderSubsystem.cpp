@@ -154,6 +154,8 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	}
 
 	std::vector<ExtractedObject> extractedObjects;
+	ExtractedView extractedView{};
+	ExtractedLighting extractedLighting{};
 	if (auto* registry = ctx.GetService<SubsystemRegistry>())
 	{
 		if (ISceneExtractor* sceneExtractor = registry->GetSceneExtractor())
@@ -164,9 +166,13 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 				return prepareResult;
 			}
 
+			sceneExtractor->ExtractView(extractedView);
+			sceneExtractor->ExtractLighting(extractedLighting);
 			sceneExtractor->Extract(extractedObjects);
 		}
 	}
+	m_impl->renderer->ExtractView(extractedView);
+	m_impl->renderer->ExtractLighting(extractedLighting);
 	m_impl->renderer->ExtractScene(extractedObjects);
 
 	{

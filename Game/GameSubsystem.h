@@ -30,6 +30,8 @@ public:
 		FrameContext& frameContext,
 		RHICommandList* commandList) override;
 	void Extract(std::vector<ExtractedObject>& outObjects) override;
+	void ExtractView(ExtractedView& outView) override;
+	void ExtractLighting(ExtractedLighting& outLighting) override;
 	void Shutdown(SubsystemContext& ctx) override;
 
 private:

@@ -2,6 +2,7 @@
 
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/RenderServices.h"
+#include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Platform/InputManager.h"
 
@@ -45,4 +46,15 @@ std::filesystem::path GameHost::GetShaderRoot() const
 	}
 
 	return renderServices->shaderRoot;
+}
+
+std::pair<uint32_t, uint32_t> GameHost::GetViewportSize() const
+{
+	const WindowServices* windowServices = m_context.GetService<WindowServices>();
+	if (windowServices == nullptr)
+	{
+		return { 0, 0 };
+	}
+
+	return { windowServices->clientWidth, windowServices->clientHeight };
 }

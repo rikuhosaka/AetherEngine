@@ -21,7 +21,12 @@ target_include_directories(Game
         ${CMAKE_SOURCE_DIR}
 )
 
-target_link_libraries(Game PRIVATE Engine)
+target_link_libraries(Game PRIVATE Engine Renderer Math)
+
+target_include_directories(Game
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/ThirdParty/Fbxsdk/include
+)
 
 
 target_precompile_headers(Game PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

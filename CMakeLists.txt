@@ -67,7 +67,10 @@ endforeach()
 file(GLOB_RECURSE HLSL_SHADERS "${CMAKE_SOURCE_DIR}/Assets/Shaders/*.hlsl")
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/CompiledShaders")
+set(SHADER_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/Assets/Shaders")
 file(MAKE_DIRECTORY ${SHADER_OUTPUT_DIR})
+
+file(GLOB HLSL_INCLUDES CONFIGURE_DEPENDS "${SHADER_INCLUDE_DIR}/Include/*.hlsli")
 
 if(WIN32)
     set(DXC_EXECUTABLE "${AETHER_DXC_EXECUTABLE}")
@@ -113,9 +116,10 @@ foreach(HLSL_FILE IN LISTS HLSL_SHADERS)
         COMMAND "${DXC_EXECUTABLE}"
             -T ${SHADER_TARGET}
             -E ${FILE_NAME_WE}
+            -I ${SHADER_INCLUDE_DIR}
             -Fo ${OUTPUT_FILE}
             ${HLSL_FILE}
-        DEPENDS ${HLSL_FILE}
+        DEPENDS ${HLSL_FILE} ${HLSL_INCLUDES}
         COMMENT "Compiling ${FILENAME} -> ${OUTPUT_FILE}"
         VERBATIM
     )

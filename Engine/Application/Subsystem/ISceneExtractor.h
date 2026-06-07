@@ -6,7 +6,9 @@
 
 #include <vector>
 
+struct ExtractedLighting;
 struct ExtractedObject;
+struct ExtractedView;
 class RHICommandList;
 
 class ISceneExtractor
@@ -26,4 +28,14 @@ public:
 	}
 
 	virtual void Extract(std::vector<ExtractedObject>& outObjects) = 0;
+
+	virtual void ExtractView(ExtractedView& outView)
+	{
+		(void)outView;
+	}
+
+	virtual void ExtractLighting(ExtractedLighting& outLighting)
+	{
+		(void)outLighting;
+	}
 };

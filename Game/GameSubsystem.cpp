@@ -81,6 +81,22 @@ void GameSubsystem::Extract(std::vector<ExtractedObject>& outObjects)
 	}
 }
 
+void GameSubsystem::ExtractView(ExtractedView& outView)
+{
+	if (m_module != nullptr && m_host != nullptr)
+	{
+		m_module->OnExtractView(*m_host, outView);
+	}
+}
+
+void GameSubsystem::ExtractLighting(ExtractedLighting& outLighting)
+{
+	if (m_module != nullptr && m_host != nullptr)
+	{
+		m_module->OnExtractLighting(*m_host, outLighting);
+	}
+}
+
 void GameSubsystem::Shutdown(SubsystemContext& ctx)
 {
 	if (m_module != nullptr && m_host != nullptr)

@@ -1,6 +1,7 @@
 #include "Engine/Renderer/Scene/RenderScene.h"
 
 #include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Renderer/Scene/RenderConstantsBuild.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -296,6 +297,10 @@ void RenderScene::BeginFrame()
 	m_snapshot.shadowItems.clear();
 	m_snapshot.transparentItems.clear();
 	m_snapshot.objectConstants.clear();
+	m_snapshot.hasView = false;
+	m_snapshot.hasLighting = false;
+	m_hasExtractedView = false;
+	m_hasExtractedLighting = false;
 }
 
 void RenderScene::Extract(std::span<const ExtractedObject> objects, uint32_t frameIndex)
@@ -309,6 +314,18 @@ void RenderScene::Extract(std::span<const ExtractedObject> objects, uint32_t fra
 	}
 }
 
+void RenderScene::ExtractView(const ExtractedView& view)
+{
+	m_extractedView = view;
+	m_hasExtractedView = true;
+}
+
+void RenderScene::ExtractLighting(const ExtractedLighting& lighting)
+{
+	m_extractedLighting = lighting;
+	m_hasExtractedLighting = true;
+}
+
 void RenderScene::Build(
 	FrameContext& frameContext,
 	RHICommandList* commandList,
@@ -319,6 +336,23 @@ void RenderScene::Build(
 	m_snapshot.shadowItems.clear();
 	m_snapshot.transparentItems.clear();
 	m_snapshot.objectConstants.clear();
+	m_snapshot.hasView = m_hasExtractedView;
+	m_snapshot.hasLighting = m_hasExtractedLighting;
+
+	if (m_hasExtractedView)
+	{
+		m_snapshot.view = m_extractedView;
+	}
+
+	if (m_hasExtractedLighting)
+	{
+		m_snapshot.lighting = m_extractedLighting;
+	}
+
+	if (m_snapshot.hasView && m_snapshot.hasLighting)
+	{
+		BuildFrameConstants(m_snapshot.view, m_snapshot.lighting, m_snapshot.frameConstants);
+	}
 
 	std::string placeholderError;
 	if (!m_placeholders.EnsureInitialized(
@@ -399,7 +433,7 @@ void RenderScene::Build(
 		item.objectConstantsIndex = static_cast<uint32_t>(m_snapshot.objectConstants.size());
 
 		ObjectConstants constants{};
-		CopyMatrix(constants.worldMatrix, object.worldMatrix);
+		BuildObjectConstants(object.worldMatrix, constants);
 		m_snapshot.objectConstants.push_back(constants);
 
 		if ((object.layerMask & RenderLayer::Opaque) != 0)

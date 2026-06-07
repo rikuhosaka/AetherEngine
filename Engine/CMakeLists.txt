@@ -4,6 +4,9 @@ add_library(Engine INTERFACE)
 add_subdirectory(Core)
 set_target_properties(Core PROPERTIES FOLDER "Engine")
 
+add_subdirectory(Math)
+set_target_properties(Math PROPERTIES FOLDER "Engine/Math")
+
 add_subdirectory(Frame)
 set_target_properties(Frame PROPERTIES FOLDER "Engine/Frame")
 
@@ -26,6 +29,7 @@ set_target_properties(Application PROPERTIES FOLDER "Engine/Application")
 
 target_link_libraries(Engine INTERFACE
     Core
+    Math
     Frame
     Graphics
     RHI

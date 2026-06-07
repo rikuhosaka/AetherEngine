@@ -5,7 +5,9 @@
 
 #include <vector>
 
+struct ExtractedLighting;
 struct ExtractedObject;
+struct ExtractedView;
 
 class IGameHost;
 class RHICommandList;
@@ -28,6 +30,16 @@ public:
 	}
 	virtual void OnTick(IGameHost& host, float deltaSeconds) = 0;
 	virtual void OnExtract(IGameHost& host, std::vector<ExtractedObject>& outObjects) = 0;
+	virtual void OnExtractView(IGameHost& host, ExtractedView& outView)
+	{
+		(void)host;
+		(void)outView;
+	}
+	virtual void OnExtractLighting(IGameHost& host, ExtractedLighting& outLighting)
+	{
+		(void)host;
+		(void)outLighting;
+	}
 	virtual void OnShutdown(IGameHost& host) = 0;
 };
 

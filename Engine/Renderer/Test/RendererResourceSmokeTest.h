@@ -1,16 +1,14 @@
 #pragma once
 
+#include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Frame/FrameContext.h"
+#include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/Renderer/Scene/RenderViewTypes.h"
 
 #include <filesystem>
 #include <string>
-
-struct RendererResourceSmokeSceneConstants
-{
-	float mvp[16]{};
-};
 
 struct RendererResourceSmokeMaterialConstants
 {
@@ -20,11 +18,15 @@ struct RendererResourceSmokeMaterialConstants
 struct RendererResourceSmokeResult
 {
 	bool success = false;
+	ExtractedView view{};
+	ExtractedLighting lighting{};
+	FrameConstants frameConstants{};
 	ExtractedObject extractedObject{};
-	RendererResourceSmokeSceneConstants sceneConstants{};
 	RendererResourceSmokeMaterialConstants materialConstants{};
 	std::string error{};
 };
+
+[[nodiscard]] Result<void> RunRendererResourceSmokeLayoutTests();
 
 [[nodiscard]] RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 	Renderer& renderer,

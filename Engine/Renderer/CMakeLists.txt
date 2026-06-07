@@ -30,6 +30,7 @@ target_include_directories(Renderer
 target_link_libraries(Renderer
     PUBLIC
         Core
+        Math
         Frame
         RHI
         RHI_Interface
