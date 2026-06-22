@@ -45,3 +45,6 @@ desktop.ini
 *.fbx
 *.hdr
 *.mp4
+
+# === Cursor関連 ===
+.cursor/

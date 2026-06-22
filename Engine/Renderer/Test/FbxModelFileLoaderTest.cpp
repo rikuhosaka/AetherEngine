@@ -5,8 +5,6 @@
 #include "Engine/Renderer/Model/Loader/FbxSdkContext.h"
 #include "Engine/Renderer/Model/Loader/ModelAssetPath.h"
 
-#include <cmath>
-#include <limits>
 
 namespace
 {
@@ -247,7 +245,7 @@ Result<void> RunFbxModelFileLoaderTests(const std::filesystem::path& assetsRoot)
 
 	if (auto triangleResult = RunLoaderTestCase(
 			assetsRoot,
-			"Models/Test/Triangle.fbx",
+			"Models/trangle.fbx",
 			sdkResult.value);
 		!triangleResult)
 	{

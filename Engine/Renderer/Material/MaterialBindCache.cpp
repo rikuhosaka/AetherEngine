@@ -1,7 +1,6 @@
 #include "Engine/Renderer/Material/MaterialBindCache.h"
 
 #include "Engine/Core/Log/LogMacros.h"
-#include "Engine/Renderer/Scene/RenderConstantsLayout.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/RHI/Common/RHIRootSignatureLayout.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
@@ -72,11 +71,6 @@ bool MaterialBindCache::Bind(
 
 	for (const ShaderRootBindingSlot& slot : material.bindingSlots)
 	{
-		if (IsPassBoundConstantRegister(material, slot.Register, slot.Space))
-		{
-			continue;
-		}
-
 		if (slot.IsRootConstants)
 		{
 			const std::optional<size_t> layoutIndex =
