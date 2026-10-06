@@ -10,7 +10,7 @@
 
 #include <filesystem>
 #include <memory>
-#include <vector>
+#include <optional>
 #include <vector>
 
 class FrameContext;
@@ -52,11 +52,13 @@ private:
 		class RenderResourceServices& resources,
 		FrameContext& frameContext,
 		RHICommandList* commandList,
+		const std::filesystem::path& assetsRoot,
 		const std::filesystem::path& texturePath,
 		TextureHandle& outTexture);
 
 	bool m_ready = false;
 	LitMaterialConstants m_materialConstants{};
+	std::optional<uint32_t> m_materialConstantsSlot{};
 	MaterialHandle m_material{};
 	std::vector<TextureHandle> m_materialTextures{};
 	std::vector<FbxSceneInstance> m_instances{};

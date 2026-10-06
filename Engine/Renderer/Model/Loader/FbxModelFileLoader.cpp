@@ -515,6 +515,15 @@ void TraverseNodeHierarchy(
 		}
 	}
 
+	if (options.convertUnitsToMeters)
+	{
+		const FbxSystemUnit sourceUnit = scene->GetGlobalSettings().GetSystemUnit();
+		if (sourceUnit != FbxSystemUnit::m)
+		{
+			FbxSystemUnit::m.ConvertScene(scene);
+		}
+	}
+
 	if (options.generateNormalsIfMissing)
 	{
 		const int nodeCount = scene->GetNodeCount();

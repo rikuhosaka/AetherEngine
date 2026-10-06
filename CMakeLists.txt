@@ -20,6 +20,16 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
+# Visual Studio IDE が設定する VS_UNICODE_OUTPUT があると cl.exe は /showIncludes を標準出力ではなく
+# IDE へ直接書き出すため、Ninja がヘッダー依存を記録できずヘッダー変更で再コンパイルされなくなる。
+if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja")
+    foreach(lang C CXX)
+        if(NOT CMAKE_${lang}_COMPILER_LAUNCHER)
+            set(CMAKE_${lang}_COMPILER_LAUNCHER "${CMAKE_COMMAND}" -E env --unset=VS_UNICODE_OUTPUT)
+        endif()
+    endforeach()
+endif()
+
 if(WIN32)
     include(ResolveAetherDxc)
     aether_resolve_dxc(AETHER_DXC_EXECUTABLE)

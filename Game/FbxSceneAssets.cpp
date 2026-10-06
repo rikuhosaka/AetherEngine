@@ -13,6 +13,7 @@
 #include "Engine/Renderer/Model/Loader/ModelAssetPath.h"
 #include "Engine/Renderer/Model/Loader/ModelLoadTypes.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
+#include "Engine/Renderer/Scene/RenderConstantsLayout.h"
 #include "Engine/Renderer/Texture/Loader/TextureLoadTypes.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/Renderer/Texture/TextureUpload.h"
@@ -22,6 +23,7 @@
 #include <DirectXMath.h>
 
 #include <cstring>
+#include <system_error>
 #include <unordered_map>
 #include <vector>
 
@@ -88,19 +90,63 @@ void ComputeNodeWorldMatrix(
 
 	return meshServices.UploadMesh(meshDesc, frameContext, commandList);
 }
+
+// The FBX loader resolves texture paths to absolute paths, but TextureSystemServices only
+// accepts paths relative to Assets/. Returns an empty path if the texture lies outside Assets/.
+[[nodiscard]] std::filesystem::path MakeAssetsRelativePath(
+	const std::filesystem::path& assetsRoot,
+	const std::filesystem::path& texturePath)
+{
+	if (!texturePath.is_absolute())
+	{
+		return texturePath;
+	}
+
+	std::error_code errorCode{};
+	const std::filesystem::path canonicalRoot = std::filesystem::weakly_canonical(assetsRoot, errorCode);
+	if (errorCode)
+	{
+		return {};
+	}
+
+	const std::filesystem::path relativePath =
+		std::filesystem::relative(texturePath, canonicalRoot, errorCode);
+	if (errorCode || relativePath.empty())
+	{
+		return {};
+	}
+
+	for (const std::filesystem::path& part : relativePath)
+	{
+		if (part == "..")
+		{
+			return {};
+		}
+	}
+
+	return relativePath;
+}
 } // namespace
 
 Result<void> FbxSceneAssets::LoadTextureForSlot(
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
+	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& texturePath,
 	TextureHandle& outTexture)
 {
-	if (!texturePath.empty())
+	const std::filesystem::path relativePath = MakeAssetsRelativePath(assetsRoot, texturePath);
+	if (!texturePath.empty() && relativePath.empty())
+	{
+		LOG_WARN_F(LogCategory::Asset,
+			"FBX texture is outside Assets/, using white fallback: {}", texturePath.string());
+	}
+
+	if (!relativePath.empty())
 	{
 		TextureLoadDesc textureLoadDesc{};
-		textureLoadDesc.relativePath = texturePath;
+		textureLoadDesc.relativePath = relativePath;
 		textureLoadDesc.colorSpace = TextureColorSpace::Srgb;
 		textureLoadDesc.generateMips = true;
 		textureLoadDesc.debugName = "FbxBaseColor";
@@ -232,6 +278,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 				*resources,
 				frameContext,
 				commandList,
+				assetsRoot,
 				assetData.materialSlots[slotIndex].diffuseTexturePath,
 				m_materialTextures[slotIndex]);
 			!textureResult)
@@ -256,6 +303,24 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	}
 	m_material = materialResult.value;
 	m_materialConstants = materialConstants;
+
+	const Material* material = resources->GetMaterialServices().GetMaterial(m_material);
+	if (material == nullptr)
+	{
+		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
+			"FbxSceneAssets failed to resolve created material");
+	}
+
+	m_materialConstantsSlot.reset();
+	for (uint32_t layoutIndex = 0; layoutIndex < material->constantLayout.size(); ++layoutIndex)
+	{
+		const ShaderConstantBuffer& layout = material->constantLayout[layoutIndex];
+		if (layout.Register == RenderRegisters::MaterialConstants && layout.Space == 0)
+		{
+			m_materialConstantsSlot = layoutIndex;
+			break;
+		}
+	}
 
 	m_instances.clear();
 	uint32_t nextObjectId = 1;
@@ -323,12 +388,15 @@ void FbxSceneAssets::FillExtractedObjects(std::vector<ExtractedObject>& outObjec
 
 		object.overrides.baseColor = sceneInstance.baseColor;
 		object.overrides.normal = {};
-		MaterialParameterBlock materialBlock{};
-		materialBlock.bindingSlot = 0;
-		materialBlock.data = std::span<const std::byte>(
-			reinterpret_cast<const std::byte*>(&m_materialConstants),
-			sizeof(m_materialConstants));
-		object.overrides.parameters.push_back(materialBlock);
+		if (m_materialConstantsSlot.has_value())
+		{
+			MaterialParameterBlock materialBlock{};
+			materialBlock.bindingSlot = *m_materialConstantsSlot;
+			materialBlock.data = std::span<const std::byte>(
+				reinterpret_cast<const std::byte*>(&m_materialConstants),
+				sizeof(m_materialConstants));
+			object.overrides.parameters.push_back(materialBlock);
+		}
 
 		outObjects.push_back(object);
 	}

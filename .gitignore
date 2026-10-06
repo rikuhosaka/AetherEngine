@@ -9,7 +9,7 @@ build/
 *.log
 *.tlog
 *.tmp
-*.cache
+*.cachey
 
 # === CMake 関連 ===
 CMakeFiles/
@@ -47,4 +47,4 @@ desktop.ini
 *.mp4
 
 # === Cursor関連 ===
-.cursor/
+.cursor/rules/

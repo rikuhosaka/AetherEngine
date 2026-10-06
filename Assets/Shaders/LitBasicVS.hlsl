@@ -12,10 +12,10 @@ struct VSOut
 VSOut LitBasicVS(float4 pos : POSITION, float2 uv : TEXCOORD0, float3 normal : NORMAL)
 {
     VSOut output;
-    float4 worldPos4 = mul(worldMatrix, pos);
+    float4 worldPos4 = mul(pos, worldMatrix);
     output.worldPos = worldPos4.xyz;
-    output.normalW = mul((float3x3)worldInverseTranspose, normal);
-    output.pos = mul(viewProjectionMatrix, worldPos4);
+    output.normalW = mul(normal, (float3x3)worldInverseTranspose);
+    output.pos = mul(worldPos4, viewProjectionMatrix);
     output.uv = uv;
     return output;
 }

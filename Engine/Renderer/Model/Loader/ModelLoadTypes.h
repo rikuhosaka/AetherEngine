@@ -59,4 +59,5 @@ struct FbxModelLoadOptions
 	bool triangulate = true;
 	bool generateNormalsIfMissing = true;
 	bool convertAxisToDirectX = true;
+	bool convertUnitsToMeters = true;
 };

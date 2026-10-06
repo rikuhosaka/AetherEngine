@@ -1,6 +1,7 @@
 #include "Engine/Renderer/Material/MaterialBindCache.h"
 
 #include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Renderer/Scene/RenderConstantsLayout.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/RHI/Common/RHIRootSignatureLayout.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
@@ -67,10 +68,16 @@ bool MaterialBindCache::Bind(
 	commandList->SetTransientDescriptorHeap(frameContext.transientDescriptors);
 
 	size_t textureIndex = 0;
-	size_t constantIndex = 0;
 
 	for (const ShaderRootBindingSlot& slot : material.bindingSlots)
 	{
+		// Frame/object constants are bound by the pass; binding material data here would overwrite them.
+		if (slot.RootType == RHIRootParamType::CBV
+			&& IsPassBoundConstantRegister(material, slot.Register, slot.Space))
+		{
+			continue;
+		}
+
 		if (slot.IsRootConstants)
 		{
 			const std::optional<size_t> layoutIndex =
@@ -149,13 +156,17 @@ bool MaterialBindCache::Bind(
 		}
 		else if (slot.RootType == RHIRootParamType::CBV)
 		{
-			if (constantIndex >= instance.constantBuffers.size() || frameContext.uploadBuffer == nullptr)
+			const std::optional<size_t> layoutIndex =
+				FindConstantLayoutIndex(material, slot.Register, slot.Space);
+			if (!layoutIndex.has_value()
+				|| *layoutIndex >= instance.constantBuffers.size()
+				|| frameContext.uploadBuffer == nullptr)
 			{
 				LOG_FATAL(LogCategory::Renderer, "Material instance missing constant buffer data");
 				return false;
 			}
 
-			const std::vector<std::byte>& constantData = instance.constantBuffers[constantIndex];
+			const std::vector<std::byte>& constantData = instance.constantBuffers[*layoutIndex];
 			if (constantData.empty())
 			{
 				LOG_ERROR(LogCategory::Renderer, "Material constant buffer data is empty");
@@ -176,7 +187,6 @@ bool MaterialBindCache::Bind(
 				allocation.offset,
 				static_cast<uint32_t>(constantSize),
 				cpuHandle);
-			++constantIndex;
 		}
 
 		commandList->SetGraphicsRootDescriptorTable(slot.RootParameterIndex, gpuHandle.ptr);
