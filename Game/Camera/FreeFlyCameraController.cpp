@@ -48,6 +48,18 @@ void FreeFlyCameraController::Reset(CameraState& camera)
 	YawPitchFromForward(camera.forward, m_yawRadians, m_pitchRadians);
 }
 
+void FreeFlyCameraController::Reset(
+	CameraState& camera,
+	const DirectX::XMFLOAT3& position,
+	const DirectX::XMFLOAT3& forward)
+{
+	camera.position = position;
+	camera.lens = CameraLens{};
+
+	YawPitchFromForward(forward, m_yawRadians, m_pitchRadians);
+	SyncOrientationFromYawPitch(camera);
+}
+
 void FreeFlyCameraController::Update(
 	CameraState& camera,
 	const InputManager& input,

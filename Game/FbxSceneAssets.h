@@ -4,12 +4,10 @@
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshTypes.h"
 #include "Engine/Renderer/Model/Loader/FbxSdkContext.h"
-#include "Engine/Renderer/Scene/RenderObjectId.h"
-#include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/Renderer/Texture/TextureTypes.h"
+#include "Engine/World/World.h"
 
 #include <filesystem>
-#include <memory>
 #include <optional>
 #include <vector>
 
@@ -20,15 +18,6 @@ class RHICommandList;
 struct LitMaterialConstants
 {
 	float tint[4] { 1.0f, 1.0f, 1.0f, 1.0f };
-};
-
-struct FbxSceneInstance
-{
-	RenderObjectId objectId{};
-	MeshHandle mesh{};
-	TextureHandle baseColor{};
-	uint32_t submeshIndex = 0;
-	float worldMatrix[16]{};
 };
 
 class FbxSceneAssets
@@ -45,9 +34,17 @@ public:
 		const std::filesystem::path& modelRelativePath,
 		const LitMaterialConstants& materialConstants = {});
 
-	void FillExtractedObjects(std::vector<ExtractedObject>& outObjects) const;
+	[[nodiscard]] Result<void> SpawnInto(World& world);
 
 private:
+	struct FbxSpawnInstance
+	{
+		MeshHandle mesh{};
+		TextureHandle baseColor{};
+		uint32_t submeshIndex = 0;
+		float worldMatrix[16]{};
+	};
+
 	[[nodiscard]] Result<void> LoadTextureForSlot(
 		class RenderResourceServices& resources,
 		FrameContext& frameContext,
@@ -57,10 +54,11 @@ private:
 		TextureHandle& outTexture);
 
 	bool m_ready = false;
+	bool m_spawned = false;
 	LitMaterialConstants m_materialConstants{};
 	std::optional<uint32_t> m_materialConstantsSlot{};
 	MaterialHandle m_material{};
 	std::vector<TextureHandle> m_materialTextures{};
-	std::vector<FbxSceneInstance> m_instances{};
+	std::vector<FbxSpawnInstance> m_instances{};
 	FbxSdkContext m_fbxSdkContext{};
 };

@@ -25,7 +25,8 @@ set_target_properties(Platform PROPERTIES FOLDER "Engine")
 add_subdirectory(Application)
 set_target_properties(Application PROPERTIES FOLDER "Engine/Application")
 
-
+add_subdirectory(World)
+set_target_properties(World PROPERTIES FOLDER "Engine/World")
 
 target_link_libraries(Engine INTERFACE
     Core
@@ -39,6 +40,7 @@ target_link_libraries(Engine INTERFACE
     DirectXTex
     Platform
     Application
+    World
 )
 
 target_include_directories(Engine INTERFACE

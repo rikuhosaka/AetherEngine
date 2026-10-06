@@ -4,7 +4,9 @@
 #include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
 #include "Engine/Renderer/Test/RendererResourceSmokeTest.h"
 #include "Engine/Renderer/Test/FbxModelFileLoaderTest.h"
+#include "Engine/Renderer/Test/PrimitiveMeshTest.h"
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
+#include "Engine/World/Test/WorldTest.h"
 #include "Runtime/RuntimePaths.h"
 #include "Runtime/RuntimeSubsystemSetup.h"
 
@@ -28,6 +30,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 	if (auto modelTestResult = RunFbxModelFileLoaderTests(ResolveAssetsDirectory()); !modelTestResult)
 	{
 		LogResult(modelTestResult, LogCategory::Core);
+		return -1;
+	}
+
+	if (auto primitiveMeshResult = RunPrimitiveMeshTests(); !primitiveMeshResult)
+	{
+		LogResult(primitiveMeshResult, LogCategory::Core);
+		return -1;
+	}
+
+	if (auto worldResult = RunWorldTests(); !worldResult)
+	{
+		LogResult(worldResult, LogCategory::Core);
 		return -1;
 	}
 

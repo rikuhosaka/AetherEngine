@@ -19,12 +19,14 @@
 #include "Engine/Renderer/Texture/TextureUpload.h"
 #include "Engine/RHI/Common/RHIInput.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
+#include "Engine/World/Transform.h"
 
 #include <DirectXMath.h>
 
 #include <cstring>
 #include <system_error>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace
@@ -53,6 +55,25 @@ void ComputeNodeWorldMatrix(
 	}
 
 	Aether::Math::StoreMatrixForHlsl(outWorldMatrix, world);
+}
+
+[[nodiscard]] Result<Transform> TransformFromHlslMatrix(const float matrix4x4[16])
+{
+	const DirectX::XMMATRIX world = Aether::Math::LoadMatrixFromHlsl(matrix4x4);
+	DirectX::XMVECTOR scale{};
+	DirectX::XMVECTOR rotation{};
+	DirectX::XMVECTOR translation{};
+	if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, world))
+	{
+		return FailInternal<Transform>(LogCategory::Asset, ErrorCode::InvalidArgument,
+			"FBX node transform could not be decomposed into translation, rotation, and scale");
+	}
+
+	Transform transform{};
+	DirectX::XMStoreFloat3(&transform.position, translation);
+	DirectX::XMStoreFloat4(&transform.rotation, rotation);
+	DirectX::XMStoreFloat3(&transform.scale, scale);
+	return MakeOk(std::move(transform));
 }
 
 [[nodiscard]] Result<MeshHandle> UploadModelMesh(
@@ -323,7 +344,6 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	}
 
 	m_instances.clear();
-	uint32_t nextObjectId = 1;
 	for (uint32_t nodeIndex = 0; nodeIndex < assetData.nodes.size(); ++nodeIndex)
 	{
 		const ModelNodeData& node = assetData.nodes[nodeIndex];
@@ -343,14 +363,17 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 		{
 			const uint32_t materialSlot = meshData.submeshes[submeshIndex].materialSlot;
 
-			FbxSceneInstance instance{};
-			instance.objectId.Index = nextObjectId++;
-			instance.objectId.Generation = 1;
+			FbxSpawnInstance instance{};
 			instance.mesh = meshIt->second;
 			instance.submeshIndex = submeshIndex;
-			instance.baseColor = materialSlot < m_materialTextures.size()
-				? m_materialTextures[materialSlot]
-				: m_materialTextures.front();
+			if (materialSlot < m_materialTextures.size())
+			{
+				instance.baseColor = m_materialTextures[materialSlot];
+			}
+			else if (!m_materialTextures.empty())
+			{
+				instance.baseColor = m_materialTextures.front();
+			}
 			ComputeNodeWorldMatrix(assetData, nodeIndex, instance.worldMatrix);
 			m_instances.push_back(instance);
 		}
@@ -367,37 +390,56 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	return MakeOk();
 }
 
-void FbxSceneAssets::FillExtractedObjects(std::vector<ExtractedObject>& outObjects) const
+Result<void> FbxSceneAssets::SpawnInto(World& world)
 {
+	if (m_spawned)
+	{
+		return MakeOk();
+	}
+
 	if (!m_ready)
 	{
-		return;
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"FbxSceneAssets::SpawnInto requires initialized GPU assets");
 	}
 
-	outObjects.reserve(outObjects.size() + m_instances.size());
-	for (const FbxSceneInstance& sceneInstance : m_instances)
+	std::vector<Transform> transforms;
+	transforms.reserve(m_instances.size());
+	for (const FbxSpawnInstance& instance : m_instances)
 	{
-		ExtractedObject object{};
-		object.objectId = sceneInstance.objectId;
-		object.mesh = sceneInstance.mesh;
-		object.material = m_material;
-		object.submeshIndex = sceneInstance.submeshIndex;
-		object.layerMask = RenderLayer::Opaque;
-		object.visible = true;
-		std::memcpy(object.worldMatrix, sceneInstance.worldMatrix, sizeof(object.worldMatrix));
-
-		object.overrides.baseColor = sceneInstance.baseColor;
-		object.overrides.normal = {};
-		if (m_materialConstantsSlot.has_value())
+		const Result<Transform> transformResult = TransformFromHlslMatrix(instance.worldMatrix);
+		if (!transformResult)
 		{
-			MaterialParameterBlock materialBlock{};
-			materialBlock.bindingSlot = *m_materialConstantsSlot;
-			materialBlock.data = std::span<const std::byte>(
-				reinterpret_cast<const std::byte*>(&m_materialConstants),
-				sizeof(m_materialConstants));
-			object.overrides.parameters.push_back(materialBlock);
+			return MakeFail(transformResult.error.code, transformResult.error.message);
 		}
 
-		outObjects.push_back(object);
+		transforms.push_back(transformResult.value);
 	}
+
+	for (size_t instanceIndex = 0; instanceIndex < m_instances.size(); ++instanceIndex)
+	{
+		const FbxSpawnInstance& instance = m_instances[instanceIndex];
+		WorldSpawnDesc desc{};
+		desc.transform = transforms[instanceIndex];
+		desc.renderable.mesh = instance.mesh;
+		desc.renderable.material = m_material;
+		desc.renderable.submeshIndex = instance.submeshIndex;
+		desc.renderable.layerMask = RenderLayer::Opaque;
+		desc.renderable.visible = true;
+		desc.renderable.overrides.baseColor = instance.baseColor;
+		desc.renderable.overrides.normal = {};
+		if (m_materialConstantsSlot.has_value())
+		{
+			WorldMaterialParameterBlock materialBlock{};
+			materialBlock.bindingSlot = *m_materialConstantsSlot;
+			const auto* bytes = reinterpret_cast<const std::byte*>(&m_materialConstants);
+			materialBlock.data.assign(bytes, bytes + sizeof(m_materialConstants));
+			desc.renderable.overrides.parameters.push_back(std::move(materialBlock));
+		}
+
+		world.Spawn(std::move(desc));
+	}
+
+	m_spawned = true;
+	return MakeOk();
 }

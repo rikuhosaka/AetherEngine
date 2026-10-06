@@ -20,6 +20,7 @@ public:
 	[[nodiscard]] const FreeFlyCameraSettings& GetSettings() const noexcept { return m_settings; }
 
 	void Reset(CameraState& camera);
+	void Reset(CameraState& camera, const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& forward);
 	void Update(CameraState& camera, const InputManager& input, float deltaSeconds);
 
 private:
