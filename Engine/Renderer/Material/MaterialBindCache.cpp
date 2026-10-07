@@ -6,6 +6,7 @@
 #include "Engine/RHI/Common/RHIRootSignatureLayout.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
+#include "Engine/RHI/Interface/RHITexture.h"
 #include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
 #include "Engine/RHI/Interface/RHIUploadBuffer.h"
 
@@ -57,7 +58,8 @@ bool MaterialBindCache::Bind(
 	RHICommandList* commandList,
 	const Material& material,
 	const MaterialInstance& instance,
-	TextureSystemServices& textureServices) const
+	TextureSystemServices& textureServices,
+	RHITexture* shadowMap) const
 {
 	if (m_device == nullptr || commandList == nullptr || frameContext.transientDescriptors == nullptr)
 	{
@@ -138,21 +140,57 @@ bool MaterialBindCache::Bind(
 
 		if (slot.RootType == RHIRootParamType::SRV)
 		{
-			if (textureIndex >= instance.boundTextures.size())
+			const uint32_t descriptorCount = slot.BindCount == 0 ? 1u : slot.BindCount;
+			uint32_t firstDescriptorIndex = descriptorIndex;
+			for (uint32_t element = 0; element < descriptorCount; ++element)
 			{
-				LOG_FATAL(LogCategory::Renderer, "Material instance missing bound texture");
-				return false;
+				uint32_t elementDescriptorIndex = descriptorIndex;
+				if (element > 0)
+				{
+					elementDescriptorIndex = frameContext.transientDescriptors->Allocate();
+					if (elementDescriptorIndex == UINT32_MAX)
+					{
+						LOG_ERROR(LogCategory::RHI, "Transient descriptor allocation failed during material bind");
+						return false;
+					}
+				}
+
+				const CpuDescHandle elementCpuHandle =
+					frameContext.transientDescriptors->GetCpuHandle(elementDescriptorIndex);
+				const uint32_t shaderRegister = slot.Register + element;
+				if (IsPassBoundShaderResource(shaderRegister, slot.Space))
+				{
+					if (shadowMap == nullptr)
+					{
+						LOG_ERROR(LogCategory::Renderer, "Material requires a shadow map that was not provided");
+						return false;
+					}
+
+					m_device->WriteShaderResourceView(shadowMap, elementCpuHandle);
+					continue;
+				}
+
+				if (textureIndex >= instance.boundTextures.size())
+				{
+					LOG_FATAL(LogCategory::Renderer, "Material instance missing bound texture");
+					return false;
+				}
+
+				Texture* texture = textureServices.GetTexture(instance.boundTextures[textureIndex]);
+				if (texture == nullptr || texture->resource == nullptr)
+				{
+					LOG_ERROR(LogCategory::Renderer, "Material bound texture is invalid");
+					return false;
+				}
+
+				m_device->WriteShaderResourceView(texture->resource.get(), elementCpuHandle);
+				++textureIndex;
 			}
 
-			Texture* texture = textureServices.GetTexture(instance.boundTextures[textureIndex]);
-			if (texture == nullptr || texture->resource == nullptr)
-			{
-				LOG_ERROR(LogCategory::Renderer, "Material bound texture is invalid");
-				return false;
-			}
-
-			m_device->WriteShaderResourceView(texture->resource.get(), cpuHandle);
-			++textureIndex;
+			const GpuDescHandle tableGpuHandle =
+				frameContext.transientDescriptors->GetGpuHandle(firstDescriptorIndex);
+			commandList->SetGraphicsRootDescriptorTable(slot.RootParameterIndex, tableGpuHandle.ptr);
+			continue;
 		}
 		else if (slot.RootType == RHIRootParamType::CBV)
 		{

@@ -38,11 +38,16 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
 
-	//?V?F?[?_?[
-	auto vs = static_cast<DX12VertexShader*>(pipelineDesc.vertexShader);
-	auto ps = static_cast<DX12PixelShader*>(pipelineDesc.pixelShader);
-	gpipeline.VS = { vs->GetImpl()->blob->GetBufferPointer(), vs->GetImpl()->blob->GetBufferSize() };
-	gpipeline.PS = { ps->GetImpl()->blob->GetBufferPointer(), ps->GetImpl()->blob->GetBufferSize() };
+	if (pipelineDesc.vertexShader != nullptr)
+	{
+		auto vs = static_cast<DX12VertexShader*>(pipelineDesc.vertexShader);
+		gpipeline.VS = { vs->GetImpl()->blob->GetBufferPointer(), vs->GetImpl()->blob->GetBufferSize() };
+	}
+	if (pipelineDesc.pixelShader != nullptr)
+	{
+		auto ps = static_cast<DX12PixelShader*>(pipelineDesc.pixelShader);
+		gpipeline.PS = { ps->GetImpl()->blob->GetBufferPointer(), ps->GetImpl()->blob->GetBufferSize() };
+	}
 
 	if (pipelineDesc.rootSignature != nullptr)
 	{
@@ -84,18 +89,48 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 		gpipeline.InputLayout.pInputElementDescs = skinnedLayout;
 		gpipeline.InputLayout.NumElements = _countof(skinnedLayout);
 	}
+	else if (pipelineDesc.inputLayout == InputLayoutType::None)
+	{
+		gpipeline.InputLayout.pInputElementDescs = nullptr;
+		gpipeline.InputLayout.NumElements = 0;
+	}
 
 	gpipeline.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	gpipeline.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	gpipeline.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	gpipeline.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	gpipeline.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	if (pipelineDesc.depth == DepthStencilState::DepthNone)
+	{
+		gpipeline.DepthStencilState.DepthEnable = FALSE;
+		gpipeline.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	}
 
 	gpipeline.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
 	gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	gpipeline.NumRenderTargets = 1;
-	gpipeline.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-	gpipeline.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	if (pipelineDesc.numRT == 0)
+	{
+		gpipeline.NumRenderTargets = 0;
+		gpipeline.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+	}
+	else
+	{
+		gpipeline.NumRenderTargets = 1;
+		gpipeline.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	}
+	switch (pipelineDesc.dsvFormat)
+	{
+	case DSV_FORMAT::Unknown:
+		gpipeline.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		break;
+	case DSV_FORMAT::D24_UNORM_S8_UINT:
+		gpipeline.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		break;
+	case DSV_FORMAT::D32_FLOAT:
+	default:
+		gpipeline.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+		break;
+	}
 	gpipeline.SampleDesc = { 1, 0 };
 	gpipeline.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 	gpipeline.NodeMask = 0;

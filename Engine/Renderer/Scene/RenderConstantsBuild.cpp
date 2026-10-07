@@ -3,8 +3,10 @@
 #include "Engine/Math/Matrix.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Renderer/Scene/RenderViewTypes.h"
+#include "Engine/Renderer/Scene/ShadowMapConstants.h"
 
 #include <DirectXMath.h>
+#include <cmath>
 #include <cstring>
 
 namespace
@@ -58,6 +60,36 @@ void BuildFrameConstants(
 	outConstants.mainLightColor[1] = lighting.mainLightColor[1];
 	outConstants.mainLightColor[2] = lighting.mainLightColor[2];
 	outConstants.mainLightColor[3] = lighting.mainLightIntensity;
+
+	using namespace DirectX;
+
+	const XMVECTOR lightDirection = XMVector3Normalize(XMVectorSet(
+		outConstants.mainLightDirection[0],
+		outConstants.mainLightDirection[1],
+		outConstants.mainLightDirection[2],
+		0.0f));
+	const XMVECTOR sceneCenter = XMVectorSet(0.0f, kShadowSceneCenterY, 0.0f, 1.0f);
+	const XMVECTOR eye = XMVectorSubtract(
+		sceneCenter,
+		XMVectorScale(lightDirection, kShadowSceneRadius * 2.0f));
+	const float directionY = XMVectorGetY(lightDirection);
+	const XMVECTOR up = std::fabs(directionY) > 0.99f
+		? XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f)
+		: XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	const XMMATRIX lightView = XMMatrixLookToLH(eye, lightDirection, up);
+	const float orthoSize = kShadowSceneRadius * 2.0f;
+	const XMMATRIX lightProjection = XMMatrixOrthographicLH(
+		orthoSize,
+		orthoSize,
+		kShadowSceneRadius * 0.5f,
+		kShadowSceneRadius * 4.0f);
+	const XMMATRIX lightViewProjection = XMMatrixMultiply(lightView, lightProjection);
+	Aether::Math::StoreMatrixForHlsl(outConstants.lightViewProjection, lightViewProjection);
+
+	outConstants.shadowParams[0] = kShadowDepthBias;
+	outConstants.shadowParams[1] = 1.0f / static_cast<float>(kShadowMapSize);
+	outConstants.shadowParams[2] = static_cast<float>(kShadowMapSize);
+	outConstants.shadowParams[3] = 0.0f;
 }
 
 void BuildObjectConstants(const float worldMatrix[16], ObjectConstants& outConstants)

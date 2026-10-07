@@ -10,6 +10,9 @@ cbuffer FrameConstants : register(b0)
     float4 ambientColor;
     float4 mainLightDirection;
     float4 mainLightColor;
+    float4x4 lightViewProjection;
+    float4 shadowParams;
+    float4 shadowPadding[11];
 };
 
 #endif

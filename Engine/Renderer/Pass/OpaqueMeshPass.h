@@ -11,6 +11,7 @@ class MeshSystemServices;
 class PipelineStateCache;
 class RootSignatureCache;
 class RHICommandList;
+class RHITexture;
 
 class OpaqueMeshPass
 {
@@ -23,5 +24,6 @@ public:
 		MeshSystemServices& meshServices,
 		MaterialSystemServices& materialServices,
 		RootSignatureCache& rootSignatureCache,
-		PipelineStateCache& pipelineStateCache);
+		PipelineStateCache& pipelineStateCache,
+		RHITexture* shadowMap);
 };

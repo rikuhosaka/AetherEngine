@@ -88,6 +88,7 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	rendererConfig.shaderRoot = m_config.shaderRoot;
 	rendererConfig.compiledShaderRoot = m_config.compiledShaderRoot;
 	rendererConfig.assetsRoot = m_config.assetsRoot;
+	rendererConfig.visualizeSceneDepth = m_config.visualizeSceneDepth;
 #ifdef AETHER_PRECOMPILED_SHADERS_ONLY
 	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PrecompiledOnly;
 #elif defined(NDEBUG)
@@ -178,8 +179,11 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	{
 		const RHIScopedDebugEvent frameEvent(commandList, "Frame");
 		m_impl->renderer->BuildScene(commandList);
+		m_impl->renderer->RenderShadow(commandList);
 		displayServices->display->BeginMainRenderPass(frameContext, commandList);
 		m_impl->renderer->Render(commandList);
+		displayServices->display->PrepareSceneDepthForRead(frameContext, commandList);
+		m_impl->renderer->DrawSceneDepthDebug(commandList);
 		displayServices->display->EndMainRenderPass(frameContext, commandList);
 	}
 

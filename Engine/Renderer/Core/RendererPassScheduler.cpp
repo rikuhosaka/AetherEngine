@@ -11,10 +11,10 @@ void RendererPassScheduler::ExecuteAll(
 	const RenderFrameSnapshot& snapshot,
 	RenderResourceServices& resources,
 	RootSignatureCache& rootSignatureCache,
-	PipelineStateCache& pipelineStateCache)
+	PipelineStateCache& pipelineStateCache,
+	RHITexture* shadowMap)
 {
 	// Fixed pass order. Register new passes here as they are implemented.
-	// 1. ShadowPass(snapshot.shadowItems)
 	OpaqueMeshPass::Execute(
 		frameContext,
 		commandList,
@@ -23,6 +23,7 @@ void RendererPassScheduler::ExecuteAll(
 		resources.GetMeshServices(),
 		resources.GetMaterialServices(),
 		rootSignatureCache,
-		pipelineStateCache);
+		pipelineStateCache,
+		shadowMap);
 	// 2. TransparentPass(snapshot.transparentItems)
 }

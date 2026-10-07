@@ -5,6 +5,7 @@
 
 class RHIDevice;
 class RHICommandList;
+class RHITexture;
 class TextureSystemServices;
 
 class MaterialBindCache
@@ -17,7 +18,8 @@ public:
 		RHICommandList* commandList,
 		const Material& material,
 		const MaterialInstance& instance,
-		TextureSystemServices& textureServices) const;
+		TextureSystemServices& textureServices,
+		RHITexture* shadowMap) const;
 
 private:
 	RHIDevice* m_device = nullptr;

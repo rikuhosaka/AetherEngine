@@ -180,6 +180,18 @@ void DisplayContext::BeginMainRenderPass(FrameContext& frameContext, RHICommandL
 		static_cast<int>(frameContext.renderHeight));
 }
 
+void DisplayContext::PrepareSceneDepthForRead(FrameContext& frameContext, RHICommandList* commandList)
+{
+	assert(commandList != nullptr);
+	assert(frameContext.depthTexture != nullptr);
+	assert(frameContext.backBufferRtv.cpu.ptr != 0);
+
+	frameContext.depthTexture->TransitionResource(ERHIResourceState::PixelShaderResource, commandList);
+
+	DsvHandle unboundDepth{};
+	commandList->OMSetRenderTargets(1, frameContext.backBufferRtv, true, unboundDepth);
+}
+
 void DisplayContext::EndMainRenderPass(FrameContext& frameContext, RHICommandList* commandList)
 {
 	assert(commandList != nullptr);
@@ -201,7 +213,9 @@ Result<void> DisplayContext::CreateDepthResources()
 	depthDesc.Width = m_config.width;
 	depthDesc.Height = m_config.height;
 	depthDesc.Usage = ERHITextureUsage::DepthStencil;
-	depthDesc.Format = ERHIFormat::D32_FLOAT;
+	depthDesc.Format = ERHIFormat::R32_TYPELESS;
+	depthDesc.depthStencilViewFormat = ERHIFormat::D32_FLOAT;
+	depthDesc.shaderResourceViewFormat = ERHIFormat::R32_FLOAT;
 	depthDesc.DebugName = "DisplayDepth";
 
 	auto depthTextureResult = m_device->CreateTexture(depthDesc);

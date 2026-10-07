@@ -55,7 +55,7 @@ void FillExtractedObjectOverrides(
 
 Result<void> RunRendererResourceSmokeLayoutTests()
 {
-	static_assert(sizeof(FrameConstants) == 256);
+	static_assert(sizeof(FrameConstants) == 512);
 	static_assert(sizeof(ObjectConstants) == 256);
 
 	ExtractedView view{};

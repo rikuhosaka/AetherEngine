@@ -42,6 +42,8 @@ public:
 		std::span<const TextureHandle> textures,
 		std::span<const std::span<const std::byte>> constantBuffers);
 
+	void DestroyInstance(MaterialInstanceHandle handle);
+
 	[[nodiscard]] Material* GetMaterial(MaterialHandle handle) { return m_pool.GetMaterial(handle); }
 	[[nodiscard]] MaterialInstance* GetInstance(MaterialInstanceHandle handle)
 	{

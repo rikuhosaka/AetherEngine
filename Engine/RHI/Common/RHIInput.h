@@ -5,7 +5,8 @@ enum class InputLayoutType
 {
 	Basic,
 	PositionTex,
-	Skinned
+	Skinned,
+	None
 };
 
 enum class PrimitiveTopology

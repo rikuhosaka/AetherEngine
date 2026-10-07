@@ -15,6 +15,8 @@
 
 namespace
 {
+constexpr uint32_t kMaterialInstanceCacheUnusedFrameLimit = 3;
+
 bool IsMeshReady(const Mesh* mesh)
 {
 	return mesh != nullptr && mesh->vertexBuffer != nullptr && mesh->indexBuffer != nullptr;
@@ -418,7 +420,8 @@ void RenderScene::Build(
 			resolvedTextures,
 			resolvedConstants,
 			resources,
-			placeholders);
+			placeholders,
+			m_extractedFrame.frameIndex);
 		if (!instanceHandle.IsValid())
 		{
 			continue;
@@ -453,6 +456,8 @@ void RenderScene::Build(
 	std::ranges::sort(m_snapshot.opaqueItems, {}, &RenderItem::sortKey);
 	std::ranges::sort(m_snapshot.shadowItems, {}, &RenderItem::sortKey);
 	std::ranges::sort(m_snapshot.transparentItems, {}, &RenderItem::sortKey);
+
+	ReleaseStaleMaterialInstances(materialServices, m_extractedFrame.frameIndex);
 }
 
 MaterialInstanceHandle RenderScene::ResolveMaterialInstance(
@@ -462,22 +467,27 @@ MaterialInstanceHandle RenderScene::ResolveMaterialInstance(
 	std::span<const TextureHandle> resolvedTextures,
 	std::span<const std::vector<std::byte>> constantBuffers,
 	RenderResourceServices& resources,
-	const RenderPlaceholderResources& placeholders)
+	const RenderPlaceholderResources& placeholders,
+	uint32_t frameIndex)
 {
 	if (!material.IsValid())
 	{
 		return placeholders.materialInstance;
 	}
 
-	MaterialInstanceCacheEntry& cacheEntry = m_instanceCache[objectId];
-	const bool cacheHit = cacheEntry.instance.IsValid()
-		&& cacheEntry.material == material
-		&& OverridesEqual(cacheEntry.overrides, overrides)
-		&& VectorsEqual(cacheEntry.resolvedTextures, resolvedTextures)
-		&& ConstantBuffersEqual(cacheEntry.constantBuffers, constantBuffers);
+	MaterialSystemServices& materialServices = resources.GetMaterialServices();
+	const auto cacheIt = m_instanceCache.find(objectId);
+	const bool hasCacheEntry = cacheIt != m_instanceCache.end();
+	const bool cacheHit = hasCacheEntry
+		&& cacheIt->second.instance.IsValid()
+		&& cacheIt->second.material == material
+		&& OverridesEqual(cacheIt->second.overrides, overrides)
+		&& VectorsEqual(cacheIt->second.resolvedTextures, resolvedTextures)
+		&& ConstantBuffersEqual(cacheIt->second.constantBuffers, constantBuffers);
 	if (cacheHit)
 	{
-		return cacheEntry.instance;
+		cacheIt->second.lastUsedFrame = frameIndex;
+		return cacheIt->second.instance;
 	}
 
 	std::vector<std::span<const std::byte>> constantSpans;
@@ -487,7 +497,7 @@ MaterialInstanceHandle RenderScene::ResolveMaterialInstance(
 		constantSpans.emplace_back(constantBuffer);
 	}
 
-	const MaterialInstanceHandle instanceHandle = resources.GetMaterialServices().CreateInstance(
+	const MaterialInstanceHandle instanceHandle = materialServices.CreateInstance(
 		material,
 		resolvedTextures,
 		constantSpans);
@@ -496,10 +506,38 @@ MaterialInstanceHandle RenderScene::ResolveMaterialInstance(
 		return placeholders.materialInstance;
 	}
 
+	MaterialInstanceCacheEntry& cacheEntry = hasCacheEntry
+		? cacheIt->second
+		: m_instanceCache[objectId];
+	if (cacheEntry.instance.IsValid())
+	{
+		materialServices.DestroyInstance(cacheEntry.instance);
+	}
+
 	cacheEntry.material = material;
 	cacheEntry.overrides = overrides;
 	cacheEntry.resolvedTextures.assign(resolvedTextures.begin(), resolvedTextures.end());
 	cacheEntry.constantBuffers.assign(constantBuffers.begin(), constantBuffers.end());
 	cacheEntry.instance = instanceHandle;
+	cacheEntry.lastUsedFrame = frameIndex;
 	return instanceHandle;
+}
+
+void RenderScene::ReleaseStaleMaterialInstances(MaterialSystemServices& materialServices, uint32_t frameIndex)
+{
+	for (auto cacheIt = m_instanceCache.begin(); cacheIt != m_instanceCache.end();)
+	{
+		const uint32_t unusedFrames = frameIndex - cacheIt->second.lastUsedFrame;
+		if (unusedFrames <= kMaterialInstanceCacheUnusedFrameLimit)
+		{
+			++cacheIt;
+			continue;
+		}
+
+		if (cacheIt->second.instance.IsValid())
+		{
+			materialServices.DestroyInstance(cacheIt->second.instance);
+		}
+		cacheIt = m_instanceCache.erase(cacheIt);
+	}
 }

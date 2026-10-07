@@ -10,4 +10,5 @@ struct RendererConfig
 	std::filesystem::path compiledShaderRoot{};
 	std::filesystem::path assetsRoot{};
 	ShaderSourcePolicy shaderSourcePolicy = ShaderSourcePolicy::PreferPrecompiled;
+	bool visualizeSceneDepth = false;
 };

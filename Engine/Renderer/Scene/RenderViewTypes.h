@@ -22,9 +22,12 @@ struct alignas(256) FrameConstants
 	float ambientColor[4]{};
 	float mainLightDirection[4]{};
 	float mainLightColor[4]{};
+	float lightViewProjection[16]{};
+	float shadowParams[4]{};
+	float shadowPadding[44]{};
 };
 
-static_assert(sizeof(FrameConstants) == 256);
+static_assert(sizeof(FrameConstants) == 512);
 
 struct alignas(256) ObjectConstants
 {

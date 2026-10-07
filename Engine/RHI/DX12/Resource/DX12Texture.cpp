@@ -61,7 +61,7 @@ DX12Texture::DX12Texture(const RHITextureDesc& desc, const DX12Device* dxDevice)
     {
 		initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 		m_impl->SetInitialState(ERHIResourceState::DepthWrite);
-        clearValue.Format = dxgiFormat;
+        clearValue.Format = ToDxgiFormat(GetDepthStencilViewFormat());
         clearValue.DepthStencil.Depth = 1.0f;
         clearValue.DepthStencil.Stencil = 0;
         pClearValue = &clearValue;
@@ -115,6 +115,24 @@ DX12Texture::DX12Texture(const RHITextureDesc& desc, std::unique_ptr<ResourceImp
 			DX12GpuNaming::SetResourceName(m_impl->resource.Get(), "Tex", desc.DebugName);
 		}
 	}
+}
+
+ERHIFormat DX12Texture::GetDepthStencilViewFormat() const
+{
+	if (m_desc.depthStencilViewFormat != ERHIFormat::Unknown)
+	{
+		return m_desc.depthStencilViewFormat;
+	}
+	return m_desc.Format;
+}
+
+ERHIFormat DX12Texture::GetShaderResourceViewFormat() const
+{
+	if (m_desc.shaderResourceViewFormat != ERHIFormat::Unknown)
+	{
+		return m_desc.shaderResourceViewFormat;
+	}
+	return m_desc.Format;
 }
 
 DX12Texture::~DX12Texture()

@@ -9,6 +9,7 @@ namespace RenderRegisters
 constexpr uint32_t FrameConstants = 0;
 constexpr uint32_t ObjectConstants = 1;
 constexpr uint32_t MaterialConstants = 2;
+constexpr uint32_t ShadowMap = 1;
 } // namespace RenderRegisters
 
 [[nodiscard]] bool MaterialUsesPassConstantBuffers(const Material& material);
@@ -17,3 +18,5 @@ constexpr uint32_t MaterialConstants = 2;
 	const Material& material,
 	uint32_t registerIndex,
 	uint32_t space);
+
+[[nodiscard]] bool IsPassBoundShaderResource(uint32_t registerIndex, uint32_t space);

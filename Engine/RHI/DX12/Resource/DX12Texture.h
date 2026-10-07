@@ -26,6 +26,8 @@ public:
 
 	ResourceImpl* GetResourceImpl() const { return m_impl.get(); }
 	ERHIFormat GetFormat() const { return m_desc.Format; }
+	[[nodiscard]] ERHIFormat GetDepthStencilViewFormat() const;
+	[[nodiscard]] ERHIFormat GetShaderResourceViewFormat() const;
 
 	[[nodiscard]] bool IsValid() const;
 

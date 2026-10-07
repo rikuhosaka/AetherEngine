@@ -352,3 +352,8 @@ MaterialInstanceHandle MaterialSystemServices::CreateInstance(
 	}
 	return m_pool.AddInstance(std::move(instance));
 }
+
+void MaterialSystemServices::DestroyInstance(MaterialInstanceHandle handle)
+{
+	m_pool.RemoveInstance(handle);
+}

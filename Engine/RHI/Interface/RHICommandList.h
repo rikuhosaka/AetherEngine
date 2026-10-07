@@ -71,6 +71,11 @@ public:
     virtual void ClearDepthStencilView(const DsvHandle dsv, float depth, uint8_t stencil) = 0;
 
     // Draw
+    virtual void DrawInstanced(
+        uint32_t vertexCount,
+        uint32_t instanceCount,
+        uint32_t startVertex,
+        uint32_t startInstance) = 0;
     virtual void DrawIndexedInstanced(
         uint32_t indexCount,
         uint32_t instanceCount,

@@ -56,6 +56,27 @@ Result<void> Renderer::Initialize(
 	m_resourceServices = std::move(resourceServicesResult.value);
 
 	m_shaderRoot = config.shaderRoot;
+	m_visualizeSceneDepth = config.visualizeSceneDepth;
+	m_sceneDepthDebug.Configure(
+		device,
+		m_shaderServices.get(),
+		m_rootSignatureCache.get(),
+		m_pipelineStateCache.get(),
+		config.shaderRoot,
+		config.compiledShaderRoot,
+		config.shaderSourcePolicy);
+	if (auto shadowResult = m_shadowDepth.Initialize(
+			device,
+			m_shaderServices.get(),
+			m_rootSignatureCache.get(),
+			m_pipelineStateCache.get(),
+			config.shaderRoot,
+			config.compiledShaderRoot,
+			config.shaderSourcePolicy);
+		!shadowResult)
+	{
+		return shadowResult;
+	}
 	m_scene.SetShaderRoot(m_shaderRoot);
 	return MakeOk();
 }
@@ -120,6 +141,21 @@ void Renderer::EndFrame()
 {
 }
 
+void Renderer::RenderShadow(RHICommandList* commandList)
+{
+	if (m_frameContext == nullptr || m_resourceServices == nullptr || commandList == nullptr || !m_sceneBuilt)
+	{
+		LOG_FATAL(LogCategory::Renderer, "Renderer::RenderShadow called with invalid state");
+		return;
+	}
+
+	m_shadowDepth.Execute(
+		*m_frameContext,
+		commandList,
+		m_scene.GetSnapshot(),
+		m_resourceServices->GetMeshServices());
+}
+
 void Renderer::Render(RHICommandList* commandList)
 {
 	if (m_frameContext == nullptr || m_resourceServices == nullptr || commandList == nullptr || !m_sceneBuilt)
@@ -134,5 +170,16 @@ void Renderer::Render(RHICommandList* commandList)
 		m_scene.GetSnapshot(),
 		*m_resourceServices,
 		*m_rootSignatureCache,
-		*m_pipelineStateCache);
+		*m_pipelineStateCache,
+		m_shadowDepth.GetTexture());
+}
+
+void Renderer::DrawSceneDepthDebug(RHICommandList* commandList)
+{
+	if (!m_visualizeSceneDepth || m_frameContext == nullptr || commandList == nullptr)
+	{
+		return;
+	}
+
+	m_sceneDepthDebug.Execute(*m_frameContext, commandList);
 }

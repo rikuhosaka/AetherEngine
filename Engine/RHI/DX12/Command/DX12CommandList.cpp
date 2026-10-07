@@ -390,8 +390,13 @@ DX12CommandList::OMSetRenderTargets(uint32_t numRTs, const RtvHandle rtvs, bool 
 		{
 			rtvHandles[i] = { rtvs.cpu.ptr + i * sizeof(D3D12_CPU_DESCRIPTOR_HANDLE) };
 		}
+		const D3D12_CPU_DESCRIPTOR_HANDLE* depthStencil = nullptr;
 		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = { dsv.cpu.ptr };
-		m_impl->commandList->OMSetRenderTargets(numRTs, rtvHandles, singleHandle, &dsvHandle);
+		if (dsv.cpu.ptr != 0)
+		{
+			depthStencil = &dsvHandle;
+		}
+		m_impl->commandList->OMSetRenderTargets(numRTs, rtvHandles, singleHandle, depthStencil);
 	}
 }
 
@@ -413,6 +418,19 @@ DX12CommandList::ClearDepthStencilView(const DsvHandle dsv, float depth, uint8_t
 	{
 		D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = { dsv.cpu.ptr };
 		m_impl->commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, depth, stencil, 0, nullptr);
+	}
+}
+
+void
+DX12CommandList::DrawInstanced(
+	uint32_t vertexCount,
+	uint32_t instanceCount,
+	uint32_t startVertex,
+	uint32_t startInstance)
+{
+	if (m_impl->commandList)
+	{
+		m_impl->commandList->DrawInstanced(vertexCount, instanceCount, startVertex, startInstance);
 	}
 }
 

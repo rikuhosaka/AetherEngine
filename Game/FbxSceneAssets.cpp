@@ -424,7 +424,7 @@ Result<void> FbxSceneAssets::SpawnInto(World& world)
 		desc.renderable.mesh = instance.mesh;
 		desc.renderable.material = m_material;
 		desc.renderable.submeshIndex = instance.submeshIndex;
-		desc.renderable.layerMask = RenderLayer::Opaque;
+		desc.renderable.layerMask = RenderLayer::Opaque | RenderLayer::Shadow;
 		desc.renderable.visible = true;
 		desc.renderable.overrides.baseColor = instance.baseColor;
 		desc.renderable.overrides.normal = {};

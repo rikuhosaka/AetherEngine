@@ -30,6 +30,7 @@ public:
 
 	void BeginFrame(FrameContext& frameContext);
 	void BeginMainRenderPass(FrameContext& frameContext, RHICommandList* commandList);
+	void PrepareSceneDepthForRead(FrameContext& frameContext, RHICommandList* commandList);
 	void EndMainRenderPass(FrameContext& frameContext, RHICommandList* commandList);
 	void Present(uint32_t syncInterval = 1, uint32_t flags = 0);
 

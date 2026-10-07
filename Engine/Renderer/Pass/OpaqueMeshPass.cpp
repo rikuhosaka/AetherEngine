@@ -25,7 +25,8 @@ void OpaqueMeshPass::Execute(
 	MeshSystemServices& meshServices,
 	MaterialSystemServices& materialServices,
 	RootSignatureCache& rootSignatureCache,
-	PipelineStateCache& pipelineStateCache)
+	PipelineStateCache& pipelineStateCache,
+	RHITexture* shadowMap)
 {
 	if (commandList == nullptr)
 	{
@@ -101,7 +102,8 @@ void OpaqueMeshPass::Execute(
 				commandList,
 				*material,
 				*instance,
-				materialServices.GetTextureServices()))
+				materialServices.GetTextureServices(),
+				shadowMap))
 		{
 			LOG_ERROR(LogCategory::Renderer, "Failed to bind material for render item");
 			continue;

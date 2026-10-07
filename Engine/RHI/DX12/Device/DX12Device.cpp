@@ -215,7 +215,7 @@ Result<CbvSrvUavHandle> DX12Device::CreateShaderResourceView(
 	const GpuDescHandle gpuHandle = dxAllocator->GetGpuHandle(index);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = ToDxgiFormat(dxTexture->GetFormat());
+	srvDesc.Format = ToDxgiFormat(dxTexture->GetShaderResourceViewFormat());
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Texture2D.MipLevels = dxTexture->GetMipLevels();
@@ -244,7 +244,7 @@ void DX12Device::WriteShaderResourceView(RHITexture* texture, CpuDescHandle dest
 	}
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = ToDxgiFormat(dxTexture->GetFormat());
+	srvDesc.Format = ToDxgiFormat(dxTexture->GetShaderResourceViewFormat());
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Texture2D.MipLevels = dxTexture->GetMipLevels();
@@ -296,7 +296,7 @@ void DX12Device::WriteDepthStencilView(RHITexture* texture, DsvHandle dest)
 	}
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-	dsvDesc.Format = ToDxgiFormat(dxTexture->GetFormat());
+	dsvDesc.Format = ToDxgiFormat(dxTexture->GetDepthStencilViewFormat());
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 	dsvDesc.Texture2D.MipSlice = 0;

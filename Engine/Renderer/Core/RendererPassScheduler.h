@@ -7,6 +7,7 @@ class PipelineStateCache;
 class RenderResourceServices;
 class RootSignatureCache;
 class RHICommandList;
+class RHITexture;
 
 class RendererPassScheduler
 {
@@ -17,5 +18,6 @@ public:
 		const RenderFrameSnapshot& snapshot,
 		RenderResourceServices& resources,
 		RootSignatureCache& rootSignatureCache,
-		PipelineStateCache& pipelineStateCache);
+		PipelineStateCache& pipelineStateCache,
+		RHITexture* shadowMap);
 };

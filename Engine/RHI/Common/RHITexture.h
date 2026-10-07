@@ -20,6 +20,9 @@ struct RHITextureDesc
 	uint32_t SampleQuality = 0;
 	ERHITextureUsage Usage = ERHITextureUsage::ShaderResource;
 	ERHIFormat Format = ERHIFormat::R8G8B8A8_UNORM;
+	// Unknown uses Format. Depth that is also sampled is R32_TYPELESS with a typed DSV and SRV.
+	ERHIFormat depthStencilViewFormat = ERHIFormat::Unknown;
+	ERHIFormat shaderResourceViewFormat = ERHIFormat::Unknown;
 
 	// Optional label for GPU debug tools (PIX, RenderDoc). UTF-8.
 	const char* DebugName = nullptr;

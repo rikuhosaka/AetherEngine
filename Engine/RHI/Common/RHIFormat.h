@@ -14,7 +14,8 @@ enum class RTV_FORMAT
 enum class DSV_FORMAT
 {
 	D24_UNORM_S8_UINT,
-	D32_FLOAT
+	D32_FLOAT,
+	Unknown
 };
 
 enum class ERHIFormat
@@ -26,6 +27,8 @@ enum class ERHIFormat
 	B8G8R8A8_UNORM,
 	R16G16B16A16_FLOAT,
 	R32G32B32A32_FLOAT,
+	R32_TYPELESS,
+	R32_FLOAT,
 	D24_UNORM_S8_UINT,
 	D32_FLOAT
 };

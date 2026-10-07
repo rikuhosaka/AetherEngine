@@ -183,7 +183,7 @@ Result<void> RoomSceneAssets::SpawnInto(World& world)
 		desc.renderable.mesh = m_planeMesh;
 		desc.renderable.material = m_material;
 		desc.renderable.submeshIndex = 0;
-		desc.renderable.layerMask = RenderLayer::Opaque;
+		desc.renderable.layerMask = RenderLayer::Opaque | RenderLayer::Shadow;
 		desc.renderable.visible = true;
 		desc.renderable.overrides.baseColor = m_baseColor;
 		desc.renderable.overrides.normal = {};

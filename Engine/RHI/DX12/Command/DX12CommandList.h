@@ -60,6 +60,11 @@ public:
 	void ClearDepthStencilView(const DsvHandle dsv, float depth, uint8_t stencil) override;
 
 	// Draw
+	void DrawInstanced(
+		uint32_t vertexCount,
+		uint32_t instanceCount,
+		uint32_t startVertex,
+		uint32_t startInstance) override;
 	void DrawIndexedInstanced(
 		uint32_t indexCount,
 		uint32_t instanceCount,

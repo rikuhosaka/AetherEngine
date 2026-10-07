@@ -20,4 +20,5 @@ struct EngineLoopConfig
 
 	float maxDeltaSeconds = EngineConstants::kMaxDeltaSeconds;
 	bool vsync = true;
+	bool visualizeSceneDepth = false;
 };

@@ -3,6 +3,8 @@
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Core/RendererConfig.h"
 #include "Engine/Frame/FrameContext.h"
+#include "Engine/Renderer/Pass/SceneDepthDebugPass.h"
+#include "Engine/Renderer/Pass/ShadowDepthPass.h"
 #include "Engine/Renderer/Scene/RenderScene.h"
 
 #include <cstdint>
@@ -35,7 +37,9 @@ public:
 	void ExtractView(const ExtractedView& view);
 	void ExtractLighting(const ExtractedLighting& lighting);
 	void BuildScene(RHICommandList* commandList);
+	void RenderShadow(RHICommandList* commandList);
 	void Render(RHICommandList* commandList);
+	void DrawSceneDepthDebug(RHICommandList* commandList);
 	void EndFrame();
 
 	[[nodiscard]] bool IsSceneBuilt() const noexcept { return m_sceneBuilt; }
@@ -58,6 +62,9 @@ private:
 	RenderScene m_scene{};
 
 	std::filesystem::path m_shaderRoot{};
+	SceneDepthDebugPass m_sceneDepthDebug{};
+	ShadowDepthPass m_shadowDepth{};
 	uint32_t m_frameIndex = 0;
 	bool m_sceneBuilt = false;
+	bool m_visualizeSceneDepth = false;
 };

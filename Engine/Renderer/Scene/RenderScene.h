@@ -9,6 +9,7 @@
 #include <vector>
 
 class FrameContext;
+class MaterialSystemServices;
 class RenderResourceServices;
 class RHICommandList;
 
@@ -39,6 +40,7 @@ private:
 		std::vector<TextureHandle> resolvedTextures{};
 		std::vector<std::vector<std::byte>> constantBuffers{};
 		MaterialInstanceHandle instance{};
+		uint32_t lastUsedFrame = 0;
 	};
 
 	struct RenderObjectIdHash
@@ -56,7 +58,10 @@ private:
 		std::span<const TextureHandle> resolvedTextures,
 		std::span<const std::vector<std::byte>> constantBuffers,
 		RenderResourceServices& resources,
-		const RenderPlaceholderResources& placeholders);
+		const RenderPlaceholderResources& placeholders,
+		uint32_t frameIndex);
+
+	void ReleaseStaleMaterialInstances(MaterialSystemServices& materialServices, uint32_t frameIndex);
 
 	std::filesystem::path m_shaderRoot{};
 	ExtractedFrame m_extractedFrame{};
