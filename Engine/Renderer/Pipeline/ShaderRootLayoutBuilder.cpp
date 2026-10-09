@@ -287,10 +287,10 @@ namespace
 			switch (parameter.kind)
 			{
 			case RHIRootParameterKind::Constants:
-				cost += 1;
+				cost += parameter.constants.num32BitValues;
 				break;
 			case RHIRootParameterKind::DescriptorTable:
-				cost += 1 + static_cast<std::uint32_t>(parameter.ranges.size());
+				cost += 1;
 				break;
 			case RHIRootParameterKind::RootCBV:
 			case RHIRootParameterKind::RootSRV:
@@ -299,7 +299,6 @@ namespace
 				break;
 			}
 		}
-		cost += static_cast<std::uint32_t>(layout.staticSamplers.size());
 		return cost;
 	}
 
