@@ -4,6 +4,7 @@
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/RHI/DX12/Debug/DX12BarrierDebug.h"
 #include "Engine/RHI/DX12/Debug/DX12DebugSettings.h"
 #include "Engine/RHI/DX12/Device/DX12Device.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
@@ -26,6 +27,7 @@ constexpr const char* kDependencies[] = { "Window" };
 struct RHISubsystemImpl
 {
 	std::unique_ptr<RHIDevice> device{};
+	std::unique_ptr<RHIBarrierDebug> barrierDebug{};
 	std::unique_ptr<RHICommandQueue> graphicsQueue{};
 	std::unique_ptr<RHIFence> frameFence{};
 	std::array<std::unique_ptr<RHICommandList>, RHIServices::kFrameCount> commandLists{};
@@ -62,6 +64,7 @@ Result<void> RHISubsystem::Initialize(SubsystemContext& ctx)
 	DX12DebugSettingsData::LoadFromFile(m_config.dx12DebugConfigPath);
 
 	m_impl->device = std::make_unique<DX12Device>();
+	m_impl->barrierDebug = std::make_unique<DX12BarrierDebug>();
 	if (auto initResult = m_impl->device->Initialize(); !initResult)
 	{
 		return initResult;
@@ -89,6 +92,7 @@ Result<void> RHISubsystem::Initialize(SubsystemContext& ctx)
 	m_services.device = m_impl->device.get();
 	m_services.graphicsQueue = m_impl->graphicsQueue.get();
 	m_services.frameFence = m_impl->frameFence.get();
+	m_services.barrierDebug = m_impl->barrierDebug.get();
 	m_services.currentFrameSlot = 0;
 
 	ctx.RegisterService(&m_services);

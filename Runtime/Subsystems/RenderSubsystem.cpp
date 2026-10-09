@@ -19,7 +19,7 @@
 #include "Engine/RHI/Interface/RHIDevice.h"
 #include "Engine/RHI/Interface/RHIFence.h"
 #include "Engine/RHI/Common/RHIScopedDebugEvent.h"
-#include "Engine/RHI/DX12/Debug/DX12BarrierValidator.h"
+#include "Engine/RHI/Interface/RHIBarrierDebug.h"
 
 namespace
 {
@@ -106,7 +106,7 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 		return initResult;
 	}
 
-	m_services.renderer = m_impl->renderer.get();
+	m_services.resources = m_impl->renderer->GetResourceServices();
 	m_services.shaderRoot = m_config.shaderRoot;
 	ctx.RegisterService(&m_services);
 	return MakeOk();
@@ -142,7 +142,10 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	ctx.SetFrameSlot(slot);
 	m_impl->renderer->SetFrameContext(&frameContext);
 
-	DX12BarrierValidator::BeginFrame();
+	if (rhiServices->barrierDebug != nullptr)
+	{
+		rhiServices->barrierDebug->BeginFrame();
+	}
 
 	displayServices->display->BeginFrame(frameContext);
 	m_impl->renderer->BeginFrame(slot);
@@ -192,7 +195,10 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 	frameContext.fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
 
 	displayServices->display->Present(m_config.vsync ? 1u : 0u, 0u);
-	DX12BarrierValidator::EndFrame();
+	if (rhiServices->barrierDebug != nullptr)
+	{
+		rhiServices->barrierDebug->EndFrame();
+	}
 
 	rhiServices->currentFrameSlot = (slot + 1) % RHIServices::kFrameCount;
 	ctx.SetFrameSlot(rhiServices->currentFrameSlot);

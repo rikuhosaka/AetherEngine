@@ -9,7 +9,7 @@
 #include <filesystem>
 
 class FrameContext;
-class Renderer;
+class RenderResourceServices;
 class RHICommandList;
 
 struct QuadSceneConstants
@@ -37,7 +37,7 @@ public:
 	}
 
 	[[nodiscard]] Result<void> EnsureInitialized(
-		Renderer& renderer,
+		RenderResourceServices& resources,
 		FrameContext& frameContext,
 		RHICommandList* commandList,
 		const std::filesystem::path& shaderRoot,

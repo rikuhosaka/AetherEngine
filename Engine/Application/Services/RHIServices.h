@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 
+class RHIBarrierDebug;
 class RHIDevice;
 class RHICommandQueue;
 class RHIFence;
@@ -18,6 +19,7 @@ struct RHIServices
 	RHIDevice* device = nullptr;
 	RHICommandQueue* graphicsQueue = nullptr;
 	RHIFence* frameFence = nullptr;
+	RHIBarrierDebug* barrierDebug = nullptr;
 
 	static constexpr uint32_t kFrameCount = EngineConstants::kFrameInFlightCount;
 

@@ -10,7 +10,7 @@
 #include <optional>
 
 class FrameContext;
-class Renderer;
+class RenderResourceServices;
 class RHICommandList;
 
 struct RoomDimensions
@@ -33,7 +33,7 @@ public:
 	[[nodiscard]] bool IsReady() const noexcept { return m_ready; }
 
 	[[nodiscard]] Result<void> EnsureInitialized(
-		Renderer& renderer,
+		RenderResourceServices& resources,
 		FrameContext& frameContext,
 		RHICommandList* commandList,
 		const std::filesystem::path& shaderRoot,

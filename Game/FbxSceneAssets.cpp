@@ -3,7 +3,6 @@
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Math/Matrix.h"
-#include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -20,6 +19,7 @@
 #include "Engine/RHI/Common/RHIInput.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/World/Transform.h"
+#include "Engine/World/WorldRenderBridge.h"
 
 #include <DirectXMath.h>
 
@@ -213,7 +213,7 @@ Result<void> FbxSceneAssets::LoadTextureForSlot(
 }
 
 Result<void> FbxSceneAssets::EnsureInitialized(
-	Renderer& renderer,
+	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
 	const std::filesystem::path& shaderRoot,
@@ -236,13 +236,6 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"FbxSceneAssets requires valid shader and assets roots");
-	}
-
-	RenderResourceServices* resources = renderer.GetResourceServices();
-	if (resources == nullptr)
-	{
-		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
-			"FbxSceneAssets requires renderer resource services");
 	}
 
 	auto sdkResult = FbxSdkContext::Create();
@@ -279,7 +272,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	for (uint32_t meshIndex = 0; meshIndex < assetData.meshes.size(); ++meshIndex)
 	{
 		const Result<MeshHandle> meshResult = UploadModelMesh(
-			resources->GetMeshServices(),
+			resources.GetMeshServices(),
 			assetData.meshes[meshIndex],
 			frameContext,
 			commandList);
@@ -296,7 +289,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	for (uint32_t slotIndex = 0; slotIndex < assetData.materialSlots.size(); ++slotIndex)
 	{
 		if (auto textureResult = LoadTextureForSlot(
-				*resources,
+				resources,
 				frameContext,
 				commandList,
 				assetsRoot,
@@ -317,7 +310,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	materialDesc.requiredLayout = VertexLayoutId::Basic;
 
 	const Result<MaterialHandle> materialResult =
-		resources->GetMaterialServices().CreateMaterial(materialDesc);
+		resources.GetMaterialServices().CreateMaterial(materialDesc);
 	if (!materialResult)
 	{
 		return MakeFail(materialResult.error.code, materialResult.error.message);
@@ -325,7 +318,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	m_material = materialResult.value;
 	m_materialConstants = materialConstants;
 
-	const Material* material = resources->GetMaterialServices().GetMaterial(m_material);
+	const Material* material = resources.GetMaterialServices().GetMaterial(m_material);
 	if (material == nullptr)
 	{
 		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
@@ -421,12 +414,12 @@ Result<void> FbxSceneAssets::SpawnInto(World& world)
 		const FbxSpawnInstance& instance = m_instances[instanceIndex];
 		WorldSpawnDesc desc{};
 		desc.transform = transforms[instanceIndex];
-		desc.renderable.mesh = instance.mesh;
-		desc.renderable.material = m_material;
+		desc.renderable.mesh = ToWorldMeshId(instance.mesh);
+		desc.renderable.material = ToWorldMaterialId(m_material);
 		desc.renderable.submeshIndex = instance.submeshIndex;
-		desc.renderable.layerMask = RenderLayer::Opaque | RenderLayer::Shadow;
+		desc.renderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
 		desc.renderable.visible = true;
-		desc.renderable.overrides.baseColor = instance.baseColor;
+		desc.renderable.overrides.baseColor = ToWorldTextureId(instance.baseColor);
 		desc.renderable.overrides.normal = {};
 		if (m_materialConstantsSlot.has_value())
 		{

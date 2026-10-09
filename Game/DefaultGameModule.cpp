@@ -8,7 +8,6 @@
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
@@ -27,14 +26,15 @@ Result<void> DefaultGameModule::OnPrepareRender(
 	RHICommandList* commandList)
 {
 	RenderServices* renderServices = host.GetRenderServices();
-	if (renderServices == nullptr || renderServices->renderer == nullptr)
+	if (renderServices == nullptr || renderServices->resources == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"DefaultGameModule requires RenderServices");
 	}
 
+	RenderResourceServices& resources = *renderServices->resources;
 	if (auto initResult = m_room.EnsureInitialized(
-			*renderServices->renderer,
+			resources,
 			frameContext,
 			commandList,
 			host.GetShaderRoot(),
@@ -44,19 +44,12 @@ Result<void> DefaultGameModule::OnPrepareRender(
 		return initResult;
 	}
 
-	RenderResourceServices* resources = renderServices->renderer->GetResourceServices();
-	if (resources == nullptr)
-	{
-		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
-			"DefaultGameModule requires renderer resource services");
-	}
-
 	if (auto fbxResult = m_fbx.EnsureInitialized(
-			*renderServices->renderer,
+			resources,
 			frameContext,
 			commandList,
 			host.GetShaderRoot(),
-			resources->GetTextureServices().GetAssetsRoot(),
+			resources.GetTextureServices().GetAssetsRoot(),
 			kFbxModelPath);
 		!fbxResult)
 	{

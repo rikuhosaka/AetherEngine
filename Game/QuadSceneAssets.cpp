@@ -2,7 +2,6 @@
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -35,7 +34,7 @@ void MakeIdentity(float* outMatrix4x4)
 } // namespace
 
 Result<void> QuadSceneAssets::EnsureInitialized(
-	Renderer& renderer,
+	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
 	const std::filesystem::path& shaderRoot,
@@ -56,13 +55,6 @@ Result<void> QuadSceneAssets::EnsureInitialized(
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"QuadSceneAssets requires a valid shader root path");
-	}
-
-	RenderResourceServices* resources = renderer.GetResourceServices();
-	if (resources == nullptr)
-	{
-		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
-			"QuadSceneAssets requires renderer resource services");
 	}
 
 	const std::array<PositionTexVertex, 4> vertices = {
@@ -88,7 +80,7 @@ Result<void> QuadSceneAssets::EnsureInitialized(
 	meshDesc.DebugName = "ScreenQuad";
 
 	const Result<MeshHandle> meshResult =
-		resources->GetMeshServices().UploadMesh(meshDesc, frameContext, commandList);
+		resources.GetMeshServices().UploadMesh(meshDesc, frameContext, commandList);
 	if (!meshResult)
 	{
 		return MakeFail(meshResult.error.code, meshResult.error.message);
@@ -102,7 +94,7 @@ Result<void> QuadSceneAssets::EnsureInitialized(
 	textureLoadDesc.debugName = "GameIcon";
 
 	const Result<TextureHandle> textureResult =
-		resources->GetTextureServices().GetOrLoadTexture(
+		resources.GetTextureServices().GetOrLoadTexture(
 			textureLoadDesc,
 			frameContext,
 			commandList);
@@ -121,7 +113,7 @@ Result<void> QuadSceneAssets::EnsureInitialized(
 	materialDesc.requiredLayout = VertexLayoutId::PositionTex;
 
 	const Result<MaterialHandle> materialResult =
-		resources->GetMaterialServices().CreateMaterial(materialDesc);
+		resources.GetMaterialServices().CreateMaterial(materialDesc);
 	if (!materialResult)
 	{
 		return MakeFail(materialResult.error.code, materialResult.error.message);

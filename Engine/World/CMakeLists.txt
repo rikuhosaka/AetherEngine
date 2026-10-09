@@ -21,7 +21,6 @@ target_link_libraries(World
     PUBLIC
         Core
         Math
-        Renderer
 )
 
 target_precompile_headers(World PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

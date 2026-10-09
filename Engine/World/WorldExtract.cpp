@@ -4,8 +4,13 @@
 #include "Engine/Math/Transform.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/World/World.h"
+#include "Engine/World/WorldRenderBridge.h"
 
 #include <DirectXMath.h>
+
+static_assert(WorldLayer::Opaque == RenderLayer::Opaque);
+static_assert(WorldLayer::Shadow == RenderLayer::Shadow);
+static_assert(WorldLayer::Transparent == RenderLayer::Transparent);
 
 void ExtractWorld(const World& world, std::vector<ExtractedObject>& outObjects)
 {
@@ -13,8 +18,8 @@ void ExtractWorld(const World& world, std::vector<ExtractedObject>& outObjects)
 		ExtractedObject object{};
 		object.objectId.Index = id.Index;
 		object.objectId.Generation = id.Generation;
-		object.mesh = renderable.mesh;
-		object.material = renderable.material;
+		object.mesh = ToMeshHandle(renderable.mesh);
+		object.material = ToMaterialHandle(renderable.material);
 		object.submeshIndex = renderable.submeshIndex;
 		object.layerMask = renderable.layerMask;
 		object.visible = renderable.visible;
@@ -25,8 +30,8 @@ void ExtractWorld(const World& world, std::vector<ExtractedObject>& outObjects)
 		const DirectX::XMMATRIX worldMatrix = Aether::Math::TRS(translation, rotation, scale);
 		Aether::Math::StoreMatrixForHlsl(object.worldMatrix, worldMatrix);
 
-		object.overrides.baseColor = renderable.overrides.baseColor;
-		object.overrides.normal = renderable.overrides.normal;
+		object.overrides.baseColor = ToTextureHandle(renderable.overrides.baseColor);
+		object.overrides.normal = ToTextureHandle(renderable.overrides.normal);
 		object.overrides.parameters.reserve(renderable.overrides.parameters.size());
 		for (const WorldMaterialParameterBlock& block : renderable.overrides.parameters)
 		{

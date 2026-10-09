@@ -1,13 +1,33 @@
 #pragma once
 
-#include "Engine/Renderer/Material/MaterialTypes.h"
-#include "Engine/Renderer/Mesh/MeshTypes.h"
-#include "Engine/Renderer/Scene/RenderSceneTypes.h"
-#include "Engine/Renderer/Texture/TextureTypes.h"
+#include "Engine/Core/Handle/Handle.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+
+struct WorldMeshTag
+{
+};
+
+struct WorldMaterialTag
+{
+};
+
+struct WorldTextureTag
+{
+};
+
+using WorldMeshId = Handle<WorldMeshTag>;
+using WorldMaterialId = Handle<WorldMaterialTag>;
+using WorldTextureId = Handle<WorldTextureTag>;
+
+namespace WorldLayer
+{
+constexpr uint8_t Opaque = 1u << 0;
+constexpr uint8_t Shadow = 1u << 1;
+constexpr uint8_t Transparent = 1u << 2;
+} // namespace WorldLayer
 
 struct WorldMaterialParameterBlock
 {
@@ -17,17 +37,17 @@ struct WorldMaterialParameterBlock
 
 struct WorldMaterialOverrides
 {
-	TextureHandle baseColor{};
-	TextureHandle normal{};
+	WorldTextureId baseColor{};
+	WorldTextureId normal{};
 	std::vector<WorldMaterialParameterBlock> parameters{};
 };
 
 struct Renderable
 {
-	MeshHandle mesh{};
-	MaterialHandle material{};
+	WorldMeshId mesh{};
+	WorldMaterialId material{};
 	WorldMaterialOverrides overrides{};
 	uint32_t submeshIndex = 0;
-	uint8_t layerMask = RenderLayer::Opaque;
+	uint8_t layerMask = WorldLayer::Opaque;
 	bool visible = true;
 };

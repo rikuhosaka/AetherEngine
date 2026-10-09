@@ -12,7 +12,7 @@
 #include <vector>
 
 class FrameContext;
-class Renderer;
+class RenderResourceServices;
 class RHICommandList;
 
 struct LitMaterialConstants
@@ -26,7 +26,7 @@ public:
 	[[nodiscard]] bool IsReady() const noexcept { return m_ready; }
 
 	[[nodiscard]] Result<void> EnsureInitialized(
-		Renderer& renderer,
+		RenderResourceServices& resources,
 		FrameContext& frameContext,
 		RHICommandList* commandList,
 		const std::filesystem::path& shaderRoot,
@@ -46,7 +46,7 @@ private:
 	};
 
 	[[nodiscard]] Result<void> LoadTextureForSlot(
-		class RenderResourceServices& resources,
+		RenderResourceServices& resources,
 		FrameContext& frameContext,
 		RHICommandList* commandList,
 		const std::filesystem::path& assetsRoot,

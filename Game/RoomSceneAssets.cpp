@@ -2,7 +2,6 @@
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -13,6 +12,7 @@
 #include "Engine/Renderer/Texture/TextureTypes.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/World/Transform.h"
+#include "Engine/World/WorldRenderBridge.h"
 
 #include <DirectXMath.h>
 
@@ -55,7 +55,7 @@ namespace
 } // namespace
 
 Result<void> RoomSceneAssets::EnsureInitialized(
-	Renderer& renderer,
+	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
 	const std::filesystem::path& shaderRoot,
@@ -85,13 +85,6 @@ Result<void> RoomSceneAssets::EnsureInitialized(
 			"RoomSceneAssets requires positive room dimensions");
 	}
 
-	RenderResourceServices* resources = renderer.GetResourceServices();
-	if (resources == nullptr)
-	{
-		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
-			"RoomSceneAssets requires renderer resource services");
-	}
-
 	const Result<PrimitiveMeshData> planeResult = GeneratePlaneMesh();
 	if (!planeResult)
 	{
@@ -100,14 +93,14 @@ Result<void> RoomSceneAssets::EnsureInitialized(
 
 	const MeshUploadDesc meshDesc = MakePrimitiveMeshUploadDesc(planeResult.value, "UnitPlane");
 	const Result<MeshHandle> meshResult =
-		resources->GetMeshServices().UploadMesh(meshDesc, frameContext, commandList);
+		resources.GetMeshServices().UploadMesh(meshDesc, frameContext, commandList);
 	if (!meshResult)
 	{
 		return MakeFail(meshResult.error.code, meshResult.error.message);
 	}
 	m_planeMesh = meshResult.value;
 
-	const Result<TextureHandle> textureResult = UploadWhiteTexture(*resources, frameContext, commandList);
+	const Result<TextureHandle> textureResult = UploadWhiteTexture(resources, frameContext, commandList);
 	if (!textureResult)
 	{
 		return MakeFail(textureResult.error.code, textureResult.error.message);
@@ -123,7 +116,7 @@ Result<void> RoomSceneAssets::EnsureInitialized(
 	materialDesc.requiredLayout = VertexLayoutId::Basic;
 
 	const Result<MaterialHandle> materialResult =
-		resources->GetMaterialServices().CreateMaterial(materialDesc);
+		resources.GetMaterialServices().CreateMaterial(materialDesc);
 	if (!materialResult)
 	{
 		return MakeFail(materialResult.error.code, materialResult.error.message);
@@ -132,7 +125,7 @@ Result<void> RoomSceneAssets::EnsureInitialized(
 	m_materialConstants = materialConstants;
 	m_dimensions = dimensions;
 
-	const Material* material = resources->GetMaterialServices().GetMaterial(m_material);
+	const Material* material = resources.GetMaterialServices().GetMaterial(m_material);
 	if (material == nullptr)
 	{
 		return FailInternal(LogCategory::Renderer, ErrorCode::InvalidArgument,
@@ -180,12 +173,12 @@ Result<void> RoomSceneAssets::SpawnInto(World& world)
 	const auto spawnPlane = [this, &world](const Transform& transform) {
 		WorldSpawnDesc desc{};
 		desc.transform = transform;
-		desc.renderable.mesh = m_planeMesh;
-		desc.renderable.material = m_material;
+		desc.renderable.mesh = ToWorldMeshId(m_planeMesh);
+		desc.renderable.material = ToWorldMaterialId(m_material);
 		desc.renderable.submeshIndex = 0;
-		desc.renderable.layerMask = RenderLayer::Opaque | RenderLayer::Shadow;
+		desc.renderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
 		desc.renderable.visible = true;
-		desc.renderable.overrides.baseColor = m_baseColor;
+		desc.renderable.overrides.baseColor = ToWorldTextureId(m_baseColor);
 		desc.renderable.overrides.normal = {};
 		if (m_materialConstantsSlot.has_value())
 		{

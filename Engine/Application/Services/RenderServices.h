@@ -2,10 +2,10 @@
 
 #include <filesystem>
 
-class Renderer;
+class RenderResourceServices;
 
 struct RenderServices
 {
-	Renderer* renderer = nullptr;
+	RenderResourceServices* resources = nullptr;
 	std::filesystem::path shaderRoot{};
 };
