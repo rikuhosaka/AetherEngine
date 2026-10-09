@@ -3,6 +3,7 @@ project(Platform)
 
 # .cpp と .h ファイルをすべて収集（再帰的に）
 file(GLOB_RECURSE Platform_SRC
+    CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/*.h
 )

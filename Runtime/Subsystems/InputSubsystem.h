@@ -2,10 +2,18 @@
 
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
+#include "Engine/Platform/InputState.h"
+
+#include <memory>
+
+class Win32InputDevice;
 
 class InputSubsystem final : public ISubsystem
 {
 public:
+	InputSubsystem();
+	~InputSubsystem() override;
+
 	[[nodiscard]] const char* GetName() const override { return "Input"; }
 
 	[[nodiscard]] std::span<const char* const> GetDependencies() const override;
@@ -19,6 +27,8 @@ public:
 	void Shutdown(SubsystemContext& ctx) override;
 
 private:
+	std::unique_ptr<Win32InputDevice> m_device;
+	InputState m_state{};
 	InputServices m_services{};
 };
 

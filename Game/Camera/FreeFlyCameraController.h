@@ -2,7 +2,7 @@
 
 #include "Game/Camera/CameraState.h"
 
-class InputManager;
+class InputState;
 
 struct FreeFlyCameraSettings
 {
@@ -21,7 +21,7 @@ public:
 
 	void Reset(CameraState& camera);
 	void Reset(CameraState& camera, const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& forward);
-	void Update(CameraState& camera, const InputManager& input, float deltaSeconds);
+	void Update(CameraState& camera, const InputState& input, float deltaSeconds);
 
 private:
 	void SyncOrientationFromYawPitch(CameraState& camera);

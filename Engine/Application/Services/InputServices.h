@@ -1,8 +1,8 @@
 #pragma once
 
-class InputManager;
+class InputState;
 
 struct InputServices
 {
-	InputManager* input = nullptr;
+	const InputState* state = nullptr;
 };

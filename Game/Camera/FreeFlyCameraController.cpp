@@ -1,6 +1,6 @@
 #include "Game/Camera/FreeFlyCameraController.h"
 
-#include "Engine/Platform/InputManager.h"
+#include "Engine/Platform/InputState.h"
 
 #include <DirectXMath.h>
 
@@ -62,12 +62,12 @@ void FreeFlyCameraController::Reset(
 
 void FreeFlyCameraController::Update(
 	CameraState& camera,
-	const InputManager& input,
+	const InputState& input,
 	float deltaSeconds)
 {
 	using namespace DirectX;
 
-	if (input.IsMouseButtonDown(VK_RBUTTON))
+	if (input.IsDown(Key::MouseRight))
 	{
 		const MousePixelPosition mouseDelta = input.GetMouseDeltaPixels();
 		m_yawRadians += static_cast<float>(mouseDelta.x) * m_settings.lookSensitivity;
@@ -84,27 +84,27 @@ void FreeFlyCameraController::Update(
 	const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	const XMVECTOR right = XMVector3Normalize(XMVector3Cross(worldUp, forward));
 
-	if (input.IsKeyPressed('W'))
+	if (input.IsDown(Key::W))
 	{
 		moveDirection = XMVectorAdd(moveDirection, forward);
 	}
-	if (input.IsKeyPressed('S'))
+	if (input.IsDown(Key::S))
 	{
 		moveDirection = XMVectorSubtract(moveDirection, forward);
 	}
-	if (input.IsKeyPressed('D'))
+	if (input.IsDown(Key::D))
 	{
 		moveDirection = XMVectorAdd(moveDirection, right);
 	}
-	if (input.IsKeyPressed('A'))
+	if (input.IsDown(Key::A))
 	{
 		moveDirection = XMVectorSubtract(moveDirection, right);
 	}
-	if (input.IsKeyPressed(VK_SPACE))
+	if (input.IsDown(Key::Space))
 	{
 		moveDirection = XMVectorAdd(moveDirection, worldUp);
 	}
-	if (input.IsKeyPressed(VK_CONTROL))
+	if (input.IsDown(Key::LeftControl))
 	{
 		moveDirection = XMVectorSubtract(moveDirection, worldUp);
 	}
@@ -115,7 +115,7 @@ void FreeFlyCameraController::Update(
 		moveDirection = XMVector3Normalize(moveDirection);
 
 		float moveSpeed = m_settings.moveSpeed;
-		if (input.IsKeyPressed(VK_SHIFT))
+		if (input.IsDown(Key::LeftShift))
 		{
 			moveSpeed *= m_settings.fastMoveScale;
 		}

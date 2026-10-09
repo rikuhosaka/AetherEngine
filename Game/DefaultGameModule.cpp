@@ -71,7 +71,10 @@ Result<void> DefaultGameModule::OnPrepareRender(
 
 void DefaultGameModule::OnTick(IGameHost& host, float deltaSeconds)
 {
-	m_cameraController.Update(m_camera, host.GetInput(), deltaSeconds);
+	if (const InputState* input = host.GetInput())
+	{
+		m_cameraController.Update(m_camera, *input, deltaSeconds);
+	}
 }
 
 void DefaultGameModule::OnExtract(IGameHost& /*host*/, std::vector<ExtractedObject>& outObjects)

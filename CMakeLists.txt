@@ -30,6 +30,11 @@ if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja")
     endforeach()
 endif()
 
+# BOM なし UTF-8 をコードページ 932 として読まない。ソース文字集合と実行文字集合の両方を UTF-8 にする。
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 if(WIN32)
     include(ResolveAetherDxc)
     aether_resolve_dxc(AETHER_DXC_EXECUTABLE)

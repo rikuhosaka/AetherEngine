@@ -409,7 +409,9 @@ namespace
 		return merged;
 	}
 
-	using TableBucketKey = std::tuple<RHIRootParamType, std::uint32_t, RHIShaderVisibility>;
+	// The last field isolates each constant buffer register into its own descriptor table.
+	// SRV and UAV ranges stay grouped, so that field is zero for them.
+	using TableBucketKey = std::tuple<RHIRootParamType, std::uint32_t, RHIShaderVisibility, std::uint32_t>;
 
 	[[nodiscard]] Result<ShaderRootLayoutData> BuildLayout(
 		const std::vector<ShaderReflectionData>& stages,
@@ -523,7 +525,13 @@ namespace
 
 			const RHIShaderVisibility visibility =
 				ToRHIShaderVisibility(binding.StageVisibility, ShaderStage::Unknown);
-			const TableBucketKey bucketKey{binding.RootType, binding.Space, visibility};
+			const std::uint32_t constantBufferRegister =
+				binding.RootType == RHIRootParamType::CBV ? binding.Register : 0u;
+			const TableBucketKey bucketKey{
+				binding.RootType,
+				binding.Space,
+				visibility,
+				constantBufferRegister};
 			tableBuckets[bucketKey].push_back(&binding);
 		}
 
@@ -537,8 +545,8 @@ namespace
 		std::sort(bucketOrder.begin(), bucketOrder.end(),
 			[](const TableBucketKey& lhs, const TableBucketKey& rhs)
 			{
-				const auto& [lhsType, lhsSpace, lhsVisibility] = lhs;
-				const auto& [rhsType, rhsSpace, rhsVisibility] = rhs;
+				const auto& [lhsType, lhsSpace, lhsVisibility, lhsRegister] = lhs;
+				const auto& [rhsType, rhsSpace, rhsVisibility, rhsRegister] = rhs;
 				if (RootTypeSortOrder(lhsType) != RootTypeSortOrder(rhsType))
 				{
 					return RootTypeSortOrder(lhsType) < RootTypeSortOrder(rhsType);
@@ -547,14 +555,19 @@ namespace
 				{
 					return VisibilitySortOrder(lhsVisibility) < VisibilitySortOrder(rhsVisibility);
 				}
-				return lhsSpace < rhsSpace;
+				if (lhsSpace != rhsSpace)
+				{
+					return lhsSpace < rhsSpace;
+				}
+				return lhsRegister < rhsRegister;
 			});
 
 		std::optional<std::string> buildError;
 		for (const TableBucketKey& bucketKey : bucketOrder)
 		{
 			std::vector<MergedBinding*>& bucketBindings = tableBuckets[bucketKey];
-			const auto& [rootType, space, visibility] = bucketKey;
+			const auto& [rootType, space, visibility, constantBufferRegister] = bucketKey;
+			(void)constantBufferRegister;
 
 			std::sort(bucketBindings.begin(), bucketBindings.end(),
 				[](const MergedBinding* lhs, const MergedBinding* rhs)

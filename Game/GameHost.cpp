@@ -4,7 +4,7 @@
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
-#include "Engine/Platform/InputManager.h"
+#include "Engine/Platform/InputState.h"
 
 GameHost::GameHost(SubsystemContext& context)
 	: m_context(context)
@@ -16,15 +16,15 @@ SubsystemContext& GameHost::GetContext()
 	return m_context;
 }
 
-InputManager& GameHost::GetInput()
+const InputState* GameHost::GetInput()
 {
-	auto* inputServices = m_context.GetService<InputServices>();
-	if (inputServices == nullptr || inputServices->input == nullptr)
+	const InputServices* inputServices = m_context.GetService<InputServices>();
+	if (inputServices == nullptr)
 	{
-		return InputManager::Get();
+		return nullptr;
 	}
 
-	return *inputServices->input;
+	return inputServices->state;
 }
 
 float GameHost::GetDeltaSeconds() const

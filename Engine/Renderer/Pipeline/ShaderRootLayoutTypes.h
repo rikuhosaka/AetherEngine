@@ -10,6 +10,7 @@ struct ShaderRootLayoutBuildOptions
 	std::uint32_t maxRootConstantsDwords = 4;
 
 	// One root parameter per (descriptor type, register space, shader visibility).
+	// Constant buffers are further split per register so each cbuffer can be bound on its own.
 	bool splitDescriptorTables = true;
 	bool mergeContiguousRanges = true;
 	bool allowUnbounded = true;

@@ -4,12 +4,16 @@
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Platform/InputManager.h"
+#include "Engine/Platform/Win32InputDevice.h"
 
 namespace
 {
 constexpr const char* kDependencies[] = { "Window" };
 } // namespace
+
+InputSubsystem::InputSubsystem() = default;
+
+InputSubsystem::~InputSubsystem() = default;
 
 std::unique_ptr<ISubsystem> CreateInputSubsystem()
 {
@@ -30,10 +34,13 @@ Result<void> InputSubsystem::Initialize(SubsystemContext& ctx)
 			"InputSubsystem requires WindowServices");
 	}
 
-	InputManager& input = InputManager::Get();
-	input.Initialize(windowServices->hwnd, windowServices->clientWidth, windowServices->clientHeight);
+	if (m_device == nullptr)
+	{
+		m_device = std::make_unique<Win32InputDevice>();
+	}
 
-	m_services.input = &input;
+	m_device->Reset(windowServices->hwnd, windowServices->clientWidth, windowServices->clientHeight, m_state);
+	m_services.state = &m_state;
 	ctx.RegisterService(&m_services);
 	return MakeOk();
 }
@@ -41,30 +48,32 @@ Result<void> InputSubsystem::Initialize(SubsystemContext& ctx)
 Result<void> InputSubsystem::OnResize(SubsystemContext& ctx, uint32_t width, uint32_t height)
 {
 	auto* windowServices = ctx.GetService<WindowServices>();
-	if (windowServices == nullptr || windowServices->hwnd == nullptr || width == 0 || height == 0)
+	if (windowServices == nullptr || windowServices->hwnd == nullptr || m_device == nullptr || width == 0 || height == 0)
 	{
 		return MakeOk();
 	}
 
-	InputManager::Get().Initialize(windowServices->hwnd, width, height);
+	m_device->Reset(windowServices->hwnd, width, height, m_state);
 	return MakeOk();
 }
 
 void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 {
 	auto* windowServices = ctx.GetService<WindowServices>();
-	if (windowServices == nullptr || windowServices->hwnd == nullptr || m_services.input == nullptr)
+	if (windowServices == nullptr || windowServices->hwnd == nullptr || m_device == nullptr)
 	{
 		return;
 	}
 
-	m_services.input->Update(
+	m_device->Update(
 		windowServices->hwnd,
 		windowServices->clientWidth,
-		windowServices->clientHeight);
+		windowServices->clientHeight,
+		m_state);
 }
 
 void InputSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 {
 	m_services = {};
+	m_device.reset();
 }
