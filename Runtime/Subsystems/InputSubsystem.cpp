@@ -54,6 +54,7 @@ Result<void> InputSubsystem::OnResize(SubsystemContext& ctx, uint32_t width, uin
 	}
 
 	m_device->Reset(windowServices->hwnd, width, height, m_state);
+	m_device->RefreshRelativeMouse(windowServices->hwnd, width, height, m_state);
 	return MakeOk();
 }
 
@@ -69,7 +70,8 @@ void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 		windowServices->hwnd,
 		windowServices->clientWidth,
 		windowServices->clientHeight,
-		m_state);
+		m_state,
+		m_services.relativeMouse);
 }
 
 void InputSubsystem::Shutdown(SubsystemContext& /*ctx*/)

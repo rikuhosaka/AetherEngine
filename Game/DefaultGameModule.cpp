@@ -3,6 +3,8 @@
 #include "Game/Camera/CameraExtract.h"
 #include "Game/IGameHost.h"
 
+#include "Engine/Platform/InputState.h"
+
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
@@ -74,6 +76,7 @@ void DefaultGameModule::OnTick(IGameHost& host, float deltaSeconds)
 	if (const InputState* input = host.GetInput())
 	{
 		m_cameraController.Update(m_camera, *input, deltaSeconds);
+		host.SetRelativeMouse(input->IsDown(Key::MouseRight));
 	}
 }
 

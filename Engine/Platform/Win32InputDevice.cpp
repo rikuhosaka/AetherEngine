@@ -43,6 +43,20 @@ std::size_t IndexOf(Key key)
 	return static_cast<std::size_t>(key);
 }
 
+bool IsVirtualKeyDown(int virtualKey)
+{
+	return (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+}
+
+bool IsForegroundWindow(HWND hwnd, std::uint32_t clientWidth, std::uint32_t clientHeight)
+{
+	return hwnd != nullptr
+		&& clientWidth > 0
+		&& clientHeight > 0
+		&& IsIconic(hwnd) == FALSE
+		&& GetForegroundWindow() == hwnd;
+}
+
 MousePixelPosition ReadCursorClientPosition(HWND hwnd)
 {
 	POINT point{};
@@ -50,7 +64,72 @@ MousePixelPosition ReadCursorClientPosition(HWND hwnd)
 	ScreenToClient(hwnd, &point);
 	return { point.x, point.y };
 }
+
+MousePixelPosition ClientCenter(std::uint32_t clientWidth, std::uint32_t clientHeight)
+{
+	return {
+		static_cast<int>(clientWidth / 2),
+		static_cast<int>(clientHeight / 2),
+	};
+}
+
+bool TryGetClientClipRect(HWND hwnd, RECT& outRect)
+{
+	RECT client{};
+	if (GetClientRect(hwnd, &client) == FALSE)
+	{
+		return false;
+	}
+
+	POINT topLeft{ client.left, client.top };
+	POINT bottomRight{ client.right, client.bottom };
+	if (ClientToScreen(hwnd, &topLeft) == FALSE || ClientToScreen(hwnd, &bottomRight) == FALSE)
+	{
+		return false;
+	}
+
+	outRect.left = topLeft.x;
+	outRect.top = topLeft.y;
+	outRect.right = bottomRight.x;
+	outRect.bottom = bottomRight.y;
+	return outRect.right > outRect.left && outRect.bottom > outRect.top;
+}
+
+void ClipCursorToClient(HWND hwnd)
+{
+	RECT clip{};
+	if (TryGetClientClipRect(hwnd, clip))
+	{
+		ClipCursor(&clip);
+	}
+}
+
+void MoveCursorToClientPoint(HWND hwnd, MousePixelPosition clientPosition)
+{
+	POINT screen{ clientPosition.x, clientPosition.y };
+	if (ClientToScreen(hwnd, &screen) != FALSE)
+	{
+		SetCursorPos(screen.x, screen.y);
+	}
+}
 } // namespace
+
+Win32InputDevice::~Win32InputDevice()
+{
+	if (!m_relativeActive && !m_cursorHidden)
+	{
+		return;
+	}
+
+	ClipCursor(nullptr);
+	ReleaseCapture();
+	RestoreCursor();
+	if (m_relativeActive)
+	{
+		SetCursorPos(m_savedCursorScreen.x, m_savedCursorScreen.y);
+	}
+	m_relativeActive = false;
+}
 
 void Win32InputDevice::Reset(HWND hwnd, std::uint32_t clientWidth, std::uint32_t clientHeight, InputState& state)
 {
@@ -69,32 +148,90 @@ void Win32InputDevice::Reset(HWND hwnd, std::uint32_t clientWidth, std::uint32_t
 	state.m_mousePixelPos = m_lastMousePixelPos;
 }
 
-void Win32InputDevice::Update(HWND hwnd, std::uint32_t clientWidth, std::uint32_t clientHeight, InputState& state)
+void Win32InputDevice::Update(
+	HWND hwnd,
+	std::uint32_t clientWidth,
+	std::uint32_t clientHeight,
+	InputState& state,
+	bool relativeMouseRequested)
+{
+	const bool focused = IsForegroundWindow(hwnd, clientWidth, clientHeight);
+	if (!focused && m_relativeActive)
+	{
+		EndRelativeMouse(hwnd, state);
+	}
+
+	WriteButtons(focused, state);
+
+	if (!focused)
+	{
+		state.m_mouseDelta = {};
+		return;
+	}
+
+	if (relativeMouseRequested && !m_relativeActive)
+	{
+		BeginRelativeMouse(hwnd, clientWidth, clientHeight, state);
+		return;
+	}
+
+	if (!relativeMouseRequested && m_relativeActive)
+	{
+		EndRelativeMouse(hwnd, state);
+		return;
+	}
+
+	if (m_relativeActive)
+	{
+		ApplyRelativeMouse(hwnd, clientWidth, clientHeight, state);
+		return;
+	}
+
+	WriteMouse(hwnd, clientWidth, clientHeight, state);
+}
+
+void Win32InputDevice::RefreshRelativeMouse(
+	HWND hwnd,
+	std::uint32_t clientWidth,
+	std::uint32_t clientHeight,
+	InputState& state)
+{
+	if (!m_relativeActive || hwnd == nullptr || clientWidth == 0 || clientHeight == 0)
+	{
+		return;
+	}
+
+	ClipCursorToClient(hwnd);
+	const MousePixelPosition center = ClientCenter(clientWidth, clientHeight);
+	MoveCursorToClientPoint(hwnd, center);
+	m_lastMousePixelPos = center;
+	state.m_mousePixelPos = center;
+	state.m_mouseDelta = {};
+}
+
+void Win32InputDevice::WriteButtons(bool focused, InputState& state)
 {
 	std::array<bool, KeyCount> down{};
-
-	BYTE keyState[256] = {};
-	if (GetKeyboardState(keyState))
+	if (focused)
 	{
 		for (const KeyBinding& binding : kKeyboardBindings)
 		{
-			down[IndexOf(binding.key)] = (keyState[binding.virtualKey] & 0x80) != 0;
+			down[IndexOf(binding.key)] = IsVirtualKeyDown(binding.virtualKey);
 		}
 
-		// Either physical side sets the combined virtual key.
-		const bool shift = (keyState[VK_SHIFT] & 0x80) != 0
-			|| (keyState[VK_LSHIFT] & 0x80) != 0
-			|| (keyState[VK_RSHIFT] & 0x80) != 0;
-		const bool control = (keyState[VK_CONTROL] & 0x80) != 0
-			|| (keyState[VK_LCONTROL] & 0x80) != 0
-			|| (keyState[VK_RCONTROL] & 0x80) != 0;
+		const bool shift = IsVirtualKeyDown(VK_SHIFT)
+			|| IsVirtualKeyDown(VK_LSHIFT)
+			|| IsVirtualKeyDown(VK_RSHIFT);
+		const bool control = IsVirtualKeyDown(VK_CONTROL)
+			|| IsVirtualKeyDown(VK_LCONTROL)
+			|| IsVirtualKeyDown(VK_RCONTROL);
 		down[IndexOf(Key::LeftShift)] = shift;
 		down[IndexOf(Key::LeftControl)] = control;
-	}
 
-	for (const KeyBinding& binding : kMouseBindings)
-	{
-		down[IndexOf(binding.key)] = (GetAsyncKeyState(binding.virtualKey) & 0x8000) != 0;
+		for (const KeyBinding& binding : kMouseBindings)
+		{
+			down[IndexOf(binding.key)] = IsVirtualKeyDown(binding.virtualKey);
+		}
 	}
 
 	for (std::size_t index = 0; index < KeyCount; ++index)
@@ -106,8 +243,6 @@ void Win32InputDevice::Update(HWND hwnd, std::uint32_t clientWidth, std::uint32_
 		button.released = !isDown && m_wasDown[index];
 		m_wasDown[index] = isDown;
 	}
-
-	WriteMouse(hwnd, clientWidth, clientHeight, state);
 }
 
 void Win32InputDevice::WriteMouse(
@@ -129,4 +264,83 @@ void Win32InputDevice::WriteMouse(
 	};
 	state.m_mousePixelPos = position;
 	m_lastMousePixelPos = position;
+}
+
+void Win32InputDevice::BeginRelativeMouse(
+	HWND hwnd,
+	std::uint32_t clientWidth,
+	std::uint32_t clientHeight,
+	InputState& state)
+{
+	GetCursorPos(&m_savedCursorScreen);
+	HideCursor();
+	ClipCursorToClient(hwnd);
+	SetCapture(hwnd);
+
+	const MousePixelPosition center = ClientCenter(clientWidth, clientHeight);
+	MoveCursorToClientPoint(hwnd, center);
+	m_lastMousePixelPos = center;
+	state.m_mousePixelPos = center;
+	state.m_mouseDelta = {};
+	m_relativeActive = true;
+}
+
+void Win32InputDevice::EndRelativeMouse(HWND hwnd, InputState& state)
+{
+	if (!m_relativeActive)
+	{
+		return;
+	}
+
+	ClipCursor(nullptr);
+	ReleaseCapture();
+	RestoreCursor();
+	SetCursorPos(m_savedCursorScreen.x, m_savedCursorScreen.y);
+	m_relativeActive = false;
+
+	state.m_mouseDelta = {};
+	if (hwnd != nullptr)
+	{
+		m_lastMousePixelPos = ReadCursorClientPosition(hwnd);
+		state.m_mousePixelPos = m_lastMousePixelPos;
+	}
+}
+
+void Win32InputDevice::ApplyRelativeMouse(
+	HWND hwnd,
+	std::uint32_t clientWidth,
+	std::uint32_t clientHeight,
+	InputState& state)
+{
+	const MousePixelPosition center = ClientCenter(clientWidth, clientHeight);
+	const MousePixelPosition position = ReadCursorClientPosition(hwnd);
+	state.m_mouseDelta = {
+		position.x - center.x,
+		position.y - center.y,
+	};
+	state.m_mousePixelPos = center;
+	m_lastMousePixelPos = center;
+	MoveCursorToClientPoint(hwnd, center);
+}
+
+void Win32InputDevice::HideCursor()
+{
+	if (m_cursorHidden)
+	{
+		return;
+	}
+
+	ShowCursor(FALSE);
+	m_cursorHidden = true;
+}
+
+void Win32InputDevice::RestoreCursor()
+{
+	if (!m_cursorHidden)
+	{
+		return;
+	}
+
+	ShowCursor(TRUE);
+	m_cursorHidden = false;
 }

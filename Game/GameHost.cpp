@@ -27,6 +27,17 @@ const InputState* GameHost::GetInput()
 	return inputServices->state;
 }
 
+void GameHost::SetRelativeMouse(bool enabled)
+{
+	InputServices* inputServices = m_context.GetService<InputServices>();
+	if (inputServices == nullptr)
+	{
+		return;
+	}
+
+	inputServices->relativeMouse = enabled;
+}
+
 float GameHost::GetDeltaSeconds() const
 {
 	return m_context.GetDeltaSeconds();

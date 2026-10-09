@@ -13,6 +13,7 @@ public:
 
 	[[nodiscard]] SubsystemContext& GetContext() override;
 	[[nodiscard]] const InputState* GetInput() override;
+	void SetRelativeMouse(bool enabled) override;
 	[[nodiscard]] float GetDeltaSeconds() const override;
 	[[nodiscard]] RenderServices* GetRenderServices() override;
 	[[nodiscard]] std::filesystem::path GetShaderRoot() const override;
