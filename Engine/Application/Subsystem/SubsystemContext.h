@@ -14,6 +14,16 @@ public:
 	}
 
 	template<typename T>
+	void UnregisterService(T* service)
+	{
+		const auto it = m_services.find(std::type_index(typeid(T)));
+		if (it != m_services.end() && it->second == service)
+		{
+			m_services.erase(it);
+		}
+	}
+
+	template<typename T>
 	[[nodiscard]] T* GetService() const
 	{
 		const auto it = m_services.find(std::type_index(typeid(T)));

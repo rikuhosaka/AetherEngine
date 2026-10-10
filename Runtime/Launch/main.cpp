@@ -8,6 +8,7 @@
 #include "Engine/Renderer/Test/PrimitiveMeshTest.h"
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
 #include "Engine/World/Test/WorldTest.h"
+#include "Game/WorldExtractTest.h"
 #include "Runtime/RuntimePaths.h"
 #include "Runtime/RuntimeSubsystemSetup.h"
 
@@ -43,6 +44,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 	if (auto worldResult = RunWorldTests(); !worldResult)
 	{
 		LogResult(worldResult, LogCategory::Core);
+		return -1;
+	}
+
+	if (auto worldExtractResult = RunWorldExtractTests(); !worldExtractResult)
+	{
+		LogResult(worldExtractResult, LogCategory::Core);
 		return -1;
 	}
 

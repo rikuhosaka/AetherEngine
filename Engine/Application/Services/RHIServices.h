@@ -10,9 +10,6 @@ class RHIBarrierDebug;
 class RHIDevice;
 class RHICommandQueue;
 class RHIFence;
-class RHICommandList;
-class RHIUploadBuffer;
-class RHITransientDescriptorAllocator;
 
 struct RHIServices
 {
@@ -24,9 +21,6 @@ struct RHIServices
 	static constexpr uint32_t kFrameCount = EngineConstants::kFrameInFlightCount;
 
 	std::array<FrameContext, kFrameCount> frameContexts{};
-	std::array<RHICommandList*, kFrameCount> commandLists{};
-	std::array<RHIUploadBuffer*, kFrameCount> uploadBuffers{};
-	std::array<RHITransientDescriptorAllocator*, kFrameCount> transientAllocators{};
 
 	uint32_t currentFrameSlot = 0;
 };

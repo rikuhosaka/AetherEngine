@@ -116,6 +116,7 @@ void DisplaySubsystem::Shutdown(SubsystemContext& ctx)
 		}
 	}
 
+	ctx.UnregisterService(&m_services);
 	m_impl->display.reset();
 	m_services = {};
 }

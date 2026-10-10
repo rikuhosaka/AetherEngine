@@ -8,6 +8,7 @@
 
 class IEngineLoopPlatform;
 class IEngineLoopRender;
+struct FrameContext;
 
 class EngineLoop
 {
@@ -23,6 +24,8 @@ private:
 	void UpdateClock();
 	Result<void> ApplyPendingResize();
 	void TickSubsystems();
+	Result<void> ResetFrameSlotResources(FrameContext& frameContext);
+	Result<void> LoadInitialContent();
 	Result<void> RenderFrame();
 	Result<void> ResolveHosts();
 

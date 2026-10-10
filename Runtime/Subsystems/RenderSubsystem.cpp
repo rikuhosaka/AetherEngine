@@ -2,24 +2,17 @@
 
 #include "Engine/Application/Services/DisplayServices.h"
 #include "Engine/Application/Services/RHIServices.h"
-#include "Engine/Application/Services/WindowServices.h"
-#include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
-#include "Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Graphics/DisplayContext.h"
 #include "Engine/Renderer/Core/Renderer.h"
 #include "Engine/Renderer/Core/RendererConfig.h"
 #include "Engine/Renderer/Core/ShaderSourcePolicy.h"
-#include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
-#include "Engine/RHI/Interface/RHICommandQueue.h"
 #include "Engine/RHI/Interface/RHIDescriptorAllocator.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
-#include "Engine/RHI/Interface/RHIFence.h"
 #include "Engine/RHI/Common/RHIScopedDebugEvent.h"
-#include "Engine/RHI/Interface/RHIBarrierDebug.h"
 
 namespace
 {
@@ -112,72 +105,27 @@ Result<void> RenderSubsystem::Initialize(SubsystemContext& ctx)
 	return MakeOk();
 }
 
-Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
+Result<void> RenderSubsystem::DrawFrame(
+	SubsystemContext& ctx,
+	FrameContext& frameContext,
+	RHICommandList* commandList,
+	const ExtractedView& view,
+	const ExtractedLighting& lighting,
+	std::span<const ExtractedObject> objects)
 {
-	auto* rhiServices = ctx.GetService<RHIServices>();
 	auto* displayServices = ctx.GetService<DisplayServices>();
-	auto* windowServices = ctx.GetService<WindowServices>();
-	if (rhiServices == nullptr || displayServices == nullptr || displayServices->display == nullptr
-		|| m_impl->renderer == nullptr)
+	if (displayServices == nullptr || displayServices->display == nullptr || m_impl->renderer == nullptr
+		|| commandList == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"RenderSubsystem::RenderFrame missing required services");
+			"RenderSubsystem::DrawFrame missing required services");
 	}
 
-	if (windowServices != nullptr
-		&& (windowServices->isMinimized || windowServices->clientWidth == 0 || windowServices->clientHeight == 0))
-	{
-		return MakeOk();
-	}
-
-	const uint32_t slot = rhiServices->currentFrameSlot;
-	FrameContext& frameContext = rhiServices->frameContexts[slot];
-	frameContext.frameIndex = slot;
-
-	if (frameContext.fenceValue != 0)
-	{
-		rhiServices->frameFence->WaitCPU(frameContext.fenceValue);
-	}
-
-	ctx.SetFrameSlot(slot);
 	m_impl->renderer->SetFrameContext(&frameContext);
-
-	if (rhiServices->barrierDebug != nullptr)
-	{
-		rhiServices->barrierDebug->BeginFrame();
-	}
-
-	displayServices->display->BeginFrame(frameContext);
-	m_impl->renderer->BeginFrame(slot);
-
-	RHICommandList* commandList = frameContext.graphicsCommandList;
-	if (commandList == nullptr)
-	{
-		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"RenderSubsystem::RenderFrame missing command list");
-	}
-
-	std::vector<ExtractedObject> extractedObjects;
-	ExtractedView extractedView{};
-	ExtractedLighting extractedLighting{};
-	if (auto* registry = ctx.GetService<SubsystemRegistry>())
-	{
-		if (ISceneExtractor* sceneExtractor = registry->GetSceneExtractor())
-		{
-			if (auto prepareResult = sceneExtractor->PrepareRender(ctx, frameContext, commandList);
-				!prepareResult)
-			{
-				return prepareResult;
-			}
-
-			sceneExtractor->ExtractView(extractedView);
-			sceneExtractor->ExtractLighting(extractedLighting);
-			sceneExtractor->Extract(extractedObjects);
-		}
-	}
-	m_impl->renderer->ExtractView(extractedView);
-	m_impl->renderer->ExtractLighting(extractedLighting);
-	m_impl->renderer->ExtractScene(extractedObjects);
+	m_impl->renderer->BeginFrame(frameContext.frameIndex);
+	m_impl->renderer->ExtractView(view);
+	m_impl->renderer->ExtractLighting(lighting);
+	m_impl->renderer->ExtractScene(objects);
 
 	{
 		const RHIScopedDebugEvent frameEvent(commandList, "Frame");
@@ -190,23 +138,12 @@ Result<void> RenderSubsystem::RenderFrame(SubsystemContext& ctx)
 		displayServices->display->EndMainRenderPass(frameContext, commandList);
 	}
 
-	commandList->Close();
-	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });
-	frameContext.fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
-
-	displayServices->display->Present(m_config.vsync ? 1u : 0u, 0u);
-	if (rhiServices->barrierDebug != nullptr)
-	{
-		rhiServices->barrierDebug->EndFrame();
-	}
-
-	rhiServices->currentFrameSlot = (slot + 1) % RHIServices::kFrameCount;
-	ctx.SetFrameSlot(rhiServices->currentFrameSlot);
 	return MakeOk();
 }
 
-void RenderSubsystem::Shutdown(SubsystemContext& /*ctx*/)
+void RenderSubsystem::Shutdown(SubsystemContext& ctx)
 {
+	ctx.UnregisterService(&m_services);
 	m_impl->renderer.reset();
 	m_impl->descriptorAllocator.reset();
 	m_services = {};

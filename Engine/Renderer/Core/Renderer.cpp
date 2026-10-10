@@ -8,8 +8,6 @@
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
 #include "Engine/Renderer/ShaderSystem/ShaderSystemServices.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
-#include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
-#include "Engine/RHI/Interface/RHIUploadBuffer.h"
 
 #include <cassert>
 
@@ -91,18 +89,6 @@ void Renderer::BeginFrame(uint32_t frameIndex)
 	m_frameIndex = frameIndex;
 	m_sceneBuilt = false;
 	m_scene.BeginFrame();
-	if (m_frameContext != nullptr && m_frameContext->graphicsCommandList != nullptr)
-	{
-		m_frameContext->graphicsCommandList->Reset();
-	}
-	if (m_frameContext != nullptr && m_frameContext->transientDescriptors != nullptr)
-	{
-		m_frameContext->transientDescriptors->Reset();
-	}
-	if (m_frameContext != nullptr && m_frameContext->uploadBuffer != nullptr)
-	{
-		m_frameContext->uploadBuffer->Reset();
-	}
 }
 
 void Renderer::ExtractScene(std::span<const ExtractedObject> objects)

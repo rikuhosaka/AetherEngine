@@ -29,8 +29,9 @@ Result<void> WindowSubsystem::Initialize(SubsystemContext& ctx)
 	return MakeOk();
 }
 
-void WindowSubsystem::Shutdown(SubsystemContext& /*ctx*/)
+void WindowSubsystem::Shutdown(SubsystemContext& ctx)
 {
+	ctx.UnregisterService(&m_services);
 	m_window.reset();
 	m_services = {};
 }

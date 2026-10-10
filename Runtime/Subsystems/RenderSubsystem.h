@@ -3,11 +3,9 @@
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
 #include "Engine/Application/Subsystem/IEngineLoopRender.h"
-#include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 
 #include <memory>
-#include <vector>
 
 class Renderer;
 class RHIDescriptorAllocator;
@@ -27,7 +25,13 @@ public:
 	Result<void> Initialize(SubsystemContext& ctx) override;
 	void Shutdown(SubsystemContext& ctx) override;
 
-	Result<void> RenderFrame(SubsystemContext& ctx) override;
+	Result<void> DrawFrame(
+		SubsystemContext& ctx,
+		FrameContext& frameContext,
+		RHICommandList* commandList,
+		const ExtractedView& view,
+		const ExtractedLighting& lighting,
+		std::span<const ExtractedObject> objects) override;
 
 	[[nodiscard]] const RenderServices& GetServices() const noexcept { return m_services; }
 

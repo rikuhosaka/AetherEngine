@@ -132,10 +132,6 @@ Result<void> RHISubsystem::CreateFrameResources()
 		frameContext.graphicsCommandList = m_impl->commandLists[frameIndex].get();
 		frameContext.uploadBuffer = m_impl->uploadBuffers[frameIndex].get();
 		frameContext.transientDescriptors = m_impl->transientAllocators[frameIndex].get();
-
-		m_services.commandLists[frameIndex] = frameContext.graphicsCommandList;
-		m_services.uploadBuffers[frameIndex] = frameContext.uploadBuffer;
-		m_services.transientAllocators[frameIndex] = frameContext.transientDescriptors;
 	}
 
 	return MakeOk();
@@ -158,9 +154,10 @@ void RHISubsystem::WaitForPendingFrames()
 	}
 }
 
-void RHISubsystem::Shutdown(SubsystemContext& /*ctx*/)
+void RHISubsystem::Shutdown(SubsystemContext& ctx)
 {
 	WaitForPendingFrames();
+	ctx.UnregisterService(&m_services);
 	m_impl = std::make_unique<RHISubsystemImpl>();
 	m_services = {};
 }

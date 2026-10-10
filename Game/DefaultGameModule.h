@@ -12,7 +12,7 @@ class DefaultGameModule final : public IGameModule
 {
 public:
 	Result<void> OnInit(IGameHost& host) override;
-	Result<void> OnPrepareRender(
+	Result<void> OnLoadContent(
 		IGameHost& host,
 		FrameContext& frameContext,
 		RHICommandList* commandList) override;

@@ -74,8 +74,9 @@ void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 		m_services.relativeMouse);
 }
 
-void InputSubsystem::Shutdown(SubsystemContext& /*ctx*/)
+void InputSubsystem::Shutdown(SubsystemContext& ctx)
 {
+	ctx.UnregisterService(&m_services);
 	m_services = {};
 	m_device.reset();
 }

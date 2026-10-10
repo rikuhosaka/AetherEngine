@@ -18,6 +18,16 @@ public:
 	virtual ~IGameModule() = default;
 
 	virtual Result<void> OnInit(IGameHost& host) = 0;
+	virtual Result<void> OnLoadContent(
+		IGameHost& host,
+		FrameContext& frameContext,
+		RHICommandList* commandList)
+	{
+		(void)host;
+		(void)frameContext;
+		(void)commandList;
+		return MakeOk();
+	}
 	virtual Result<void> OnPrepareRender(
 		IGameHost& host,
 		FrameContext& frameContext,

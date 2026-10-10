@@ -1,12 +1,23 @@
 #include "Engine/Application/Subsystem/EngineLoop.h"
 
+#include "Engine/Application/Services/DisplayServices.h"
 #include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
 #include "Engine/Application/Subsystem/IEngineLoopRender.h"
+#include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Graphics/DisplayContext.h"
+#include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/RHI/Interface/RHIBarrierDebug.h"
+#include "Engine/RHI/Interface/RHICommandList.h"
+#include "Engine/RHI/Interface/RHICommandQueue.h"
 #include "Engine/RHI/Interface/RHIFence.h"
+#include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
+#include "Engine/RHI/Interface/RHIUploadBuffer.h"
+
+#include <vector>
 
 EngineLoop::EngineLoop(EngineLoopConfig config, SubsystemRegistry registry)
 	: m_config(std::move(config))
@@ -72,6 +83,13 @@ int EngineLoop::Run()
 	}
 
 	m_clock.Reset();
+
+	if (auto loadResult = LoadInitialContent(); !loadResult)
+	{
+		LogResult(loadResult, LogCategory::Core);
+		Shutdown();
+		return -1;
+	}
 
 	while (m_running)
 	{
@@ -175,9 +193,176 @@ void EngineLoop::TickSubsystems()
 	}
 }
 
+Result<void> EngineLoop::ResetFrameSlotResources(FrameContext& frameContext)
+{
+	RHICommandList* commandList = frameContext.graphicsCommandList;
+	if (commandList == nullptr)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"EngineLoop requires a command list");
+	}
+
+	commandList->Reset();
+	if (frameContext.uploadBuffer != nullptr)
+	{
+		frameContext.uploadBuffer->Reset();
+	}
+	if (frameContext.transientDescriptors != nullptr)
+	{
+		frameContext.transientDescriptors->Reset();
+	}
+
+	return MakeOk();
+}
+
+Result<void> EngineLoop::LoadInitialContent()
+{
+	auto* rhiServices = m_context.GetService<RHIServices>();
+	if (rhiServices == nullptr || rhiServices->frameFence == nullptr || rhiServices->graphicsQueue == nullptr)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"EngineLoop::LoadInitialContent missing required services");
+	}
+
+	ISceneExtractor* sceneExtractor = m_registry.GetSceneExtractor();
+	if (sceneExtractor == nullptr)
+	{
+		return MakeOk();
+	}
+
+	const uint32_t slot = rhiServices->currentFrameSlot;
+	FrameContext& frameContext = rhiServices->frameContexts[slot];
+	frameContext.frameIndex = slot;
+	m_context.SetFrameSlot(slot);
+
+	if (rhiServices->barrierDebug != nullptr)
+	{
+		rhiServices->barrierDebug->BeginFrame();
+	}
+
+	if (auto resetResult = ResetFrameSlotResources(frameContext); !resetResult)
+	{
+		if (rhiServices->barrierDebug != nullptr)
+		{
+			rhiServices->barrierDebug->EndFrame();
+		}
+		return resetResult;
+	}
+
+	RHICommandList* commandList = frameContext.graphicsCommandList;
+	if (auto loadResult = sceneExtractor->LoadContent(m_context, frameContext, commandList); !loadResult)
+	{
+		commandList->Close();
+		if (rhiServices->barrierDebug != nullptr)
+		{
+			rhiServices->barrierDebug->EndFrame();
+		}
+		return loadResult;
+	}
+
+	commandList->Close();
+	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });
+	const uint64_t fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
+	rhiServices->frameFence->WaitCPU(fenceValue);
+	frameContext.fenceValue = 0;
+
+	if (rhiServices->barrierDebug != nullptr)
+	{
+		rhiServices->barrierDebug->EndFrame();
+	}
+
+	return MakeOk();
+}
+
 Result<void> EngineLoop::RenderFrame()
 {
-	return m_render != nullptr ? m_render->RenderFrame(m_context) : MakeOk();
+	auto* rhiServices = m_context.GetService<RHIServices>();
+	auto* displayServices = m_context.GetService<DisplayServices>();
+	auto* windowServices = m_context.GetService<WindowServices>();
+	if (m_render == nullptr || rhiServices == nullptr || rhiServices->frameFence == nullptr
+		|| rhiServices->graphicsQueue == nullptr || displayServices == nullptr
+		|| displayServices->display == nullptr)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"EngineLoop::RenderFrame missing required services");
+	}
+
+	if (windowServices != nullptr
+		&& (windowServices->isMinimized || windowServices->clientWidth == 0 || windowServices->clientHeight == 0))
+	{
+		return MakeOk();
+	}
+
+	const uint32_t slot = rhiServices->currentFrameSlot;
+	FrameContext& frameContext = rhiServices->frameContexts[slot];
+	frameContext.frameIndex = slot;
+
+	if (frameContext.fenceValue != 0)
+	{
+		rhiServices->frameFence->WaitCPU(frameContext.fenceValue);
+	}
+
+	m_context.SetFrameSlot(slot);
+
+	if (rhiServices->barrierDebug != nullptr)
+	{
+		rhiServices->barrierDebug->BeginFrame();
+	}
+
+	displayServices->display->BeginFrame(frameContext);
+
+	if (auto resetResult = ResetFrameSlotResources(frameContext); !resetResult)
+	{
+		if (rhiServices->barrierDebug != nullptr)
+		{
+			rhiServices->barrierDebug->EndFrame();
+		}
+		return resetResult;
+	}
+
+	RHICommandList* commandList = frameContext.graphicsCommandList;
+
+	std::vector<ExtractedObject> extractedObjects;
+	ExtractedView extractedView{};
+	ExtractedLighting extractedLighting{};
+	if (ISceneExtractor* sceneExtractor = m_registry.GetSceneExtractor())
+	{
+		if (auto prepareResult = sceneExtractor->PrepareRender(m_context, frameContext, commandList);
+			!prepareResult)
+		{
+			return prepareResult;
+		}
+
+		sceneExtractor->ExtractView(extractedView);
+		sceneExtractor->ExtractLighting(extractedLighting);
+		sceneExtractor->Extract(extractedObjects);
+	}
+
+	if (auto drawResult = m_render->DrawFrame(
+			m_context,
+			frameContext,
+			commandList,
+			extractedView,
+			extractedLighting,
+			extractedObjects);
+		!drawResult)
+	{
+		return drawResult;
+	}
+
+	commandList->Close();
+	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });
+	frameContext.fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
+
+	displayServices->display->Present(m_config.vsync ? 1u : 0u, 0u);
+	if (rhiServices->barrierDebug != nullptr)
+	{
+		rhiServices->barrierDebug->EndFrame();
+	}
+
+	rhiServices->currentFrameSlot = (slot + 1) % RHIServices::kFrameCount;
+	m_context.SetFrameSlot(rhiServices->currentFrameSlot);
+	return MakeOk();
 }
 
 void EngineLoop::Shutdown()
@@ -188,6 +373,7 @@ void EngineLoop::Shutdown()
 		m_running = false;
 	}
 
+	m_context.UnregisterService(&m_registry);
 	m_platform = nullptr;
 	m_render = nullptr;
 }

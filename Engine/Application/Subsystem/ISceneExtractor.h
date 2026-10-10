@@ -16,6 +16,17 @@ class ISceneExtractor
 public:
 	virtual ~ISceneExtractor() = default;
 
+	virtual Result<void> LoadContent(
+		SubsystemContext& ctx,
+		FrameContext& frameContext,
+		RHICommandList* commandList)
+	{
+		(void)ctx;
+		(void)frameContext;
+		(void)commandList;
+		return MakeOk();
+	}
+
 	virtual Result<void> PrepareRender(
 		SubsystemContext& ctx,
 		FrameContext& frameContext,

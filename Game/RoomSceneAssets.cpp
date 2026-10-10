@@ -12,7 +12,7 @@
 #include "Engine/Renderer/Texture/TextureTypes.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/World/Transform.h"
-#include "Engine/World/WorldRenderBridge.h"
+#include "Game/WorldRenderBridge.h"
 
 #include <DirectXMath.h>
 

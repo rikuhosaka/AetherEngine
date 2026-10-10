@@ -60,6 +60,19 @@ void GameSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
 	}
 }
 
+Result<void> GameSubsystem::LoadContent(
+	SubsystemContext& /*ctx*/,
+	FrameContext& frameContext,
+	RHICommandList* commandList)
+{
+	if (m_module == nullptr || m_host == nullptr)
+	{
+		return MakeOk();
+	}
+
+	return m_module->OnLoadContent(*m_host, frameContext, commandList);
+}
+
 Result<void> GameSubsystem::PrepareRender(
 	SubsystemContext& /*ctx*/,
 	FrameContext& frameContext,

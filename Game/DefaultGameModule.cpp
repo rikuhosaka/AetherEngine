@@ -12,7 +12,7 @@
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
-#include "Engine/World/WorldExtract.h"
+#include "Game/WorldExtract.h"
 
 Result<void> DefaultGameModule::OnInit(IGameHost& /*host*/)
 {
@@ -20,7 +20,7 @@ Result<void> DefaultGameModule::OnInit(IGameHost& /*host*/)
 	return MakeOk();
 }
 
-Result<void> DefaultGameModule::OnPrepareRender(
+Result<void> DefaultGameModule::OnLoadContent(
 	IGameHost& host,
 	FrameContext& frameContext,
 	RHICommandList* commandList)

@@ -25,6 +25,10 @@ public:
 	Result<void> Initialize(SubsystemContext& ctx) override;
 	Result<void> PostInitialize(SubsystemContext& ctx) override;
 	void Tick(SubsystemContext& ctx, float deltaSeconds) override;
+	Result<void> LoadContent(
+		SubsystemContext& ctx,
+		FrameContext& frameContext,
+		RHICommandList* commandList) override;
 	Result<void> PrepareRender(
 		SubsystemContext& ctx,
 		FrameContext& frameContext,
