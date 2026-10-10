@@ -8,6 +8,7 @@
 #include "Engine/Renderer/ShaderSystem/Reflection/ShaderReflectionData.h"
 #include "Engine/Renderer/Texture/TextureTypes.h"
 #include "Engine/RHI/Common/RHIInput.h"
+#include "Engine/RHI/Common/RHIState.h"
 #include "Engine/RHI/Interface/RHIShader.h"
 
 #include <filesystem>
@@ -30,6 +31,8 @@ struct MaterialCreateDesc
 	std::string pixelEntryPoint{};
 	InputLayoutType inputLayout = InputLayoutType::PositionTex;
 	VertexLayoutId requiredLayout = VertexLayoutId::PositionTex;
+	BlendState blend = BlendState::Opaque;
+	DepthStencilState depth = DepthStencilState::DepthDefault;
 };
 
 struct Material

@@ -25,5 +25,14 @@ void RendererPassScheduler::ExecuteAll(
 		rootSignatureCache,
 		pipelineStateCache,
 		shadowMap);
-	// 2. TransparentPass(snapshot.transparentItems)
+	OpaqueMeshPass::Execute(
+		frameContext,
+		commandList,
+		snapshot,
+		snapshot.transparentItems,
+		resources.GetMeshServices(),
+		resources.GetMaterialServices(),
+		rootSignatureCache,
+		pipelineStateCache,
+		shadowMap);
 }

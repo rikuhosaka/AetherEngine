@@ -12,6 +12,7 @@ struct BasicVertex
 	float position[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	float uv[2] = { 0.0f, 0.0f };
 	float normal[3] = { 0.0f, 1.0f, 0.0f };
+	float tangent[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
 };
 
 struct ModelSubMeshData
@@ -34,6 +35,7 @@ struct ModelMaterialSlotData
 {
 	std::string name;
 	std::filesystem::path diffuseTexturePath;
+	std::filesystem::path normalTexturePath;
 };
 
 struct ModelNodeData

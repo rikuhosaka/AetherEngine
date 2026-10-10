@@ -23,6 +23,7 @@
 
 #include <DirectXMath.h>
 
+#include <cmath>
 #include <cstring>
 #include <system_error>
 #include <unordered_map>
@@ -51,19 +52,19 @@ void ComputeNodeWorldMatrix(
 		float parentWorldMatrix[16]{};
 		ComputeNodeWorldMatrix(assetData, static_cast<uint32_t>(node.parentIndex), parentWorldMatrix);
 		const DirectX::XMMATRIX parentWorld = Aether::Math::LoadMatrixFromHlsl(parentWorldMatrix);
-		world = DirectX::XMMatrixMultiply(parentWorld, world);
+		// Row-vector order, matching World::GetWorldMatrix: local, then parent.
+		world = DirectX::XMMatrixMultiply(world, parentWorld);
 	}
 
 	Aether::Math::StoreMatrixForHlsl(outWorldMatrix, world);
 }
 
-[[nodiscard]] Result<Transform> TransformFromHlslMatrix(const float matrix4x4[16])
+[[nodiscard]] Result<Transform> TransformFromDxMatrix(DirectX::FXMMATRIX matrix)
 {
-	const DirectX::XMMATRIX world = Aether::Math::LoadMatrixFromHlsl(matrix4x4);
 	DirectX::XMVECTOR scale{};
 	DirectX::XMVECTOR rotation{};
 	DirectX::XMVECTOR translation{};
-	if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, world))
+	if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, matrix))
 	{
 		return FailInternal<Transform>(LogCategory::Asset, ErrorCode::InvalidArgument,
 			"FBX node transform could not be decomposed into translation, rotation, and scale");
@@ -74,6 +75,27 @@ void ComputeNodeWorldMatrix(
 	DirectX::XMStoreFloat4(&transform.rotation, rotation);
 	DirectX::XMStoreFloat3(&transform.scale, scale);
 	return MakeOk(std::move(transform));
+}
+
+[[nodiscard]] bool MatricesNearlyEqual(DirectX::FXMMATRIX left, DirectX::FXMMATRIX right)
+{
+	DirectX::XMFLOAT4X4 leftStored{};
+	DirectX::XMFLOAT4X4 rightStored{};
+	DirectX::XMStoreFloat4x4(&leftStored, left);
+	DirectX::XMStoreFloat4x4(&rightStored, right);
+	constexpr float kEpsilon = 0.001f;
+	for (int row = 0; row < 4; ++row)
+	{
+		for (int column = 0; column < 4; ++column)
+		{
+			if (std::fabs(leftStored.m[row][column] - rightStored.m[row][column]) > kEpsilon)
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
 }
 
 [[nodiscard]] Result<MeshHandle> UploadModelMesh(
@@ -286,6 +308,8 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 
 	m_materialTextures.clear();
 	m_materialTextures.resize(assetData.materialSlots.size());
+	m_normalTextures.clear();
+	m_normalTextures.resize(assetData.materialSlots.size());
 	for (uint32_t slotIndex = 0; slotIndex < assetData.materialSlots.size(); ++slotIndex)
 	{
 		if (auto textureResult = LoadTextureForSlot(
@@ -298,6 +322,23 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 			!textureResult)
 		{
 			return textureResult;
+		}
+
+		if (assetData.materialSlots[slotIndex].normalTexturePath.empty())
+		{
+			continue;
+		}
+
+		if (auto normalResult = LoadTextureForSlot(
+				resources,
+				frameContext,
+				commandList,
+				assetsRoot,
+				assetData.materialSlots[slotIndex].normalTexturePath,
+				m_normalTextures[slotIndex]);
+			!normalResult)
+		{
+			return normalResult;
 		}
 	}
 
@@ -336,7 +377,23 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 		}
 	}
 
-	m_instances.clear();
+	m_nodes.clear();
+	m_nodes.reserve(assetData.nodes.size());
+	for (const ModelNodeData& node : assetData.nodes)
+	{
+		const Result<Transform> localResult = TransformFromDxMatrix(LoadFbxRowMajorMatrix(node.localTransform));
+		if (!localResult)
+		{
+			return MakeFail(localResult.error.code, localResult.error.message);
+		}
+
+		FbxNodeSpawn record{};
+		record.local = localResult.value;
+		record.parentIndex = node.parentIndex;
+		m_nodes.push_back(record);
+	}
+
+	m_submeshes.clear();
 	for (uint32_t nodeIndex = 0; nodeIndex < assetData.nodes.size(); ++nodeIndex)
 	{
 		const ModelNodeData& node = assetData.nodes[nodeIndex];
@@ -356,23 +413,25 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 		{
 			const uint32_t materialSlot = meshData.submeshes[submeshIndex].materialSlot;
 
-			FbxSpawnInstance instance{};
-			instance.mesh = meshIt->second;
-			instance.submeshIndex = submeshIndex;
+			FbxSubmeshSpawn submesh{};
+			submesh.nodeIndex = nodeIndex;
+			submesh.mesh = meshIt->second;
+			submesh.submeshIndex = submeshIndex;
 			if (materialSlot < m_materialTextures.size())
 			{
-				instance.baseColor = m_materialTextures[materialSlot];
+				submesh.baseColor = m_materialTextures[materialSlot];
+				submesh.normal = m_normalTextures[materialSlot];
 			}
 			else if (!m_materialTextures.empty())
 			{
-				instance.baseColor = m_materialTextures.front();
+				submesh.baseColor = m_materialTextures.front();
 			}
-			ComputeNodeWorldMatrix(assetData, nodeIndex, instance.worldMatrix);
-			m_instances.push_back(instance);
+			ComputeNodeWorldMatrix(assetData, nodeIndex, submesh.worldMatrix);
+			m_submeshes.push_back(submesh);
 		}
 	}
 
-	if (m_instances.empty())
+	if (m_submeshes.empty())
 	{
 		return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
 			"FbxSceneAssets model contains no renderable mesh nodes");
@@ -396,31 +455,49 @@ Result<void> FbxSceneAssets::SpawnInto(World& world)
 			"FbxSceneAssets::SpawnInto requires initialized GPU assets");
 	}
 
-	std::vector<Transform> transforms;
-	transforms.reserve(m_instances.size());
-	for (const FbxSpawnInstance& instance : m_instances)
+	std::vector<EntityId> nodeEntities;
+	nodeEntities.reserve(m_nodes.size());
+	for (const FbxNodeSpawn& node : m_nodes)
 	{
-		const Result<Transform> transformResult = TransformFromHlslMatrix(instance.worldMatrix);
-		if (!transformResult)
-		{
-			return MakeFail(transformResult.error.code, transformResult.error.message);
-		}
-
-		transforms.push_back(transformResult.value);
+		WorldSpawnDesc desc{};
+		desc.transform = node.local;
+		desc.renderable.visible = false;
+		nodeEntities.push_back(world.Spawn(std::move(desc)));
 	}
 
-	for (size_t instanceIndex = 0; instanceIndex < m_instances.size(); ++instanceIndex)
+	for (size_t nodeIndex = 0; nodeIndex < m_nodes.size(); ++nodeIndex)
 	{
-		const FbxSpawnInstance& instance = m_instances[instanceIndex];
+		const int32_t parentIndex = m_nodes[nodeIndex].parentIndex;
+		if (parentIndex < 0)
+		{
+			continue;
+		}
+
+		if (static_cast<size_t>(parentIndex) >= nodeEntities.size() ||
+			!world.SetParent(nodeEntities[nodeIndex], nodeEntities[static_cast<size_t>(parentIndex)]))
+		{
+			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
+				"FBX node parent could not be attached");
+		}
+	}
+
+	for (const FbxSubmeshSpawn& submesh : m_submeshes)
+	{
+		if (submesh.nodeIndex >= nodeEntities.size())
+		{
+			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
+				"FBX submesh node index is out of range");
+		}
+
 		WorldSpawnDesc desc{};
-		desc.transform = transforms[instanceIndex];
-		desc.renderable.mesh = ToWorldMeshId(instance.mesh);
+		desc.parent = nodeEntities[submesh.nodeIndex];
+		desc.renderable.mesh = ToWorldMeshId(submesh.mesh);
 		desc.renderable.material = ToWorldMaterialId(m_material);
-		desc.renderable.submeshIndex = instance.submeshIndex;
+		desc.renderable.submeshIndex = submesh.submeshIndex;
 		desc.renderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
 		desc.renderable.visible = true;
-		desc.renderable.overrides.baseColor = ToWorldTextureId(instance.baseColor);
-		desc.renderable.overrides.normal = {};
+		desc.renderable.overrides.baseColor = ToWorldTextureId(submesh.baseColor);
+		desc.renderable.overrides.normal = ToWorldTextureId(submesh.normal);
 		if (m_materialConstantsSlot.has_value())
 		{
 			WorldMaterialParameterBlock materialBlock{};
@@ -430,7 +507,14 @@ Result<void> FbxSceneAssets::SpawnInto(World& world)
 			desc.renderable.overrides.parameters.push_back(std::move(materialBlock));
 		}
 
-		world.Spawn(std::move(desc));
+		const EntityId submeshEntity = world.Spawn(std::move(desc));
+		const DirectX::XMMATRIX resolved = world.GetWorldMatrix(submeshEntity);
+		const DirectX::XMMATRIX baked = Aether::Math::LoadMatrixFromHlsl(submesh.worldMatrix);
+		if (!MatricesNearlyEqual(resolved, baked))
+		{
+			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
+				"FBX hierarchy world matrix does not match the baked node transform");
+		}
 	}
 
 	m_spawned = true;

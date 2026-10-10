@@ -4,6 +4,8 @@
 #include "Engine/World/Renderable.h"
 #include "Engine/World/Transform.h"
 
+#include <DirectXMath.h>
+
 #include <cstdint>
 #include <vector>
 
@@ -11,6 +13,7 @@ struct WorldSpawnDesc
 {
 	Transform transform{};
 	Renderable renderable{};
+	EntityId parent{};
 };
 
 class World
@@ -18,6 +21,15 @@ class World
 public:
 	EntityId Spawn(WorldSpawnDesc desc);
 	void Destroy(EntityId id);
+
+	// Parent must be alive. An invalid parent detaches the child to the root.
+	// Local TRS is left unchanged. Returns false for a missing child, a dead parent,
+	// a self parent, or a parent that would create a cycle.
+	[[nodiscard]] bool SetParent(EntityId child, EntityId parent);
+
+	[[nodiscard]] EntityId GetParent(EntityId id) const;
+	// Row-vector product local * parent * ... * root. A dead parent breaks the chain.
+	[[nodiscard]] DirectX::XMMATRIX GetWorldMatrix(EntityId id) const;
 
 	[[nodiscard]] bool IsAlive(EntityId id) const;
 	[[nodiscard]] Transform* GetTransform(EntityId id);
@@ -46,12 +58,17 @@ private:
 	{
 		bool alive = false;
 		uint32_t generation = 0;
+		EntityId parent{};
 		Transform transform{};
 		Renderable renderable{};
 	};
 
+	static constexpr int kMaxParentDepth = 64;
+
 	[[nodiscard]] Slot* FindSlot(EntityId id);
 	[[nodiscard]] const Slot* FindSlot(EntityId id) const;
+	[[nodiscard]] bool IsUnder(EntityId entity, EntityId ancestor) const;
+	void ReleaseSlot(EntityId id);
 
 	std::vector<Slot> m_slots{};
 	std::vector<uint32_t> m_freeIndices{};

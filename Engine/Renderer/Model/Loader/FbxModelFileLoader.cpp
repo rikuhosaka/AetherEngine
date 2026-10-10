@@ -2,6 +2,7 @@
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Renderer/Mesh/VertexTangents.h"
 
 #include <fbxsdk.h>
 #include <fbxsdk/scene/fbxaxissystem.h>
@@ -141,30 +142,36 @@ public:
 		ModelMaterialSlotData slot{};
 		slot.name = material->GetName();
 
-		const FbxProperty diffuseProperty =
-			material->FindProperty(FbxSurfaceMaterial::sDiffuse);
-		const int textureCount = diffuseProperty.GetSrcObjectCount<FbxTexture>();
-		for (int textureIndex = 0; textureIndex < textureCount; ++textureIndex)
+		const auto assignTexturePath = [&](const FbxProperty& property, std::filesystem::path& outPath) {
+			const int textureCount = property.GetSrcObjectCount<FbxTexture>();
+			for (int textureIndex = 0; textureIndex < textureCount; ++textureIndex)
+			{
+				const FbxFileTexture* fileTexture =
+					FbxCast<FbxFileTexture>(property.GetSrcObject<FbxTexture>(textureIndex));
+				if (fileTexture == nullptr)
+				{
+					continue;
+				}
+
+				const char* fileName = fileTexture->GetFileName();
+				if (fileName == nullptr || fileName[0] == '\0')
+				{
+					fileName = fileTexture->GetRelativeFileName();
+				}
+
+				if (fileName != nullptr && fileName[0] != '\0')
+				{
+					outPath = ResolveDiffuseTexturePath(fbxDirectory, fbxStem, fileName);
+					return;
+				}
+			}
+		};
+
+		assignTexturePath(material->FindProperty(FbxSurfaceMaterial::sDiffuse), slot.diffuseTexturePath);
+		assignTexturePath(material->FindProperty(FbxSurfaceMaterial::sNormalMap), slot.normalTexturePath);
+		if (slot.normalTexturePath.empty())
 		{
-			const FbxFileTexture* fileTexture =
-				FbxCast<FbxFileTexture>(diffuseProperty.GetSrcObject<FbxTexture>(textureIndex));
-			if (fileTexture == nullptr)
-			{
-				continue;
-			}
-
-			const char* fileName = fileTexture->GetFileName();
-			if (fileName == nullptr || fileName[0] == '\0')
-			{
-				fileName = fileTexture->GetRelativeFileName();
-			}
-
-			if (fileName != nullptr && fileName[0] != '\0')
-			{
-				slot.diffuseTexturePath =
-					ResolveDiffuseTexturePath(fbxDirectory, fbxStem, fileName);
-				break;
-			}
+			assignTexturePath(material->FindProperty(FbxSurfaceMaterial::sBump), slot.normalTexturePath);
 		}
 
 		const uint32_t slotIndex = static_cast<uint32_t>(materialSlots.size());
@@ -431,6 +438,7 @@ private:
 			"FBX mesh bounds are invalid: " + meshData.name);
 	}
 
+	GenerateVertexTangents(meshData.vertices, meshData.indices);
 	return MakeOk(std::move(meshData));
 }
 

@@ -64,6 +64,7 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
 	const D3D12_INPUT_ELEMENT_DESC skinnedLayout[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -96,6 +97,18 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 	}
 
 	gpipeline.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	if (pipelineDesc.blend == BlendState::AlphaBlend)
+	{
+		D3D12_RENDER_TARGET_BLEND_DESC& target = gpipeline.BlendState.RenderTarget[0];
+		target.BlendEnable = TRUE;
+		target.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+		target.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+		target.BlendOp = D3D12_BLEND_OP_ADD;
+		target.SrcBlendAlpha = D3D12_BLEND_ONE;
+		target.DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+		target.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+		target.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	}
 	gpipeline.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	gpipeline.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	gpipeline.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -103,6 +116,11 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 	if (pipelineDesc.depth == DepthStencilState::DepthNone)
 	{
 		gpipeline.DepthStencilState.DepthEnable = FALSE;
+		gpipeline.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	}
+	else if (pipelineDesc.depth == DepthStencilState::DepthReadOnly)
+	{
+		gpipeline.DepthStencilState.DepthEnable = TRUE;
 		gpipeline.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 	}
 

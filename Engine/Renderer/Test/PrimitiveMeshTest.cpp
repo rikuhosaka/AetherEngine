@@ -76,6 +76,14 @@ namespace
 				ErrorCode::InvalidArgument,
 				"Plane primitive normal is not +Y");
 		}
+
+		if (vertex.tangent[0] <= 0.5f || !IsNearlyEqual(vertex.tangent[3], 1.0f))
+		{
+			return FailRuntime(
+				LogCategory::Renderer,
+				ErrorCode::InvalidArgument,
+				"Plane primitive tangent should follow +X with positive handedness");
+		}
 	}
 
 	if (!IsNearlyEqual(plane.bounds.minX, -1.0f) ||

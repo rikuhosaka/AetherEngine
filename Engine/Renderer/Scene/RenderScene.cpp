@@ -1,13 +1,18 @@
 #include "Engine/Renderer/Scene/RenderScene.h"
 
 #include "Engine/Core/Log/LogMacros.h"
+#include "Engine/Math/Matrix.h"
+#include "Engine/Renderer/Scene/FrustumCull.h"
 #include "Engine/Renderer/Scene/RenderConstantsBuild.h"
+#include "Engine/Renderer/Scene/RenderConstantsLayout.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
 #include "Engine/Renderer/ShaderSystem/Reflection/ShaderReflectionTypes.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
+
+#include <DirectXMath.h>
 
 #include <algorithm>
 #include <cctype>
@@ -74,6 +79,7 @@ bool SlotMatchesNormal(std::string_view slotName)
 {
 	return StringEqualsIgnoreCase(slotName, "normal")
 		|| StringEqualsIgnoreCase(slotName, "normalmap")
+		|| StringEqualsIgnoreCase(slotName, "g_normalmap")
 		|| StringEqualsIgnoreCase(slotName, "bump");
 }
 
@@ -100,26 +106,28 @@ TextureHandle PickOverrideForSlot(
 	std::string_view slotName,
 	const StoredMaterialParameterOverrides& overrides,
 	TextureSystemServices& textureServices,
-	TextureHandle placeholder)
+	TextureHandle albedoPlaceholder,
+	TextureHandle normalPlaceholder)
 {
 	if (SlotMatchesBaseColor(slotName))
 	{
-		return ResolveTextureHandle(overrides.baseColor, textureServices, placeholder);
+		return ResolveTextureHandle(overrides.baseColor, textureServices, albedoPlaceholder);
 	}
 
 	if (SlotMatchesNormal(slotName))
 	{
-		return ResolveTextureHandle(overrides.normal, textureServices, placeholder);
+		return ResolveTextureHandle(overrides.normal, textureServices, normalPlaceholder);
 	}
 
-	return placeholder;
+	return albedoPlaceholder;
 }
 
 std::vector<TextureHandle> BuildBoundTextures(
 	const Material& material,
 	const StoredMaterialParameterOverrides& overrides,
 	TextureSystemServices& textureServices,
-	TextureHandle placeholder)
+	TextureHandle albedoPlaceholder,
+	TextureHandle normalPlaceholder)
 {
 	std::vector<TextureHandle> boundTextures;
 	for (const ShaderRootBindingSlot& slot : material.bindingSlots)
@@ -129,41 +137,66 @@ std::vector<TextureHandle> BuildBoundTextures(
 			continue;
 		}
 
-		TextureHandle textureHandle = placeholder;
-		for (const MaterialTextureSlot& textureSlot : material.textureSlots)
+		const uint32_t descriptorCount = slot.BindCount == 0 ? 1u : slot.BindCount;
+		for (uint32_t element = 0; element < descriptorCount; ++element)
 		{
-			if (textureSlot.registerIndex != slot.Register || textureSlot.space != slot.Space)
+			const uint32_t shaderRegister = slot.Register + element;
+			if (IsPassBoundShaderResource(shaderRegister, slot.Space))
 			{
 				continue;
 			}
 
-			textureHandle = PickOverrideForSlot(textureSlot.name, overrides, textureServices, placeholder);
-			break;
-		}
-
-		if (textureHandle == placeholder && !material.textureSlots.empty())
-		{
-			const size_t srvIndex = boundTextures.size();
-			if (srvIndex == 0)
+			const MaterialTextureSlot* textureSlot = nullptr;
+			for (const MaterialTextureSlot& candidate : material.textureSlots)
 			{
-				textureHandle = ResolveTextureHandle(overrides.baseColor, textureServices, placeholder);
+				if (candidate.registerIndex == shaderRegister && candidate.space == slot.Space)
+				{
+					textureSlot = &candidate;
+					break;
+				}
 			}
-			else if (srvIndex == 1)
-			{
-				textureHandle = ResolveTextureHandle(overrides.normal, textureServices, placeholder);
-			}
-		}
 
-		boundTextures.push_back(textureHandle);
+			TextureHandle textureHandle = albedoPlaceholder;
+			if (textureSlot != nullptr)
+			{
+				textureHandle = PickOverrideForSlot(
+					textureSlot->name,
+					overrides,
+					textureServices,
+					albedoPlaceholder,
+					normalPlaceholder);
+			}
+			else if (shaderRegister != 0)
+			{
+				textureHandle = ResolveTextureHandle(overrides.normal, textureServices, normalPlaceholder);
+			}
+			else
+			{
+				textureHandle = ResolveTextureHandle(overrides.baseColor, textureServices, albedoPlaceholder);
+			}
+
+			boundTextures.push_back(textureHandle);
+		}
 	}
 
 	if (boundTextures.empty())
 	{
 		boundTextures.push_back(
-			ResolveTextureHandle(overrides.baseColor, textureServices, placeholder));
+			ResolveTextureHandle(overrides.baseColor, textureServices, albedoPlaceholder));
 	}
 
 	return boundTextures;
+}
+
+float ObjectDistanceSquared(const ObjectConstants& constants, const ExtractedView& view)
+{
+	const DirectX::XMMATRIX world = Aether::Math::LoadMatrixFromHlsl(constants.worldMatrix);
+	DirectX::XMFLOAT4X4 stored{};
+	DirectX::XMStoreFloat4x4(&stored, world);
+	const float deltaX = stored._41 - view.cameraPosition[0];
+	const float deltaY = stored._42 - view.cameraPosition[1];
+	const float deltaZ = stored._43 - view.cameraPosition[2];
+	return (deltaX * deltaX) + (deltaY * deltaY) + (deltaZ * deltaZ);
 }
 
 std::vector<std::vector<std::byte>> BuildConstantBuffers(
@@ -405,11 +438,19 @@ void RenderScene::Build(
 			continue;
 		}
 
+		// Camera-frustum culling also drops shadow casters that sit outside the view.
+		if (m_snapshot.hasView && AreBoundsCullable(mesh->bounds) &&
+			!IntersectsViewFrustum(m_snapshot.view.viewProjectionMatrix, object.worldMatrix, mesh->bounds))
+		{
+			continue;
+		}
+
 		const std::vector<TextureHandle> resolvedTextures = BuildBoundTextures(
 			*material,
 			object.overrides,
 			textureServices,
-			placeholders.texture);
+			placeholders.texture,
+			placeholders.normalTexture);
 		const std::vector<std::vector<std::byte>> resolvedConstants =
 			BuildConstantBuffers(*material, object.overrides);
 
@@ -455,7 +496,22 @@ void RenderScene::Build(
 
 	std::ranges::sort(m_snapshot.opaqueItems, {}, &RenderItem::sortKey);
 	std::ranges::sort(m_snapshot.shadowItems, {}, &RenderItem::sortKey);
-	std::ranges::sort(m_snapshot.transparentItems, {}, &RenderItem::sortKey);
+	if (m_snapshot.hasView)
+	{
+		std::ranges::sort(m_snapshot.transparentItems, [&](const RenderItem& left, const RenderItem& right) {
+			const float leftDistance = left.objectConstantsIndex < m_snapshot.objectConstants.size()
+				? ObjectDistanceSquared(m_snapshot.objectConstants[left.objectConstantsIndex], m_snapshot.view)
+				: 0.0f;
+			const float rightDistance = right.objectConstantsIndex < m_snapshot.objectConstants.size()
+				? ObjectDistanceSquared(m_snapshot.objectConstants[right.objectConstantsIndex], m_snapshot.view)
+				: 0.0f;
+			return leftDistance > rightDistance;
+		});
+	}
+	else
+	{
+		std::ranges::sort(m_snapshot.transparentItems, {}, &RenderItem::sortKey);
+	}
 
 	ReleaseStaleMaterialInstances(materialServices, m_extractedFrame.frameIndex);
 }

@@ -6,10 +6,13 @@ struct PSIn
     float3 worldPos : TEXCOORD0;
     float3 normalW : TEXCOORD1;
     float2 uv : TEXCOORD2;
+    float3 tangentW : TEXCOORD3;
+    float tangentSign : TEXCOORD4;
 };
 
 Texture2D g_texture : register(t0);
 Texture2D<float> g_shadowMap : register(t1);
+Texture2D normalMap : register(t2);
 SamplerState g_sampler : register(s0);
 
 float SampleShadow(float3 worldPos)
@@ -57,9 +60,15 @@ cbuffer MaterialConstants : register(b2)
 
 float4 LitBasicPS(PSIn input) : SV_Target
 {
-    float3 albedo = g_texture.Sample(g_sampler, input.uv).rgb * tint.rgb;
+    float4 albedoSample = g_texture.Sample(g_sampler, input.uv);
+    float3 albedo = albedoSample.rgb * tint.rgb;
 
-    float3 normal = normalize(input.normalW);
+    float3 vertexNormal = normalize(input.normalW);
+    float3 tangent = normalize(input.tangentW);
+    float3 bitangent = normalize(cross(vertexNormal, tangent) * input.tangentSign);
+    float3 tangentNormal = normalMap.Sample(g_sampler, input.uv).xyz * 2.0 - 1.0;
+    float3 normal = normalize(tangentNormal.x * tangent + tangentNormal.y * bitangent + tangentNormal.z * vertexNormal);
+
     float3 lightDirection = normalize(-mainLightDirection.xyz);
     float ndotl = saturate(dot(normal, lightDirection));
 
@@ -68,5 +77,5 @@ float4 LitBasicPS(PSIn input) : SV_Target
     float shadow = SampleShadow(input.worldPos);
     float3 litColor = albedo * (ambient + diffuse * shadow);
 
-    return float4(litColor, 1.0f);
+    return float4(litColor, albedoSample.a * tint.a);
 }

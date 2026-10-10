@@ -124,6 +124,36 @@ bool RenderPlaceholders::EnsureInitialized(
 	}
 	m_resources.texture = textureResult.value;
 
+	const std::array<std::byte, 4> flatNormalPixel = {
+		std::byte{ 128 },
+		std::byte{ 128 },
+		std::byte{ 255 },
+		std::byte{ 255 },
+	};
+	TextureUploadDesc normalTextureDesc{};
+	normalTextureDesc.width = 1;
+	normalTextureDesc.height = 1;
+	TextureMipData normalMip{};
+	normalMip.width = 1;
+	normalMip.height = 1;
+	normalMip.rowPitch = 4;
+	normalMip.pixels = flatNormalPixel;
+	normalTextureDesc.mips.push_back(normalMip);
+
+	auto normalTextureResult = resources.GetTextureServices().UploadTexture(
+		normalTextureDesc,
+		frameContext,
+		commandList);
+	if (!normalTextureResult)
+	{
+		if (outError != nullptr)
+		{
+			*outError = normalTextureResult.error.message;
+		}
+		return false;
+	}
+	m_resources.normalTexture = normalTextureResult.value;
+
 	MaterialCreateDesc materialDesc{};
 	materialDesc.vertexShaderPath = shaderRoot / "SimpleVS.hlsl";
 	materialDesc.pixelShaderPath = shaderRoot / "SimplePS.hlsl";

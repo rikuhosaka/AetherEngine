@@ -1,6 +1,7 @@
 #include "Engine/Application/Subsystem/EngineLoop.h"
 #include "Engine/Core/Log/Log.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Renderer/Test/FrustumCullTest.h"
 #include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
 #include "Engine/Renderer/Test/ShadowMapTest.h"
 #include "Engine/Renderer/Test/RendererResourceSmokeTest.h"
@@ -56,6 +57,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 	if (auto smokeLayoutResult = RunRendererResourceSmokeLayoutTests(); !smokeLayoutResult)
 	{
 		LogResult(smokeLayoutResult, LogCategory::Core);
+		return -1;
+	}
+
+	if (auto frustumResult = RunFrustumCullTests(); !frustumResult)
+	{
+		LogResult(frustumResult, LogCategory::Core);
 		return -1;
 	}
 

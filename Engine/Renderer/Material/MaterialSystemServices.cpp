@@ -288,6 +288,8 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 	pipelineLayout.vertexShader = material->vertexShader.get();
 	pipelineLayout.pixelShader = material->pixelShader.get();
 	pipelineLayout.inputLayout = desc.inputLayout;
+	pipelineLayout.blend = desc.blend;
+	pipelineLayout.depth = desc.depth;
 	pipelineLayout.rootSignature = layoutResult.value.Layout;
 	pipelineLayout.topology = PrimitiveTopology::TriangleList;
 

@@ -37,10 +37,18 @@ public:
 	[[nodiscard]] Result<void> SpawnInto(World& world);
 
 private:
-	struct FbxSpawnInstance
+	struct FbxNodeSpawn
 	{
+		Transform local{};
+		int32_t parentIndex = -1;
+	};
+
+	struct FbxSubmeshSpawn
+	{
+		uint32_t nodeIndex = 0;
 		MeshHandle mesh{};
 		TextureHandle baseColor{};
+		TextureHandle normal{};
 		uint32_t submeshIndex = 0;
 		float worldMatrix[16]{};
 	};
@@ -59,6 +67,8 @@ private:
 	std::optional<uint32_t> m_materialConstantsSlot{};
 	MaterialHandle m_material{};
 	std::vector<TextureHandle> m_materialTextures{};
-	std::vector<FbxSpawnInstance> m_instances{};
+	std::vector<TextureHandle> m_normalTextures{};
+	std::vector<FbxNodeSpawn> m_nodes{};
+	std::vector<FbxSubmeshSpawn> m_submeshes{};
 	FbxSdkContext m_fbxSdkContext{};
 };

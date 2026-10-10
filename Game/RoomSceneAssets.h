@@ -47,8 +47,10 @@ private:
 	bool m_spawned = false;
 	MeshHandle m_planeMesh{};
 	MaterialHandle m_material{};
+	MaterialHandle m_transparentMaterial{};
 	TextureHandle m_baseColor{};
 	RoomMaterialConstants m_materialConstants{};
+	RoomMaterialConstants m_transparentConstants{ { 1.0f, 1.0f, 1.0f, 0.45f } };
 	std::optional<uint32_t> m_materialConstantsSlot{};
 	RoomDimensions m_dimensions{};
 };

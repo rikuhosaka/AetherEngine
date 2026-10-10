@@ -125,6 +125,17 @@ Result<void> RoomSceneAssets::EnsureInitialized(
 	m_materialConstants = materialConstants;
 	m_dimensions = dimensions;
 
+	MaterialCreateDesc transparentDesc = materialDesc;
+	transparentDesc.blend = BlendState::AlphaBlend;
+	transparentDesc.depth = DepthStencilState::DepthReadOnly;
+	const Result<MaterialHandle> transparentResult =
+		resources.GetMaterialServices().CreateMaterial(transparentDesc);
+	if (!transparentResult)
+	{
+		return MakeFail(transparentResult.error.code, transparentResult.error.message);
+	}
+	m_transparentMaterial = transparentResult.value;
+
 	const Material* material = resources.GetMaterialServices().GetMaterial(m_material);
 	if (material == nullptr)
 	{
@@ -170,13 +181,17 @@ Result<void> RoomSceneAssets::SpawnInto(World& world)
 	const XMVECTOR xAxis = XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 	const XMVECTOR zAxis = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
 
-	const auto spawnPlane = [this, &world](const Transform& transform) {
+	const auto spawnPlane = [this, &world](
+		const Transform& transform,
+		MaterialHandle material,
+		const RoomMaterialConstants& constants,
+		uint8_t layerMask) {
 		WorldSpawnDesc desc{};
 		desc.transform = transform;
 		desc.renderable.mesh = ToWorldMeshId(m_planeMesh);
-		desc.renderable.material = ToWorldMaterialId(m_material);
+		desc.renderable.material = ToWorldMaterialId(material);
 		desc.renderable.submeshIndex = 0;
-		desc.renderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
+		desc.renderable.layerMask = layerMask;
 		desc.renderable.visible = true;
 		desc.renderable.overrides.baseColor = ToWorldTextureId(m_baseColor);
 		desc.renderable.overrides.normal = {};
@@ -184,47 +199,55 @@ Result<void> RoomSceneAssets::SpawnInto(World& world)
 		{
 			WorldMaterialParameterBlock materialBlock{};
 			materialBlock.bindingSlot = *m_materialConstantsSlot;
-			const auto* bytes = reinterpret_cast<const std::byte*>(&m_materialConstants);
-			materialBlock.data.assign(bytes, bytes + sizeof(m_materialConstants));
+			const auto* bytes = reinterpret_cast<const std::byte*>(&constants);
+			materialBlock.data.assign(bytes, bytes + sizeof(constants));
 			desc.renderable.overrides.parameters.push_back(std::move(materialBlock));
 		}
 
 		world.Spawn(std::move(desc));
 	};
 
+	const uint8_t opaqueLayer = WorldLayer::Opaque | WorldLayer::Shadow;
+
 	Transform floor{};
 	floor.scale = { width, 1.0f, depth };
-	spawnPlane(floor);
+	spawnPlane(floor, m_material, m_materialConstants, opaqueLayer);
 
 	Transform ceiling{};
 	ceiling.position = { 0.0f, height, 0.0f };
 	ceiling.rotation = QuaternionFromAxisAngle(xAxis, XM_PI);
 	ceiling.scale = { width, 1.0f, depth };
-	spawnPlane(ceiling);
+	spawnPlane(ceiling, m_material, m_materialConstants, opaqueLayer);
 
 	Transform northWall{};
 	northWall.position = { 0.0f, height * 0.5f, depth * 0.5f };
 	northWall.rotation = QuaternionFromAxisAngle(xAxis, -XM_PIDIV2);
 	northWall.scale = { width, 1.0f, height };
-	spawnPlane(northWall);
+	spawnPlane(northWall, m_material, m_materialConstants, opaqueLayer);
 
 	Transform southWall{};
 	southWall.position = { 0.0f, height * 0.5f, -depth * 0.5f };
 	southWall.rotation = QuaternionFromAxisAngle(xAxis, XM_PIDIV2);
 	southWall.scale = { width, 1.0f, height };
-	spawnPlane(southWall);
+	spawnPlane(southWall, m_material, m_materialConstants, opaqueLayer);
 
 	Transform eastWall{};
 	eastWall.position = { width * 0.5f, height * 0.5f, 0.0f };
 	eastWall.rotation = QuaternionFromAxisAngle(zAxis, XM_PIDIV2);
 	eastWall.scale = { height, 1.0f, depth };
-	spawnPlane(eastWall);
+	spawnPlane(eastWall, m_material, m_materialConstants, opaqueLayer);
 
 	Transform westWall{};
 	westWall.position = { -width * 0.5f, height * 0.5f, 0.0f };
 	westWall.rotation = QuaternionFromAxisAngle(zAxis, -XM_PIDIV2);
 	westWall.scale = { height, 1.0f, depth };
-	spawnPlane(westWall);
+	spawnPlane(westWall, m_material, m_materialConstants, opaqueLayer);
+
+	Transform glassPane{};
+	glassPane.position = { 0.0f, 1.4f, 0.0f };
+	glassPane.rotation = QuaternionFromAxisAngle(xAxis, -XM_PIDIV2);
+	glassPane.scale = { 2.0f, 1.0f, 2.0f };
+	spawnPlane(glassPane, m_transparentMaterial, m_transparentConstants, WorldLayer::Transparent);
 
 	m_spawned = true;
 	return MakeOk();

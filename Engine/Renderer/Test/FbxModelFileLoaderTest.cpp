@@ -110,7 +110,11 @@ namespace
 			!std::isfinite(vertex.position[2]) ||
 			!std::isfinite(vertex.normal[0]) ||
 			!std::isfinite(vertex.normal[1]) ||
-			!std::isfinite(vertex.normal[2]))
+			!std::isfinite(vertex.normal[2]) ||
+			!std::isfinite(vertex.tangent[0]) ||
+			!std::isfinite(vertex.tangent[1]) ||
+			!std::isfinite(vertex.tangent[2]) ||
+			!std::isfinite(vertex.tangent[3]))
 		{
 			return FailRuntime(
 				LogCategory::Asset,

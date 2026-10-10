@@ -1,5 +1,7 @@
 #include "Engine/Renderer/Mesh/PrimitiveMesh.h"
 
+#include "Engine/Renderer/Mesh/VertexTangents.h"
+
 #include "Engine/RHI/Common/RHIInput.h"
 
 #include <DirectXMath.h>
@@ -119,6 +121,7 @@ Result<PrimitiveMeshData> GeneratePlaneMesh(const PlanePrimitiveDesc& desc)
 	const float halfX = desc.width * 0.5f;
 	const float halfZ = desc.depth * 0.5f;
 	AddFace(mesh, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { halfX, 0.0f, 0.0f }, { 0.0f, 0.0f, halfZ });
+	GenerateVertexTangents(mesh.vertices, mesh.indices);
 	return MakeOk(std::move(mesh));
 }
 
@@ -151,6 +154,7 @@ Result<PrimitiveMeshData> GenerateCubeMesh(const CubePrimitiveDesc& desc)
 		InvertFacing(mesh);
 	}
 
+	GenerateVertexTangents(mesh.vertices, mesh.indices);
 	return MakeOk(std::move(mesh));
 }
 
