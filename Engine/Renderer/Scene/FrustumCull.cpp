@@ -16,24 +16,36 @@ struct Plane
 	float distance = 0.0f;
 };
 
-[[nodiscard]] Plane MakePlane(DirectX::FXMVECTOR row)
+[[nodiscard]] Plane LoadPlane(const float stored[4])
+{
+	Plane plane{};
+	plane.normal[0] = stored[0];
+	plane.normal[1] = stored[1];
+	plane.normal[2] = stored[2];
+	plane.distance = stored[3];
+	return plane;
+}
+
+void StorePlane(float destination[4], DirectX::FXMVECTOR row)
 {
 	DirectX::XMFLOAT4 stored{};
 	DirectX::XMStoreFloat4(&stored, row);
 	const float length = std::sqrt(
 		(stored.x * stored.x) + (stored.y * stored.y) + (stored.z * stored.z));
-	Plane plane{};
 	if (length < 1.0e-8f)
 	{
-		return plane;
+		destination[0] = 0.0f;
+		destination[1] = 0.0f;
+		destination[2] = 0.0f;
+		destination[3] = 0.0f;
+		return;
 	}
 
 	const float inverse = 1.0f / length;
-	plane.normal[0] = stored.x * inverse;
-	plane.normal[1] = stored.y * inverse;
-	plane.normal[2] = stored.z * inverse;
-	plane.distance = stored.w * inverse;
-	return plane;
+	destination[0] = stored.x * inverse;
+	destination[1] = stored.y * inverse;
+	destination[2] = stored.z * inverse;
+	destination[3] = stored.w * inverse;
 }
 
 [[nodiscard]] bool IsOutside(const Plane& plane, const MeshBounds& bounds)
@@ -55,8 +67,24 @@ bool AreBoundsCullable(const MeshBounds& bounds)
 	return bounds.minX <= bounds.maxX && bounds.minY <= bounds.maxY && bounds.minZ <= bounds.maxZ;
 }
 
+ViewFrustum MakeViewFrustum(const float viewProjectionMatrix[16])
+{
+	using namespace DirectX;
+
+	// Clip = rowVector * viewProjection, so the clip planes come from the columns.
+	const XMMATRIX clipColumns = XMMatrixTranspose(Aether::Math::LoadMatrixFromHlsl(viewProjectionMatrix));
+	ViewFrustum frustum{};
+	StorePlane(frustum.planes[0], XMVectorAdd(clipColumns.r[3], clipColumns.r[0]));
+	StorePlane(frustum.planes[1], XMVectorSubtract(clipColumns.r[3], clipColumns.r[0]));
+	StorePlane(frustum.planes[2], XMVectorAdd(clipColumns.r[3], clipColumns.r[1]));
+	StorePlane(frustum.planes[3], XMVectorSubtract(clipColumns.r[3], clipColumns.r[1]));
+	StorePlane(frustum.planes[4], clipColumns.r[2]);
+	StorePlane(frustum.planes[5], XMVectorSubtract(clipColumns.r[3], clipColumns.r[2]));
+	return frustum;
+}
+
 bool IntersectsViewFrustum(
-	const float viewProjectionMatrix[16],
+	const ViewFrustum& frustum,
 	const float worldMatrix[16],
 	const MeshBounds& localBounds)
 {
@@ -89,20 +117,9 @@ bool IntersectsViewFrustum(
 		worldBounds.maxZ = (std::max)(worldBounds.maxZ, transformed.z);
 	}
 
-	// Clip = rowVector * viewProjection, so the clip planes come from the columns.
-	const XMMATRIX clipColumns = XMMatrixTranspose(Aether::Math::LoadMatrixFromHlsl(viewProjectionMatrix));
-	const Plane planes[6] = {
-		MakePlane(XMVectorAdd(clipColumns.r[3], clipColumns.r[0])),
-		MakePlane(XMVectorSubtract(clipColumns.r[3], clipColumns.r[0])),
-		MakePlane(XMVectorAdd(clipColumns.r[3], clipColumns.r[1])),
-		MakePlane(XMVectorSubtract(clipColumns.r[3], clipColumns.r[1])),
-		MakePlane(clipColumns.r[2]),
-		MakePlane(XMVectorSubtract(clipColumns.r[3], clipColumns.r[2])),
-	};
-
-	for (const Plane& plane : planes)
+	for (const float (&storedPlane)[4] : frustum.planes)
 	{
-		if (IsOutside(plane, worldBounds))
+		if (IsOutside(LoadPlane(storedPlane), worldBounds))
 		{
 			return false;
 		}

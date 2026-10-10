@@ -40,6 +40,7 @@ Result<void> RunFrustumCullTests()
 
 	float identity[16]{};
 	StoreIdentity(identity);
+	const ViewFrustum frustum = MakeViewFrustum(matrices.viewProjection);
 
 	MeshBounds inFront{};
 	inFront.minX = -0.5f;
@@ -48,7 +49,7 @@ Result<void> RunFrustumCullTests()
 	inFront.maxY = 0.5f;
 	inFront.minZ = 4.0f;
 	inFront.maxZ = 6.0f;
-	if (!IntersectsViewFrustum(matrices.viewProjection, identity, inFront))
+	if (!IntersectsViewFrustum(frustum, identity, inFront))
 	{
 		return FailRuntime(
 			LogCategory::Renderer,
@@ -63,7 +64,7 @@ Result<void> RunFrustumCullTests()
 	behind.maxY = 0.5f;
 	behind.minZ = -6.0f;
 	behind.maxZ = -4.0f;
-	if (IntersectsViewFrustum(matrices.viewProjection, identity, behind))
+	if (IntersectsViewFrustum(frustum, identity, behind))
 	{
 		return FailRuntime(
 			LogCategory::Renderer,
@@ -78,8 +79,8 @@ Result<void> RunFrustumCullTests()
 	StoreTranslation(translatedForward, 0.0f, 0.0f, 5.0f);
 	float translatedBackward[16]{};
 	StoreTranslation(translatedBackward, 0.0f, 0.0f, -5.0f);
-	if (!IntersectsViewFrustum(matrices.viewProjection, translatedForward, unit) ||
-		IntersectsViewFrustum(matrices.viewProjection, translatedBackward, unit))
+	if (!IntersectsViewFrustum(frustum, translatedForward, unit) ||
+		IntersectsViewFrustum(frustum, translatedBackward, unit))
 	{
 		return FailRuntime(
 			LogCategory::Renderer,

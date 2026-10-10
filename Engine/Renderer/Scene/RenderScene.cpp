@@ -406,6 +406,9 @@ void RenderScene::Build(
 	MeshSystemServices& meshServices = resources.GetMeshServices();
 	TextureSystemServices& textureServices = resources.GetTextureServices();
 	MaterialSystemServices& materialServices = resources.GetMaterialServices();
+	const ViewFrustum viewFrustum = m_snapshot.hasView
+		? MakeViewFrustum(m_snapshot.view.viewProjectionMatrix)
+		: ViewFrustum{};
 
 	for (const ExtractedObjectSnapshot& object : m_extractedFrame.objects)
 	{
@@ -440,7 +443,7 @@ void RenderScene::Build(
 
 		// Camera-frustum culling also drops shadow casters that sit outside the view.
 		if (m_snapshot.hasView && AreBoundsCullable(mesh->bounds) &&
-			!IntersectsViewFrustum(m_snapshot.view.viewProjectionMatrix, object.worldMatrix, mesh->bounds))
+			!IntersectsViewFrustum(viewFrustum, object.worldMatrix, mesh->bounds))
 		{
 			continue;
 		}
