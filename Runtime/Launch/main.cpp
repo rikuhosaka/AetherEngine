@@ -1,16 +1,7 @@
 #include "Engine/Application/Subsystem/EngineLoop.h"
-#include "Engine/Application/Test/FixedStepTest.h"
 #include "Engine/Core/Log/Log.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Renderer/Test/FrustumCullTest.h"
-#include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
-#include "Engine/Renderer/Test/ShadowMapTest.h"
-#include "Engine/Renderer/Test/RendererResourceSmokeTest.h"
-#include "Engine/Renderer/Test/FbxModelFileLoaderTest.h"
-#include "Engine/Renderer/Test/PrimitiveMeshTest.h"
-#include "Engine/Renderer/Test/TextureFileLoaderTest.h"
-#include "Engine/World/Test/WorldTest.h"
-#include "Game/WorldExtractTest.h"
+#include "Runtime/Launch/DebugStartupTests.h"
 #include "Runtime/RuntimePaths.h"
 #include "Runtime/RuntimeSubsystemSetup.h"
 
@@ -18,67 +9,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 {
 	Logger::Instance().Initialize(ResolveEngineLogPath().string());
 
-#ifdef _DEBUG
-	if (auto testResult = RunShaderBytecodeLoaderTests(ResolveCompiledShaderRoot()); !testResult)
+	if (auto testResult = RunDebugStartupTests(ResolveCompiledShaderRoot(), ResolveAssetsDirectory()); !testResult)
 	{
 		LogResult(testResult, LogCategory::Core);
 		return -1;
 	}
-
-	if (auto textureTestResult = RunTextureFileLoaderTests(ResolveAssetsDirectory()); !textureTestResult)
-	{
-		LogResult(textureTestResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto modelTestResult = RunFbxModelFileLoaderTests(ResolveAssetsDirectory()); !modelTestResult)
-	{
-		LogResult(modelTestResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto primitiveMeshResult = RunPrimitiveMeshTests(); !primitiveMeshResult)
-	{
-		LogResult(primitiveMeshResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto worldResult = RunWorldTests(); !worldResult)
-	{
-		LogResult(worldResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto worldExtractResult = RunWorldExtractTests(); !worldExtractResult)
-	{
-		LogResult(worldExtractResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto smokeLayoutResult = RunRendererResourceSmokeLayoutTests(); !smokeLayoutResult)
-	{
-		LogResult(smokeLayoutResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto fixedStepResult = RunFixedStepTests(); !fixedStepResult)
-	{
-		LogResult(fixedStepResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto frustumResult = RunFrustumCullTests(); !frustumResult)
-	{
-		LogResult(frustumResult, LogCategory::Core);
-		return -1;
-	}
-
-	if (auto shadowMapResult = RunShadowMapTests(); !shadowMapResult)
-	{
-		LogResult(shadowMapResult, LogCategory::Core);
-		return -1;
-	}
-#endif
 
 	EngineLoopConfig config{};
 	config.hInstance = hInstance;
