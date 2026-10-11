@@ -118,6 +118,7 @@ int EngineLoop::Run()
 		}
 
 		TickSubsystems();
+		TickFixedSubsystems();
 
 		if (auto renderResult = RenderFrame(); !renderResult)
 		{
@@ -139,6 +140,14 @@ void EngineLoop::UpdateClock()
 {
 	const float deltaSeconds = m_clock.Tick(m_config.maxDeltaSeconds);
 	m_context.SetDeltaSeconds(deltaSeconds);
+
+	const FixedStepAdvance advance = AdvanceFixedSteps(
+		m_simulationAccumulator,
+		deltaSeconds,
+		EngineConstants::kFixedDeltaSeconds,
+		EngineConstants::kMaxFixedStepsPerFrame);
+	m_fixedStepCount = advance.stepCount;
+	m_context.SetInterpolationAlpha(advance.alpha);
 }
 
 Result<void> EngineLoop::ApplyPendingResize()
@@ -189,6 +198,20 @@ void EngineLoop::TickSubsystems()
 		if (subsystem != nullptr)
 		{
 			subsystem->Tick(m_context, deltaSeconds);
+		}
+	}
+}
+
+void EngineLoop::TickFixedSubsystems()
+{
+	for (uint32_t step = 0; step < m_fixedStepCount; ++step)
+	{
+		for (ISubsystem* subsystem : m_registry.GetTickOrder())
+		{
+			if (subsystem != nullptr)
+			{
+				subsystem->FixedTick(m_context, EngineConstants::kFixedDeltaSeconds);
+			}
 		}
 	}
 }

@@ -33,11 +33,15 @@ public:
 	void SetDeltaSeconds(float deltaSeconds) { m_deltaSeconds = deltaSeconds; }
 	[[nodiscard]] float GetDeltaSeconds() const { return m_deltaSeconds; }
 
+	void SetInterpolationAlpha(float alpha) { m_interpolationAlpha = alpha; }
+	[[nodiscard]] float GetInterpolationAlpha() const { return m_interpolationAlpha; }
+
 	void SetFrameSlot(uint32_t frameSlot) { m_frameSlot = frameSlot; }
 	[[nodiscard]] uint32_t GetFrameSlot() const { return m_frameSlot; }
 
 private:
 	std::unordered_map<std::type_index, void*> m_services{};
 	float m_deltaSeconds = 0.0f;
+	float m_interpolationAlpha = 0.0f;
 	uint32_t m_frameSlot = 0;
 };

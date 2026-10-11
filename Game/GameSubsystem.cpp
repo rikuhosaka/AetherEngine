@@ -60,6 +60,14 @@ void GameSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
 	}
 }
 
+void GameSubsystem::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
+{
+	if (m_module != nullptr && m_host != nullptr)
+	{
+		m_module->OnFixedTick(*m_host, fixedDeltaSeconds);
+	}
+}
+
 Result<void> GameSubsystem::LoadContent(
 	SubsystemContext& /*ctx*/,
 	FrameContext& frameContext,

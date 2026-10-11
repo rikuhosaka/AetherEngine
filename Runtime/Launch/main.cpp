@@ -1,4 +1,5 @@
 #include "Engine/Application/Subsystem/EngineLoop.h"
+#include "Engine/Application/Test/FixedStepTest.h"
 #include "Engine/Core/Log/Log.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Test/FrustumCullTest.h"
@@ -57,6 +58,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 	if (auto smokeLayoutResult = RunRendererResourceSmokeLayoutTests(); !smokeLayoutResult)
 	{
 		LogResult(smokeLayoutResult, LogCategory::Core);
+		return -1;
+	}
+
+	if (auto fixedStepResult = RunFixedStepTests(); !fixedStepResult)
+	{
+		LogResult(fixedStepResult, LogCategory::Core);
 		return -1;
 	}
 

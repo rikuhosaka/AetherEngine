@@ -25,6 +25,7 @@ public:
 	Result<void> Initialize(SubsystemContext& ctx) override;
 	Result<void> PostInitialize(SubsystemContext& ctx) override;
 	void Tick(SubsystemContext& ctx, float deltaSeconds) override;
+	void FixedTick(SubsystemContext& ctx, float fixedDeltaSeconds) override;
 	Result<void> LoadContent(
 		SubsystemContext& ctx,
 		FrameContext& frameContext,

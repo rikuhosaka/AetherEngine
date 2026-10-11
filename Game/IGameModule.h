@@ -39,6 +39,11 @@ public:
 		return MakeOk();
 	}
 	virtual void OnTick(IGameHost& host, float deltaSeconds) = 0;
+	virtual void OnFixedTick(IGameHost& host, float fixedDeltaSeconds)
+	{
+		(void)host;
+		(void)fixedDeltaSeconds;
+	}
 	virtual void OnExtract(IGameHost& host, std::vector<ExtractedObject>& outObjects) = 0;
 	virtual void OnExtractView(IGameHost& host, ExtractedView& outView)
 	{

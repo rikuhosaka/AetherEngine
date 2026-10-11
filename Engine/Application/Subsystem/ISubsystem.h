@@ -33,6 +33,7 @@ public:
 	virtual Result<void> Initialize(SubsystemContext& ctx) = 0;
 	virtual Result<void> PostInitialize(SubsystemContext& ctx);
 	virtual void Tick(SubsystemContext& ctx, float deltaSeconds);
+	virtual void FixedTick(SubsystemContext& ctx, float fixedDeltaSeconds);
 	virtual Result<void> OnResize(SubsystemContext& ctx, uint32_t width, uint32_t height);
 	virtual void Shutdown(SubsystemContext& ctx) = 0;
 };

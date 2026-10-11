@@ -24,6 +24,7 @@ private:
 	void UpdateClock();
 	Result<void> ApplyPendingResize();
 	void TickSubsystems();
+	void TickFixedSubsystems();
 	Result<void> ResetFrameSlotResources(FrameContext& frameContext);
 	Result<void> LoadInitialContent();
 	Result<void> RenderFrame();
@@ -33,6 +34,8 @@ private:
 	SubsystemRegistry m_registry{};
 	SubsystemContext m_context{};
 	FrameClock m_clock{};
+	double m_simulationAccumulator = 0.0;
+	uint32_t m_fixedStepCount = 0;
 	IEngineLoopPlatform* m_platform = nullptr;
 	IEngineLoopRender* m_render = nullptr;
 	bool m_running = false;

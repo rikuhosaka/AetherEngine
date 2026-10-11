@@ -24,4 +24,6 @@ constexpr uint32_t kSwapChainBufferCount = 3;
 
 constexpr float kMaxDeltaSeconds = 0.1f;
 constexpr float kMinDeltaSeconds = 0.0f;
+constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
+constexpr uint32_t kMaxFixedStepsPerFrame = 8;
 } // namespace EngineConstants

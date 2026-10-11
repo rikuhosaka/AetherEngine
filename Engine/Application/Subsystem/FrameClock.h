@@ -2,6 +2,22 @@
 
 #include <Windows.h>
 
+#include <cstdint>
+
+struct FixedStepAdvance
+{
+	uint32_t stepCount = 0;
+	float alpha = 0.0f;
+};
+
+// Adds frameDeltaSeconds to accumulatorSeconds and consumes whole fixed steps.
+// alpha is the leftover divided by the step, in the range [0, 1).
+[[nodiscard]] FixedStepAdvance AdvanceFixedSteps(
+	double& accumulatorSeconds,
+	float frameDeltaSeconds,
+	float fixedDeltaSeconds,
+	uint32_t maxSteps);
+
 class FrameClock
 {
 public:
