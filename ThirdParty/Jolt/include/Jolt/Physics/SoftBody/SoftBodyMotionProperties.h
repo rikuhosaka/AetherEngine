@@ -99,7 +99,7 @@ public:
 
 	/// How big the particles are, can be used to push the vertices a little bit away from the surface of other bodies to prevent z-fighting
 	float								GetVertexRadius() const						{ return mVertexRadius; }
-	void								SetVertexRadius(float inVertexRadius)		{ JPH_ASSERT(mVertexRadius >= 0.0f); mVertexRadius = inVertexRadius; }
+	void								SetVertexRadius(float inVertexRadius)		{ JPH_ASSERT(inVertexRadius >= 0.0f); mVertexRadius = inVertexRadius; }
 
 	/// Get local bounding box
 	const AABox &						GetLocalBounds() const						{ return mLocalBounds; }
@@ -175,6 +175,9 @@ public:
 
 	/// Update the velocities of all rigid bodies that we collided with. Not part of the public API.
 	void								UpdateRigidBodyVelocities(const SoftBodyUpdateContext &inContext, BodyInterface &inBodyInterface);
+
+	/// Set a flag to indicate that the ContactListener::OnSoftBodyContactAdded should be called
+	inline void							RequestContactCallback()					{ mNeedContactCallback.store(true, memory_order_relaxed); }
 
 private:
 	// SoftBodyManifold needs to have access to CollidingShape

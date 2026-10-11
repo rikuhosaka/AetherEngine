@@ -1,6 +1,7 @@
 #include "Engine/Application/Subsystem/EngineLoop.h"
 #include "Engine/Core/Log/Log.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Physics/PhysicsLibrary.h"
 #include "Runtime/Launch/DebugStartupTests.h"
 #include "Runtime/RuntimePaths.h"
 #include "Runtime/RuntimeSubsystemSetup.h"
@@ -9,9 +10,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 {
 	Logger::Instance().Initialize(ResolveEngineLogPath().string());
 
+	if (auto physicsResult = InitializePhysicsLibrary(); !physicsResult)
+	{
+		LogResult(physicsResult, LogCategory::Physics);
+		return -1;
+	}
+
 	if (auto testResult = RunDebugStartupTests(ResolveCompiledShaderRoot(), ResolveAssetsDirectory()); !testResult)
 	{
 		LogResult(testResult, LogCategory::Core);
+		ShutdownPhysicsLibrary();
 		return -1;
 	}
 
@@ -29,8 +37,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 	if (auto initResult = loop.Initialize(); !initResult)
 	{
 		LogResult(initResult, LogCategory::Core);
+		ShutdownPhysicsLibrary();
 		return -1;
 	}
 
-	return loop.Run();
+	const int exitCode = loop.Run();
+	ShutdownPhysicsLibrary();
+	return exitCode;
 }

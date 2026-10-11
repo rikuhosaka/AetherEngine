@@ -139,7 +139,7 @@ void BodyInterface::AddBody(const BodyID &inBodyID, EActivation inActivationMode
 void BodyInterface::RemoveBody(const BodyID &inBodyID)
 {
 	BodyLockWrite lock(*mBodyLockInterface, inBodyID);
-	if (lock.Succeeded())
+	if (lock.SucceededAndIsInBroadPhase())
 	{
 		const Body &body = lock.GetBody();
 
@@ -274,8 +274,8 @@ TwoBodyConstraint *BodyInterface::CreateConstraint(const TwoBodyConstraintSettin
 	Body *body1 = lock.GetBody(0);
 	Body *body2 = lock.GetBody(1);
 
-	JPH_ASSERT(body1 != body2);
 	JPH_ASSERT(body1 != nullptr || body2 != nullptr);
+	JPH_ASSERT(body1 != body2);
 
 	return inSettings->Create(body1 != nullptr? *body1 : Body::sFixedToWorld, body2 != nullptr? *body2 : Body::sFixedToWorld);
 }
@@ -308,12 +308,12 @@ void BodyInterface::SetShape(const BodyID &inBodyID, const Shape *inShape, bool 
 			// Update the shape
 			body.SetShapeInternal(inShape, inUpdateMassProperties);
 
+			// Flag collision cache invalid for this body
+			mBodyManager->InvalidateContactCacheForBody(body);
+
 			// Notify broadphase of change
 			if (body.IsInBroadPhase())
 			{
-				// Flag collision cache invalid for this body
-				mBodyManager->InvalidateContactCacheForBody(body);
-
 				BodyID id = body.GetID();
 				mBroadPhase->NotifyBodiesAABBChanged(&id, 1);
 
@@ -338,12 +338,12 @@ void BodyInterface::NotifyShapeChanged(const BodyID &inBodyID, Vec3Arg inPreviou
 		// Recalculate bounding box
 		body.CalculateWorldSpaceBoundsInternal();
 
+		// Flag collision cache invalid for this body
+		mBodyManager->InvalidateContactCacheForBody(body);
+
 		// Notify broadphase of change
 		if (body.IsInBroadPhase())
 		{
-			// Flag collision cache invalid for this body
-			mBodyManager->InvalidateContactCacheForBody(body);
-
 			BodyID id = body.GetID();
 			mBroadPhase->NotifyBodiesAABBChanged(&id, 1);
 
@@ -365,7 +365,7 @@ void BodyInterface::SetObjectLayer(const BodyID &inBodyID, ObjectLayer inLayer)
 		if (body.GetObjectLayer() != inLayer)
 		{
 			// Update the layer on the body
-			mBodyManager->SetBodyObjectLayerInternal(body, inLayer);
+			body.SetObjectLayerInternal(inLayer, mBodyManager->GetBroadPhaseLayerInterface());
 
 			// Notify broadphase of change
 			if (body.IsInBroadPhase())
@@ -967,34 +967,34 @@ float BodyInterface::GetGravityFactor(const BodyID &inBodyID) const
 
 void BodyInterface::SetMaxLinearVelocity(const BodyID &inBodyID, float inLinearVelocity)
 {
-    BodyLockWrite lock(*mBodyLockInterface, inBodyID);
-    if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
-        lock.GetBody().GetMotionPropertiesUnchecked()->SetMaxLinearVelocity(inLinearVelocity);
+	BodyLockWrite lock(*mBodyLockInterface, inBodyID);
+	if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
+		lock.GetBody().GetMotionPropertiesUnchecked()->SetMaxLinearVelocity(inLinearVelocity);
 }
 
 float BodyInterface::GetMaxLinearVelocity(const BodyID &inBodyID) const
 {
-    BodyLockRead lock(*mBodyLockInterface, inBodyID);
-    if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
-        return lock.GetBody().GetMotionPropertiesUnchecked()->GetMaxLinearVelocity();
-    else
-        return 500.0f;
+	BodyLockRead lock(*mBodyLockInterface, inBodyID);
+	if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
+		return lock.GetBody().GetMotionPropertiesUnchecked()->GetMaxLinearVelocity();
+	else
+		return 500.0f;
 }
 
 void BodyInterface::SetMaxAngularVelocity(const BodyID &inBodyID, float inAngularVelocity)
 {
-    BodyLockWrite lock(*mBodyLockInterface, inBodyID);
-    if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
-        lock.GetBody().GetMotionPropertiesUnchecked()->SetMaxAngularVelocity(inAngularVelocity);
+	BodyLockWrite lock(*mBodyLockInterface, inBodyID);
+	if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
+		lock.GetBody().GetMotionPropertiesUnchecked()->SetMaxAngularVelocity(inAngularVelocity);
 }
 
 float BodyInterface::GetMaxAngularVelocity(const BodyID &inBodyID) const
 {
-    BodyLockRead lock(*mBodyLockInterface, inBodyID);
-    if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
-        return lock.GetBody().GetMotionPropertiesUnchecked()->GetMaxAngularVelocity();
-    else
-        return 0.25f * JPH_PI * 60.0f;
+	BodyLockRead lock(*mBodyLockInterface, inBodyID);
+	if (lock.Succeeded() && lock.GetBody().GetMotionPropertiesUnchecked() != nullptr)
+		return lock.GetBody().GetMotionPropertiesUnchecked()->GetMaxAngularVelocity();
+	else
+		return 0.25f * JPH_PI * 60.0f;
 }
 
 void BodyInterface::SetUseManifoldReduction(const BodyID &inBodyID, bool inUseReduction)
@@ -1008,8 +1008,7 @@ void BodyInterface::SetUseManifoldReduction(const BodyID &inBodyID, bool inUseRe
 			body.SetUseManifoldReduction(inUseReduction);
 
 			// Flag collision cache invalid for this body
-			if (body.IsInBroadPhase())
-				mBodyManager->InvalidateContactCacheForBody(body);
+			mBodyManager->InvalidateContactCacheForBody(body);
 		}
 	}
 }
@@ -1092,7 +1091,7 @@ const PhysicsMaterial *BodyInterface::GetMaterial(const BodyID &inBodyID, const 
 void BodyInterface::InvalidateContactCache(const BodyID &inBodyID)
 {
 	BodyLockWrite lock(*mBodyLockInterface, inBodyID);
-	if (lock.SucceededAndIsInBroadPhase())
+	if (lock.Succeeded())
 		mBodyManager->InvalidateContactCacheForBody(lock.GetBody());
 }
 

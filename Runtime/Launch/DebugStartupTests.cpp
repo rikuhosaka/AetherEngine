@@ -8,6 +8,7 @@
 #include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
 #include "Engine/Renderer/Test/ShadowMapTest.h"
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
+#include "Engine/Physics/Test/PhysicsLibraryTest.h"
 #include "Engine/World/Test/WorldTest.h"
 #include "Game/WorldExtractTest.h"
 
@@ -37,6 +38,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunWorldTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunPhysicsLibraryTests(); !result)
 	{
 		return result;
 	}

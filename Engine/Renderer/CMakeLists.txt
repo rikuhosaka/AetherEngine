@@ -22,7 +22,7 @@ target_include_directories(Renderer
     PUBLIC
         ${CMAKE_SOURCE_DIR}
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/include
+        ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/sorce/DirectXTex
         ${CMAKE_SOURCE_DIR}/ThirdParty/Fbxsdk/include
 )
 

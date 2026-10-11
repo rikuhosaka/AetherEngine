@@ -1,12 +1,22 @@
+# 同梱の lib/Debug と lib/Release は /MTd と /MT でビルドされている。
+# エンジンは /MD なので、ここではソースから Jolt を作りランタイムを揃える。
+set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-# FBXSDK 本体
-add_library(Jolt STATIC IMPORTED GLOBAL)
+set(USE_SSE4_1 ON)
+set(USE_SSE4_2 ON)
+set(USE_AVX ON)
+set(USE_AVX2 ON)
+set(USE_LZCNT ON)
+set(USE_TZCNT ON)
+set(USE_F16C ON)
+set(USE_FMADD ON)
+set(ENABLE_OBJECT_STREAM ON)
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
+include("${PHYSICS_REPO_ROOT}/Jolt/Jolt.cmake")
+
 set_target_properties(Jolt PROPERTIES
-    IMPORTED_CONFIGURATIONS "Debug;Release"
-    IMPORTED_LOCATION_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/lib/Debug/jolt.lib"
-    IMPORTED_LOCATION_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/lib/Release/jolt.lib"
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+    FOLDER "ThirdParty/Jolt"
 )
-
-# IDE上のグループ分け（オプション）
-set_target_properties(Jolt PROPERTIES FOLDER "ThirdParty/Jolt")

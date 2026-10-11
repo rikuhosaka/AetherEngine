@@ -56,7 +56,7 @@ public:
 	/// If this quaternion is close to inRHS. Note that q and -q represent the same rotation, this is not checked here.
 	inline bool					IsClose(QuatArg inRHS, float inMaxDistSq = 1.0e-12f) const		{ return mValue.IsClose(inRHS.mValue, inMaxDistSq); }
 
-	/// If the length of this quaternion is 1 +/- inTolerance
+	/// If the length^2 of this quaternion is within the range [1 - inTolerance, 1 + inTolerance]
 	inline bool					IsNormalized(float inTolerance = 1.0e-5f) const					{ return mValue.IsNormalized(inTolerance); }
 
 	/// If any component of this quaternion is a NaN (not a number)
@@ -110,6 +110,9 @@ public:
 
 	/// Get axis and angle that represents this quaternion, outAngle will always be in the range \f$[0, \pi]\f$
 	JPH_INLINE void				GetAxisAngle(Vec3 &outAxis, float &outAngle) const;
+
+	/// Calculate angular velocity given that this quaternion represents the rotation that is reached after inDeltaTime when starting from identity rotation
+	JPH_INLINE Vec3				GetAngularVelocity(float inDeltaTime) const;
 
 	/// Create quaternion that rotates a vector from the direction of inFrom to the direction of inTo along the shortest path
 	/// @see https://www.euclideanspace.com/maths/algebra/vectors/angleBetween/index.htm
@@ -261,7 +264,7 @@ public:
 	Vec4						mValue;
 };
 
-static_assert(std::is_trivial<Quat>(), "Is supposed to be a trivial type!");
+static_assert(std::is_trivially_default_constructible<Quat>() && std::is_trivially_copyable<Quat>(), "Is supposed to be a trivial type!");
 
 JPH_NAMESPACE_END
 

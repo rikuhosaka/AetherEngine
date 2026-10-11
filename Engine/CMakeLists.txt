@@ -28,6 +28,9 @@ set_target_properties(Application PROPERTIES FOLDER "Engine/Application")
 add_subdirectory(World)
 set_target_properties(World PROPERTIES FOLDER "Engine/World")
 
+add_subdirectory(Physics)
+set_target_properties(Physics PROPERTIES FOLDER "Engine/Physics")
+
 target_link_libraries(Engine INTERFACE
     Core
     Math
@@ -41,6 +44,7 @@ target_link_libraries(Engine INTERFACE
     Platform
     Application
     World
+    Physics
 )
 
 target_include_directories(Engine INTERFACE

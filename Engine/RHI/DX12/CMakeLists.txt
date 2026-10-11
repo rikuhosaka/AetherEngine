@@ -27,7 +27,7 @@ endif()
 target_include_directories(DX12
     PUBLIC
         ${CMAKE_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/include
+        ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/sorce/DirectXTex
         ${CMAKE_SOURCE_DIR}/ThirdParty/DirectX-Headers/include/directX
         ${CMAKE_SOURCE_DIR}/ThirdParty/WinPixEventRuntime/include
 )
