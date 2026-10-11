@@ -9,6 +9,7 @@
 #include "Engine/Renderer/Test/ShadowMapTest.h"
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
 #include "Engine/Physics/Test/PhysicsLibraryTest.h"
+#include "Engine/Physics/Test/PhysicsWorldTest.h"
 #include "Engine/World/Test/WorldTest.h"
 #include "Game/WorldExtractTest.h"
 
@@ -43,6 +44,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunPhysicsLibraryTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunPhysicsWorldTests(); !result)
 	{
 		return result;
 	}

@@ -1,8 +1,7 @@
 #include "Runtime/Subsystems/DisplaySubsystem.h"
 
+#include "Engine/Application/Services/GpuQueueRetirement.h"
 #include "Engine/Application/Services/RHIServices.h"
-#include "Engine/RHI/Interface/RHIFence.h"
-#include "Engine/RHI/Interface/RHICommandQueue.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemTypes.h"
@@ -93,29 +92,7 @@ Result<void> DisplaySubsystem::OnResize(SubsystemContext& /*ctx*/, uint32_t widt
 
 void DisplaySubsystem::Shutdown(SubsystemContext& ctx)
 {
-	auto* rhiServices = ctx.GetService<RHIServices>();
-	if (rhiServices != nullptr)
-	{
-		// D3D12 swap-chain back buffers are GPU-referenced; ensure all in-flight
-		// command queue work is finished before destroying them.
-		if (rhiServices->frameFence != nullptr)
-		{
-			for (FrameContext& frameContext : rhiServices->frameContexts)
-			{
-				if (frameContext.fenceValue != 0)
-				{
-					rhiServices->frameFence->WaitCPU(frameContext.fenceValue);
-					frameContext.fenceValue = 0;
-				}
-			}
-		}
-
-		if (rhiServices->graphicsQueue != nullptr)
-		{
-			rhiServices->graphicsQueue->WaitForIdle();
-		}
-	}
-
+	RetireGraphicsQueue(ctx.GetService<RHIServices>());
 	ctx.UnregisterService(&m_services);
 	m_impl->display.reset();
 	m_services = {};

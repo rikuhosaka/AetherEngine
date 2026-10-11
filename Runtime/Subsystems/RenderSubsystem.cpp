@@ -1,6 +1,7 @@
 #include "Runtime/Subsystems/RenderSubsystem.h"
 
 #include "Engine/Application/Services/DisplayServices.h"
+#include "Engine/Application/Services/GpuQueueRetirement.h"
 #include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Core/Log/LogMacros.h"
@@ -143,6 +144,7 @@ Result<void> RenderSubsystem::DrawFrame(
 
 void RenderSubsystem::Shutdown(SubsystemContext& ctx)
 {
+	RetireGraphicsQueue(ctx.GetService<RHIServices>());
 	ctx.UnregisterService(&m_services);
 	m_impl->renderer.reset();
 	m_impl->descriptorAllocator.reset();

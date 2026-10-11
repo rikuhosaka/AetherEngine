@@ -15,6 +15,7 @@ public:
 	~DX12CommandList() override;
 	void Reset() override;
 	void Close() override;
+	[[nodiscard]] bool IsRecording() const override;
 
 	// Pipeline
 	void SetPipelineState(const RHIPipelineState* pso) override;
@@ -86,6 +87,7 @@ private:
 	static Result<std::unique_ptr<DX12CommandList>> Create(const DX12Device* dxDevice);
 
 	std::unique_ptr<CommandListImpl> m_impl = nullptr;
+	bool m_isRecording = false;
 
 	CommandListImpl* GetImpl() const;
 

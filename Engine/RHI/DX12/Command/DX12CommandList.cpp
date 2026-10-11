@@ -103,6 +103,11 @@ DX12CommandList::DX12CommandList(const DX12Device* dxDevice)
 
 DX12CommandList::~DX12CommandList()
 {
+	if (m_isRecording)
+	{
+		Close();
+	}
+
 	// ComPtr owns the COM object lifetime; avoid manual Release() (double-release).
 	if (m_impl != nullptr)
 	{
@@ -111,26 +116,55 @@ DX12CommandList::~DX12CommandList()
 	}
 }
 
-
+bool DX12CommandList::IsRecording() const
+{
+	return m_isRecording;
+}
 
 void DX12CommandList::Reset()
 {
-	if (m_impl->commandAllocator)
+	if (m_isRecording)
 	{
-		m_impl->commandAllocator->Reset();
+		LOG_ERROR(LogCategory::RHI, "Command list reset requires a closed command list");
+		return;
 	}
-	if (m_impl->commandList)
+	if (m_impl == nullptr || m_impl->commandAllocator == nullptr || m_impl->commandList == nullptr)
 	{
-		m_impl->commandList->Reset(m_impl->commandAllocator.Get(), nullptr);
+		return;
 	}
+
+	const HRESULT allocatorHr = m_impl->commandAllocator->Reset();
+	if (FAILED(allocatorHr))
+	{
+		LOG_ERROR_F(LogCategory::RHI, "Command allocator reset failed: {:#x}", static_cast<uint32_t>(allocatorHr));
+		return;
+	}
+
+	const HRESULT listHr = m_impl->commandList->Reset(m_impl->commandAllocator.Get(), nullptr);
+	if (FAILED(listHr))
+	{
+		LOG_ERROR_F(LogCategory::RHI, "Command list reset failed: {:#x}", static_cast<uint32_t>(listHr));
+		return;
+	}
+
+	m_isRecording = true;
 }
 
 void DX12CommandList::Close()
 {
-	if (m_impl->commandList)
+	if (!m_isRecording || m_impl == nullptr || m_impl->commandList == nullptr)
 	{
-		m_impl->commandList->Close();
+		return;
 	}
+
+	const HRESULT closeHr = m_impl->commandList->Close();
+	if (FAILED(closeHr))
+	{
+		LOG_ERROR_F(LogCategory::RHI, "Command list close failed: {:#x}", static_cast<uint32_t>(closeHr));
+		return;
+	}
+
+	m_isRecording = false;
 }
 
 void

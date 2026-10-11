@@ -17,6 +17,7 @@ public:
 	[[nodiscard]] virtual const InputState* GetInput() = 0;
 	virtual void SetRelativeMouse(bool enabled) = 0;
 	[[nodiscard]] virtual float GetDeltaSeconds() const = 0;
+	[[nodiscard]] virtual float GetInterpolationAlpha() const = 0;
 	[[nodiscard]] virtual RenderServices* GetRenderServices() = 0;
 	[[nodiscard]] virtual std::filesystem::path GetShaderRoot() const = 0;
 	[[nodiscard]] virtual std::pair<uint32_t, uint32_t> GetViewportSize() const = 0;

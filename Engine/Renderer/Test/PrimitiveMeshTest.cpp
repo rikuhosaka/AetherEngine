@@ -165,6 +165,91 @@ namespace
 
 	return ExpectTriangleWindingMatchesNormal(cube);
 }
+
+[[nodiscard]] Result<void> ValidateSphere()
+{
+	const Result<PrimitiveMeshData> sphereResult = GenerateSphereMesh({ 0.5f, 12, 16 });
+	if (!sphereResult)
+	{
+		return MakeFail(sphereResult.error.code, sphereResult.error.message);
+	}
+
+	const PrimitiveMeshData& sphere = sphereResult.value;
+	if (sphere.vertices.size() != 178 || sphere.indices.size() != 1056)
+	{
+		return FailRuntime(
+			LogCategory::Renderer,
+			ErrorCode::InvalidArgument,
+			"Sphere primitive vertex or index count is incorrect");
+	}
+
+	if (!IsNearlyEqual(sphere.bounds.minX, -0.5f) ||
+		!IsNearlyEqual(sphere.bounds.maxX, 0.5f) ||
+		!IsNearlyEqual(sphere.bounds.minY, -0.5f) ||
+		!IsNearlyEqual(sphere.bounds.maxY, 0.5f) ||
+		!IsNearlyEqual(sphere.bounds.minZ, -0.5f) ||
+		!IsNearlyEqual(sphere.bounds.maxZ, 0.5f))
+	{
+		return FailRuntime(
+			LogCategory::Renderer,
+			ErrorCode::InvalidArgument,
+			"Sphere primitive bounds are incorrect");
+	}
+
+	for (const BasicVertex& vertex : sphere.vertices)
+	{
+		const float length = std::sqrt(
+			(vertex.position[0] * vertex.position[0])
+			+ (vertex.position[1] * vertex.position[1])
+			+ (vertex.position[2] * vertex.position[2]));
+		if (!IsNearlyEqual(length, 0.5f))
+		{
+			return FailRuntime(
+				LogCategory::Renderer,
+				ErrorCode::InvalidArgument,
+				"Sphere primitive vertex is not on the radius");
+		}
+
+		const float normalAlignment =
+			(vertex.normal[0] * vertex.position[0])
+			+ (vertex.normal[1] * vertex.position[1])
+			+ (vertex.normal[2] * vertex.position[2]);
+		if (normalAlignment <= 0.0f)
+		{
+			return FailRuntime(
+				LogCategory::Renderer,
+				ErrorCode::InvalidArgument,
+				"Sphere primitive normal does not point outward");
+		}
+	}
+
+	for (size_t index = 0; index + 2 < sphere.indices.size(); index += 3)
+	{
+		const BasicVertex& v0 = sphere.vertices[sphere.indices[index]];
+		const BasicVertex& v1 = sphere.vertices[sphere.indices[index + 1]];
+		const BasicVertex& v2 = sphere.vertices[sphere.indices[index + 2]];
+		const float edge1X = v1.position[0] - v0.position[0];
+		const float edge1Y = v1.position[1] - v0.position[1];
+		const float edge1Z = v1.position[2] - v0.position[2];
+		const float edge2X = v2.position[0] - v0.position[0];
+		const float edge2Y = v2.position[1] - v0.position[1];
+		const float edge2Z = v2.position[2] - v0.position[2];
+		const float crossX = (edge1Y * edge2Z) - (edge1Z * edge2Y);
+		const float crossY = (edge1Z * edge2X) - (edge1X * edge2Z);
+		const float crossZ = (edge1X * edge2Y) - (edge1Y * edge2X);
+		const float alignment =
+			(crossX * v0.normal[0]) + (crossY * v0.normal[1]) + (crossZ * v0.normal[2]);
+		if (alignment <= 0.0f)
+		{
+			return FailRuntime(
+				LogCategory::Renderer,
+				ErrorCode::InvalidArgument,
+				"Sphere primitive triangle winding does not match vertex normal");
+		}
+	}
+
+	return MakeOk();
+}
 } // namespace
 
 Result<void> RunPrimitiveMeshTests()
@@ -184,6 +269,11 @@ Result<void> RunPrimitiveMeshTests()
 		return inwardCubeResult;
 	}
 
+	if (auto sphereResult = ValidateSphere(); !sphereResult)
+	{
+		return sphereResult;
+	}
+
 	if (GeneratePlaneMesh({ 0.0f, 1.0f }))
 	{
 		return FailRuntime(
@@ -198,6 +288,14 @@ Result<void> RunPrimitiveMeshTests()
 			LogCategory::Renderer,
 			ErrorCode::InvalidArgument,
 			"GenerateCubeMesh should reject non-positive size");
+	}
+
+	if (GenerateSphereMesh({ 0.0f, 12, 16 }) || GenerateSphereMesh({ 0.5f, 1, 16 }) || GenerateSphereMesh({ 0.5f, 12, 2 }))
+	{
+		return FailRuntime(
+			LogCategory::Renderer,
+			ErrorCode::InvalidArgument,
+			"GenerateSphereMesh should reject a non-positive radius or too few segments");
 	}
 
 	LOG_INFO(LogCategory::Renderer, "PrimitiveMeshTests passed");

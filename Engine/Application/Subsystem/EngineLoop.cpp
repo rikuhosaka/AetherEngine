@@ -1,6 +1,7 @@
 #include "Engine/Application/Subsystem/EngineLoop.h"
 
 #include "Engine/Application/Services/DisplayServices.h"
+#include "Engine/Application/Services/GpuQueueRetirement.h"
 #include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
@@ -19,6 +20,37 @@
 
 #include <vector>
 
+namespace
+{
+void EndBarrierFrame(RHIServices* rhiServices)
+{
+	if (rhiServices != nullptr && rhiServices->barrierDebug != nullptr)
+	{
+		rhiServices->barrierDebug->EndFrame();
+	}
+}
+
+void DiscardRecording(RHIServices* rhiServices, RHICommandList* commandList)
+{
+	if (commandList != nullptr && commandList->IsRecording())
+	{
+		commandList->Close();
+	}
+	EndBarrierFrame(rhiServices);
+}
+
+[[nodiscard]] bool CloseRecordedCommandList(RHICommandList* commandList)
+{
+	if (commandList == nullptr || !commandList->IsRecording())
+	{
+		return false;
+	}
+
+	commandList->Close();
+	return !commandList->IsRecording();
+}
+} // namespace
+
 EngineLoop::EngineLoop(EngineLoopConfig config, SubsystemRegistry registry)
 	: m_config(std::move(config))
 	, m_registry(std::move(registry))
@@ -36,12 +68,14 @@ Result<void> EngineLoop::Initialize()
 
 	if (auto postInitResult = m_registry.PostInitializeAll(m_context); !postInitResult)
 	{
+		RetireGraphicsQueue(m_context.GetService<RHIServices>());
 		m_registry.ShutdownAll(m_context);
 		return postInitResult;
 	}
 
 	if (auto resolveResult = ResolveHosts(); !resolveResult)
 	{
+		RetireGraphicsQueue(m_context.GetService<RHIServices>());
 		m_registry.ShutdownAll(m_context);
 		return resolveResult;
 	}
@@ -166,13 +200,7 @@ Result<void> EngineLoop::ApplyPendingResize()
 		return MakeOk();
 	}
 
-	for (FrameContext& frameContext : rhiServices->frameContexts)
-	{
-		if (frameContext.fenceValue != 0)
-		{
-			rhiServices->frameFence->WaitCPU(frameContext.fenceValue);
-		}
-	}
+	RetireGraphicsQueue(rhiServices);
 
 	for (ISubsystem* subsystem : m_registry.GetInitOrder())
 	{
@@ -275,15 +303,17 @@ Result<void> EngineLoop::LoadInitialContent()
 	RHICommandList* commandList = frameContext.graphicsCommandList;
 	if (auto loadResult = sceneExtractor->LoadContent(m_context, frameContext, commandList); !loadResult)
 	{
-		commandList->Close();
-		if (rhiServices->barrierDebug != nullptr)
-		{
-			rhiServices->barrierDebug->EndFrame();
-		}
+		DiscardRecording(rhiServices, commandList);
 		return loadResult;
 	}
 
-	commandList->Close();
+	if (!CloseRecordedCommandList(commandList))
+	{
+		EndBarrierFrame(rhiServices);
+		return FailRuntime(LogCategory::Core, ErrorCode::RuntimeError,
+			"EngineLoop::LoadInitialContent failed to close the command list");
+	}
+
 	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });
 	const uint64_t fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
 	rhiServices->frameFence->WaitCPU(fenceValue);
@@ -353,6 +383,7 @@ Result<void> EngineLoop::RenderFrame()
 		if (auto prepareResult = sceneExtractor->PrepareRender(m_context, frameContext, commandList);
 			!prepareResult)
 		{
+			DiscardRecording(rhiServices, commandList);
 			return prepareResult;
 		}
 
@@ -370,10 +401,17 @@ Result<void> EngineLoop::RenderFrame()
 			extractedObjects);
 		!drawResult)
 	{
+		DiscardRecording(rhiServices, commandList);
 		return drawResult;
 	}
 
-	commandList->Close();
+	if (!CloseRecordedCommandList(commandList))
+	{
+		EndBarrierFrame(rhiServices);
+		return FailRuntime(LogCategory::Core, ErrorCode::RuntimeError,
+			"EngineLoop::RenderFrame failed to close the command list");
+	}
+
 	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });
 	frameContext.fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
 
@@ -392,6 +430,7 @@ void EngineLoop::Shutdown()
 {
 	if (m_running)
 	{
+		RetireGraphicsQueue(m_context.GetService<RHIServices>());
 		m_registry.ShutdownAll(m_context);
 		m_running = false;
 	}

@@ -10,7 +10,6 @@
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
-#include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Game/WorldExtract.h"
 
@@ -33,35 +32,17 @@ Result<void> DefaultGameModule::OnLoadContent(
 	}
 
 	RenderResourceServices& resources = *renderServices->resources;
-	if (auto initResult = m_room.EnsureInitialized(
+	if (auto initResult = m_drop.EnsureInitialized(
 			resources,
 			frameContext,
 			commandList,
-			host.GetShaderRoot(),
-			kRoomDimensions);
+			host.GetShaderRoot());
 		!initResult)
 	{
 		return initResult;
 	}
 
-	if (auto fbxResult = m_fbx.EnsureInitialized(
-			resources,
-			frameContext,
-			commandList,
-			host.GetShaderRoot(),
-			resources.GetTextureServices().GetAssetsRoot(),
-			kFbxModelPath);
-		!fbxResult)
-	{
-		return fbxResult;
-	}
-
-	if (auto roomSpawn = m_room.SpawnInto(m_world); !roomSpawn)
-	{
-		return roomSpawn;
-	}
-
-	return m_fbx.SpawnInto(m_world);
+	return m_drop.SpawnInto(m_world);
 }
 
 void DefaultGameModule::OnTick(IGameHost& host, float deltaSeconds)
@@ -73,8 +54,17 @@ void DefaultGameModule::OnTick(IGameHost& host, float deltaSeconds)
 	}
 }
 
-void DefaultGameModule::OnExtract(IGameHost& /*host*/, std::vector<ExtractedObject>& outObjects)
+void DefaultGameModule::OnFixedTick(IGameHost& /*host*/, float fixedDeltaSeconds)
 {
+	if (auto step = m_drop.Step(fixedDeltaSeconds); !step)
+	{
+		LogResult(step, LogCategory::Physics);
+	}
+}
+
+void DefaultGameModule::OnExtract(IGameHost& host, std::vector<ExtractedObject>& outObjects)
+{
+	m_drop.WriteRenderTransforms(m_world, host.GetInterpolationAlpha());
 	ExtractWorld(m_world, outObjects);
 }
 

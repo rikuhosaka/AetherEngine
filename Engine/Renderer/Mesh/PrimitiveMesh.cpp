@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <limits>
 #include <utility>
 
@@ -152,6 +153,116 @@ Result<PrimitiveMeshData> GenerateCubeMesh(const CubePrimitiveDesc& desc)
 	if (desc.inwardFacing)
 	{
 		InvertFacing(mesh);
+	}
+
+	GenerateVertexTangents(mesh.vertices, mesh.indices);
+	return MakeOk(std::move(mesh));
+}
+
+Result<PrimitiveMeshData> GenerateSphereMesh(const SpherePrimitiveDesc& desc)
+{
+	if (desc.radius <= 0.0f || desc.stacks < 2 || desc.slices < 3)
+	{
+		return FailRuntime<PrimitiveMeshData>(LogCategory::Renderer, ErrorCode::InvalidArgument,
+			"GenerateSphereMesh requires a positive radius, at least 2 stacks, and at least 3 slices");
+	}
+
+	PrimitiveMeshData mesh{};
+	ResetBounds(mesh.bounds);
+
+	const uint32_t stacks = desc.stacks;
+	const uint32_t slices = desc.slices;
+	const float radius = desc.radius;
+	const uint32_t ringCount = stacks - 1;
+
+	auto addVertex = [&mesh, radius](float x, float y, float z, float u, float v) {
+		BasicVertex vertex{};
+		vertex.position[0] = x;
+		vertex.position[1] = y;
+		vertex.position[2] = z;
+		vertex.position[3] = 1.0f;
+		vertex.uv[0] = u;
+		vertex.uv[1] = v;
+		vertex.normal[0] = x / radius;
+		vertex.normal[1] = y / radius;
+		vertex.normal[2] = z / radius;
+		ExpandBounds(mesh.bounds, vertex.position);
+		const uint32_t index = static_cast<uint32_t>(mesh.vertices.size());
+		mesh.vertices.push_back(vertex);
+		return index;
+	};
+
+	auto addOrientedTriangle = [&mesh](uint32_t index0, uint32_t index1, uint32_t index2) {
+		const BasicVertex& vertex0 = mesh.vertices[index0];
+		const BasicVertex& vertex1 = mesh.vertices[index1];
+		const BasicVertex& vertex2 = mesh.vertices[index2];
+		const float edge1X = vertex1.position[0] - vertex0.position[0];
+		const float edge1Y = vertex1.position[1] - vertex0.position[1];
+		const float edge1Z = vertex1.position[2] - vertex0.position[2];
+		const float edge2X = vertex2.position[0] - vertex0.position[0];
+		const float edge2Y = vertex2.position[1] - vertex0.position[1];
+		const float edge2Z = vertex2.position[2] - vertex0.position[2];
+		const float crossX = (edge1Y * edge2Z) - (edge1Z * edge2Y);
+		const float crossY = (edge1Z * edge2X) - (edge1X * edge2Z);
+		const float crossZ = (edge1X * edge2Y) - (edge1Y * edge2X);
+		const float alignment =
+			(crossX * vertex0.normal[0]) + (crossY * vertex0.normal[1]) + (crossZ * vertex0.normal[2]);
+		if (alignment < 0.0f)
+		{
+			std::swap(index1, index2);
+		}
+
+		mesh.indices.push_back(index0);
+		mesh.indices.push_back(index1);
+		mesh.indices.push_back(index2);
+	};
+
+	const auto ringVertex = [slices](uint32_t ring, uint32_t slice) {
+		return 1u + (ring * slices) + slice;
+	};
+
+	addVertex(0.0f, radius, 0.0f, 0.5f, 0.0f);
+	for (uint32_t stack = 1; stack < stacks; ++stack)
+	{
+		const float v = static_cast<float>(stack) / static_cast<float>(stacks);
+		const float phi = v * DirectX::XM_PI;
+		const float ringY = radius * std::cos(phi);
+		const float ringRadius = radius * std::sin(phi);
+		for (uint32_t slice = 0; slice < slices; ++slice)
+		{
+			const float u = static_cast<float>(slice) / static_cast<float>(slices);
+			const float theta = u * DirectX::XM_2PI;
+			addVertex(ringRadius * std::cos(theta), ringY, ringRadius * std::sin(theta), u, v);
+		}
+	}
+	const uint32_t southPole = addVertex(0.0f, -radius, 0.0f, 0.5f, 1.0f);
+	const uint32_t northPole = 0;
+
+	for (uint32_t slice = 0; slice < slices; ++slice)
+	{
+		const uint32_t nextSlice = (slice + 1) % slices;
+		addOrientedTriangle(northPole, ringVertex(0, slice), ringVertex(0, nextSlice));
+	}
+
+	for (uint32_t ring = 0; ring + 1 < ringCount; ++ring)
+	{
+		for (uint32_t slice = 0; slice < slices; ++slice)
+		{
+			const uint32_t nextSlice = (slice + 1) % slices;
+			const uint32_t topLeft = ringVertex(ring, slice);
+			const uint32_t topRight = ringVertex(ring, nextSlice);
+			const uint32_t bottomLeft = ringVertex(ring + 1, slice);
+			const uint32_t bottomRight = ringVertex(ring + 1, nextSlice);
+			addOrientedTriangle(topLeft, topRight, bottomLeft);
+			addOrientedTriangle(topRight, bottomRight, bottomLeft);
+		}
+	}
+
+	const uint32_t southRing = ringCount - 1;
+	for (uint32_t slice = 0; slice < slices; ++slice)
+	{
+		const uint32_t nextSlice = (slice + 1) % slices;
+		addOrientedTriangle(southPole, ringVertex(southRing, nextSlice), ringVertex(southRing, slice));
 	}
 
 	GenerateVertexTangents(mesh.vertices, mesh.indices);

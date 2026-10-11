@@ -43,6 +43,11 @@ float GameHost::GetDeltaSeconds() const
 	return m_context.GetDeltaSeconds();
 }
 
+float GameHost::GetInterpolationAlpha() const
+{
+	return m_context.GetInterpolationAlpha();
+}
+
 RenderServices* GameHost::GetRenderServices()
 {
 	return m_context.GetService<RenderServices>();

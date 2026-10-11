@@ -27,11 +27,21 @@ struct CubePrimitiveDesc
 	bool inwardFacing = false;
 };
 
+struct SpherePrimitiveDesc
+{
+	float radius = 0.5f;
+	uint32_t stacks = 12;
+	uint32_t slices = 16;
+};
+
 // XZ plane centered at the origin, facing +Y.
 [[nodiscard]] Result<PrimitiveMeshData> GeneratePlaneMesh(const PlanePrimitiveDesc& desc = {});
 
 // Axis-aligned box centered at the origin. Faces point outward unless inwardFacing is set.
 [[nodiscard]] Result<PrimitiveMeshData> GenerateCubeMesh(const CubePrimitiveDesc& desc = {});
+
+// UV sphere centered at the origin. Normals point outward.
+[[nodiscard]] Result<PrimitiveMeshData> GenerateSphereMesh(const SpherePrimitiveDesc& desc = {});
 
 [[nodiscard]] MeshUploadDesc MakePrimitiveMeshUploadDesc(
 	const PrimitiveMeshData& mesh,

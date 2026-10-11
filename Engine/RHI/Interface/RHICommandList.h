@@ -22,6 +22,7 @@ public:
 
     virtual void Reset() = 0;
     virtual void Close() = 0;
+    [[nodiscard]] virtual bool IsRecording() const = 0;
 
     // Pipeline
     virtual void SetPipelineState(const RHIPipelineState* pso) = 0;

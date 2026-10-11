@@ -15,6 +15,7 @@ public:
 	[[nodiscard]] const InputState* GetInput() override;
 	void SetRelativeMouse(bool enabled) override;
 	[[nodiscard]] float GetDeltaSeconds() const override;
+	[[nodiscard]] float GetInterpolationAlpha() const override;
 	[[nodiscard]] RenderServices* GetRenderServices() override;
 	[[nodiscard]] std::filesystem::path GetShaderRoot() const override;
 	[[nodiscard]] std::pair<uint32_t, uint32_t> GetViewportSize() const override;
