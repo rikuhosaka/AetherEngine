@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Physics/PhysicsWorld.h"
+#include "Engine/Physics/EntityPhysics.h"
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshTypes.h"
 #include "Engine/Renderer/Texture/TextureTypes.h"
@@ -14,7 +14,7 @@ class FrameContext;
 class RenderResourceServices;
 class RHICommandList;
 
-// Static box with a dynamic sphere above it. Render meshes match the physics shapes.
+// Mesh floor and static box, with a dynamic sphere, capsule, and convex hull. Render meshes match the physics shapes.
 class PhysicsDropScene
 {
 public:
@@ -26,17 +26,11 @@ public:
 
 	[[nodiscard]] Result<void> SpawnInto(World& world);
 
-	[[nodiscard]] Result<void> Step(float fixedDeltaSeconds);
+	[[nodiscard]] Result<void> Step(World& world, float fixedDeltaSeconds);
 
 	void WriteRenderTransforms(World& world, float alpha);
 
 private:
-	struct BodyBinding
-	{
-		EntityId entity{};
-		PhysicsBodyId body{};
-	};
-
 	struct MaterialTint
 	{
 		float tint[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -49,12 +43,13 @@ private:
 
 	bool m_ready = false;
 	bool m_spawned = false;
+	MeshHandle m_floorMesh{};
 	MeshHandle m_boxMesh{};
 	MeshHandle m_sphereMesh{};
+	MeshHandle m_capsuleMesh{};
+	MeshHandle m_hullMesh{};
 	MaterialHandle m_material{};
 	TextureHandle m_baseColor{};
 	std::optional<uint32_t> m_materialConstantsSlot{};
-	PhysicsWorld m_physics{};
-	BodyBinding m_box{};
-	BodyBinding m_sphere{};
+	EntityPhysics m_physics{};
 };

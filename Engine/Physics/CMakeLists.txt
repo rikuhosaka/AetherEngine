@@ -22,6 +22,7 @@ target_include_directories(Physics
 target_link_libraries(Physics
     PUBLIC
         Core
+        World
         $<LINK_ONLY:Jolt>
     PRIVATE
         Jolt

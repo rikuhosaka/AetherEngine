@@ -56,7 +56,7 @@ void DefaultGameModule::OnTick(IGameHost& host, float deltaSeconds)
 
 void DefaultGameModule::OnFixedTick(IGameHost& /*host*/, float fixedDeltaSeconds)
 {
-	if (auto step = m_drop.Step(fixedDeltaSeconds); !step)
+	if (auto step = m_drop.Step(m_world, fixedDeltaSeconds); !step)
 	{
 		LogResult(step, LogCategory::Physics);
 	}
