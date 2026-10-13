@@ -114,9 +114,11 @@ void OpaqueMeshPass::Execute(
 			continue;
 		}
 
-		const RHIVertexBuffer* vertexBuffers[] = { mesh->vertexBuffer.get() };
+		const RHIVertexBufferView vertexBuffers[] = {
+			RHIVertexBufferView::FromBuffer(mesh->vertexBuffer.get()),
+		};
 		commandList->IASetVertexBuffers(0, vertexBuffers);
-		commandList->IASetIndexBuffer(mesh->indexBuffer.get());
+		commandList->IASetIndexBuffer(RHIIndexBufferView::FromBuffer(mesh->indexBuffer.get()));
 		commandList->IASetPrimitiveTopology(kTriangleListTopology);
 
 		if (item.submeshIndex >= mesh->submeshes.size())

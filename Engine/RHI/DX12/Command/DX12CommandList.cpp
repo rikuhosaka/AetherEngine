@@ -332,15 +332,33 @@ void DX12CommandList::SetGraphicsRoot32BitConstants(
 }
 
 void
-DX12CommandList::IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBuffer*> views)
+DX12CommandList::IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBufferView> views)
 {
-	std::array<D3D12_VERTEX_BUFFER_VIEW, 8> dxViews;
+	if (m_impl->commandList == nullptr || views.empty())
+	{
+		return;
+	}
 
+	constexpr size_t kMaxVertexBufferSlots = 8;
+	if (views.size() > kMaxVertexBufferSlots)
+	{
+		LOG_ERROR(LogCategory::RHI, "IASetVertexBuffers exceeds the vertex buffer slot count");
+		return;
+	}
+
+	std::array<D3D12_VERTEX_BUFFER_VIEW, kMaxVertexBufferSlots> dxViews{};
 	for (size_t i = 0; i < views.size(); ++i)
 	{
-		dxViews[i].BufferLocation = views[i]->GetGPUAddress();
-		dxViews[i].SizeInBytes = static_cast<UINT>(views[i]->GetSize());
-		dxViews[i].StrideInBytes = views[i]->GetStride();
+		const RHIVertexBufferView& view = views[i];
+		if (view.gpuAddress == 0 || view.sizeInBytes == 0 || view.strideInBytes == 0)
+		{
+			LOG_ERROR(LogCategory::RHI, "IASetVertexBuffers requires a non-empty vertex buffer view");
+			return;
+		}
+
+		dxViews[i].BufferLocation = view.gpuAddress;
+		dxViews[i].SizeInBytes = view.sizeInBytes;
+		dxViews[i].StrideInBytes = view.strideInBytes;
 	}
 
 	m_impl->commandList->IASetVertexBuffers(
@@ -350,29 +368,36 @@ DX12CommandList::IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVerte
 }
 
 void
-DX12CommandList::IASetIndexBuffer(const RHIIndexBuffer* view)
+DX12CommandList::IASetIndexBuffer(const RHIIndexBufferView& view)
 {
-	if (view)
+	if (m_impl->commandList == nullptr)
 	{
-		D3D12_INDEX_BUFFER_VIEW dxView = {};
-		dxView.BufferLocation = view->GetGPUAddress();
-		dxView.SizeInBytes = static_cast<UINT>(view->GetSize());
-		IndexFormat indexFormat = view->GetIndexFormat();
-		switch (indexFormat)
-		{
-		case IndexFormat::R16_UINT:
-			dxView.Format = DXGI_FORMAT_R16_UINT;
-			break;
-		case IndexFormat::R32_UINT:
-			dxView.Format = DXGI_FORMAT_R32_UINT;
-			break;
-		default:
-			LOG_ERROR(LogCategory::RHI, "Unsupported index format");
-			dxView.Format = DXGI_FORMAT_UNKNOWN; // ?f?t?H???g?l????
-			return;
-		}
-		m_impl->commandList->IASetIndexBuffer(&dxView);
+		return;
 	}
+
+	if (view.gpuAddress == 0 || view.sizeInBytes == 0)
+	{
+		LOG_ERROR(LogCategory::RHI, "IASetIndexBuffer requires a non-empty index buffer view");
+		return;
+	}
+
+	D3D12_INDEX_BUFFER_VIEW dxView{};
+	dxView.BufferLocation = view.gpuAddress;
+	dxView.SizeInBytes = view.sizeInBytes;
+	switch (view.format)
+	{
+	case IndexFormat::R16_UINT:
+		dxView.Format = DXGI_FORMAT_R16_UINT;
+		break;
+	case IndexFormat::R32_UINT:
+		dxView.Format = DXGI_FORMAT_R32_UINT;
+		break;
+	default:
+		LOG_ERROR(LogCategory::RHI, "Unsupported index format");
+		return;
+	}
+
+	m_impl->commandList->IASetIndexBuffer(&dxView);
 }
 
 void

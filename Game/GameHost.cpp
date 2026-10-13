@@ -27,6 +27,40 @@ const InputState* GameHost::GetInput()
 	return inputServices->state;
 }
 
+bool GameHost::IsMouseCaptured() const
+{
+	const InputServices* inputServices = m_context.GetService<InputServices>();
+	return inputServices != nullptr && inputServices->mouseCaptured;
+}
+
+bool GameHost::IsKeyboardCaptured() const
+{
+	const InputServices* inputServices = m_context.GetService<InputServices>();
+	return inputServices != nullptr && inputServices->keyboardCaptured;
+}
+
+void GameHost::SetMouseCaptured(bool captured)
+{
+	InputServices* inputServices = m_context.GetService<InputServices>();
+	if (inputServices == nullptr)
+	{
+		return;
+	}
+
+	inputServices->mouseCaptured = captured;
+}
+
+void GameHost::SetKeyboardCaptured(bool captured)
+{
+	InputServices* inputServices = m_context.GetService<InputServices>();
+	if (inputServices == nullptr)
+	{
+		return;
+	}
+
+	inputServices->keyboardCaptured = captured;
+}
+
 void GameHost::SetRelativeMouse(bool enabled)
 {
 	InputServices* inputServices = m_context.GetService<InputServices>();
@@ -35,7 +69,7 @@ void GameHost::SetRelativeMouse(bool enabled)
 		return;
 	}
 
-	inputServices->relativeMouse = enabled;
+	inputServices->relativeMouse = enabled && !inputServices->mouseCaptured;
 }
 
 float GameHost::GetDeltaSeconds() const

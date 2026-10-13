@@ -89,4 +89,6 @@ void WindowSubsystem::SyncServicesFromWindow()
 	m_services.clientWidth = m_window->GetClientWidth();
 	m_services.clientHeight = m_window->GetClientHeight();
 	m_services.isMinimized = m_window->IsMinimized();
+	m_services.mouseWheelDelta = m_window->ConsumeMouseWheelDelta();
+	m_services.textInput = m_window->ConsumeTextInput();
 }

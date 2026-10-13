@@ -21,7 +21,12 @@ public:
 
 	void Reset(CameraState& camera);
 	void Reset(CameraState& camera, const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& forward);
-	void Update(CameraState& camera, const InputState& input, float deltaSeconds);
+	void Update(
+		CameraState& camera,
+		const InputState& input,
+		float deltaSeconds,
+		bool useMouse,
+		bool useKeyboard);
 
 private:
 	void SyncOrientationFromYawPitch(CameraState& camera);

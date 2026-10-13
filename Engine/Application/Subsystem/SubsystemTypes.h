@@ -5,6 +5,7 @@
 enum class SubsystemTickGroup : int32_t
 {
 	Input = 100,
+	Ui = 150,
 	Game = 200,
 	PreRender = 300,
 };

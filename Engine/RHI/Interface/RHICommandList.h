@@ -2,10 +2,9 @@
 
 #include "Engine/RHI/Common/RHIDescriptor.h"
 #include "Engine/RHI/Common/RHIResource.h"
+#include "Engine/RHI/Interface/RHIBufferView.h"
 class RHIResource;
 class RHIBuffer;
-class RHIVertexBuffer;
-class RHIIndexBuffer;
 class RHITexture;
 class RHIPipelineState;
 class RHIRootSignature;
@@ -56,8 +55,8 @@ public:
 		uint32_t destOffsetIn32BitValues = 0) = 0;
 
     // Input Assembler
-    virtual void IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBuffer*> views) = 0;
-    virtual void IASetIndexBuffer(const RHIIndexBuffer* view) = 0;
+    virtual void IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBufferView> views) = 0;
+    virtual void IASetIndexBuffer(const RHIIndexBufferView& view) = 0;
     virtual void IASetPrimitiveTopology(uint32_t topology) = 0;
 
     // Rasterizer

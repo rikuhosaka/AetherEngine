@@ -66,12 +66,17 @@ void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 		return;
 	}
 
+	const bool mouseCaptured = m_services.mouseCaptured;
 	m_device->Update(
 		windowServices->hwnd,
 		windowServices->clientWidth,
 		windowServices->clientHeight,
 		m_state,
-		m_services.relativeMouse);
+		m_services.relativeMouse && !mouseCaptured,
+		windowServices->mouseWheelDelta,
+		windowServices->textInput);
+	m_services.mouseCaptured = false;
+	m_services.keyboardCaptured = false;
 }
 
 void InputSubsystem::Shutdown(SubsystemContext& ctx)

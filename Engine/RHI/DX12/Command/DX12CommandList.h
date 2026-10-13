@@ -45,8 +45,8 @@ public:
 		uint32_t destOffsetIn32BitValues = 0) override;
 
 	// Input Assembler
-	void IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBuffer*> views) override;
-	void IASetIndexBuffer(const RHIIndexBuffer* view) override;
+	void IASetVertexBuffers(uint32_t startSlot, std::span<const RHIVertexBufferView> views) override;
+	void IASetIndexBuffer(const RHIIndexBufferView& view) override;
 	void IASetPrimitiveTopology(uint32_t topology) override;
 
 	// Rasterizer

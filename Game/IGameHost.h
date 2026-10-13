@@ -15,6 +15,10 @@ public:
 
 	[[nodiscard]] virtual SubsystemContext& GetContext() = 0;
 	[[nodiscard]] virtual const InputState* GetInput() = 0;
+	[[nodiscard]] virtual bool IsMouseCaptured() const = 0;
+	[[nodiscard]] virtual bool IsKeyboardCaptured() const = 0;
+	virtual void SetMouseCaptured(bool captured) = 0;
+	virtual void SetKeyboardCaptured(bool captured) = 0;
 	virtual void SetRelativeMouse(bool enabled) = 0;
 	[[nodiscard]] virtual float GetDeltaSeconds() const = 0;
 	[[nodiscard]] virtual float GetInterpolationAlpha() const = 0;

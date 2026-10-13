@@ -49,8 +49,10 @@ void DefaultGameModule::OnTick(IGameHost& host, float deltaSeconds)
 {
 	if (const InputState* input = host.GetInput())
 	{
-		m_cameraController.Update(m_camera, *input, deltaSeconds);
-		host.SetRelativeMouse(input->IsDown(Key::MouseRight));
+		const bool useMouse = !host.IsMouseCaptured();
+		const bool useKeyboard = !host.IsKeyboardCaptured();
+		m_cameraController.Update(m_camera, *input, deltaSeconds, useMouse, useKeyboard);
+		host.SetRelativeMouse(useMouse && input->IsDown(Key::MouseRight));
 	}
 }
 

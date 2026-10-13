@@ -63,11 +63,13 @@ void FreeFlyCameraController::Reset(
 void FreeFlyCameraController::Update(
 	CameraState& camera,
 	const InputState& input,
-	float deltaSeconds)
+	float deltaSeconds,
+	bool useMouse,
+	bool useKeyboard)
 {
 	using namespace DirectX;
 
-	if (input.IsDown(Key::MouseRight))
+	if (useMouse && input.IsDown(Key::MouseRight))
 	{
 		const MousePixelPosition mouseDelta = input.GetMouseDeltaPixels();
 		m_yawRadians += static_cast<float>(mouseDelta.x) * m_settings.lookSensitivity;
@@ -77,6 +79,11 @@ void FreeFlyCameraController::Update(
 			m_settings.minPitchRadians,
 			m_settings.maxPitchRadians);
 		SyncOrientationFromYawPitch(camera);
+	}
+
+	if (!useKeyboard)
+	{
+		return;
 	}
 
 	XMVECTOR moveDirection = XMVectorZero();

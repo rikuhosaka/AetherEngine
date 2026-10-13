@@ -166,6 +166,62 @@ bool GameWindow::ProcessMessages()
 	return true;
 }
 
+int GameWindow::ConsumeMouseWheelDelta() noexcept
+{
+	const int delta = m_pendingMouseWheelDelta;
+	m_pendingMouseWheelDelta = 0;
+	return delta;
+}
+
+TextInput GameWindow::ConsumeTextInput() noexcept
+{
+	const TextInput textInput = m_pendingTextInput;
+	m_pendingTextInput = {};
+	m_pendingHighSurrogate = 0;
+	return textInput;
+}
+
+void GameWindow::AppendCodePoint(char32_t codePoint)
+{
+	if (m_pendingTextInput.count >= kTextInputCapacity)
+	{
+		return;
+	}
+
+	m_pendingTextInput.codePoints[m_pendingTextInput.count] = codePoint;
+	++m_pendingTextInput.count;
+}
+
+void GameWindow::AppendUtf16(char16_t unit)
+{
+	if (m_pendingHighSurrogate != 0)
+	{
+		const char16_t high = m_pendingHighSurrogate;
+		m_pendingHighSurrogate = 0;
+		if (unit >= 0xDC00 && unit <= 0xDFFF)
+		{
+			const char32_t codePoint = 0x10000
+				+ (((static_cast<char32_t>(high) - 0xD800) << 10)
+					| (static_cast<char32_t>(unit) - 0xDC00));
+			AppendCodePoint(codePoint);
+			return;
+		}
+	}
+
+	if (unit >= 0xD800 && unit <= 0xDBFF)
+	{
+		m_pendingHighSurrogate = unit;
+		return;
+	}
+
+	if (unit == 0 || (unit >= 0xDC00 && unit <= 0xDFFF))
+	{
+		return;
+	}
+
+	AppendCodePoint(unit);
+}
+
 LRESULT CALLBACK GameWindow::WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	if (msg == WM_NCCREATE)
@@ -207,6 +263,25 @@ LRESULT GameWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 
 	case WM_DESTROY:
 		PostQuitMessage(0);
+		return 0;
+
+	case WM_MOUSEWHEEL:
+		m_pendingMouseWheelDelta += GET_WHEEL_DELTA_WPARAM(wparam);
+		return 0;
+
+	case WM_CHAR:
+		AppendUtf16(static_cast<char16_t>(wparam));
+		return 0;
+
+	case WM_UNICHAR:
+		if (wparam == UNICODE_NOCHAR)
+		{
+			return TRUE;
+		}
+		if (wparam != 0)
+		{
+			AppendCodePoint(static_cast<char32_t>(wparam));
+		}
 		return 0;
 
 	default:

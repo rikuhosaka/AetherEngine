@@ -74,6 +74,11 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 		{ "BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_UINT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 64, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
+	const D3D12_INPUT_ELEMENT_DESC imguiLayout[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImGuiVertex, position), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImGuiVertex, uv), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, offsetof(ImGuiVertex, color), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	};
 
 	if (pipelineDesc.inputLayout == InputLayoutType::PositionTex)
 	{
@@ -89,6 +94,11 @@ DX12PipelineState::DX12PipelineState(const RHIPipelineDesc& pipelineDesc, const 
 	{
 		gpipeline.InputLayout.pInputElementDescs = skinnedLayout;
 		gpipeline.InputLayout.NumElements = _countof(skinnedLayout);
+	}
+	else if (pipelineDesc.inputLayout == InputLayoutType::ImGui)
+	{
+		gpipeline.InputLayout.pInputElementDescs = imguiLayout;
+		gpipeline.InputLayout.NumElements = _countof(imguiLayout);
 	}
 	else if (pipelineDesc.inputLayout == InputLayoutType::None)
 	{

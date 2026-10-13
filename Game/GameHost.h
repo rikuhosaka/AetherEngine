@@ -13,6 +13,10 @@ public:
 
 	[[nodiscard]] SubsystemContext& GetContext() override;
 	[[nodiscard]] const InputState* GetInput() override;
+	[[nodiscard]] bool IsMouseCaptured() const override;
+	[[nodiscard]] bool IsKeyboardCaptured() const override;
+	void SetMouseCaptured(bool captured) override;
+	void SetKeyboardCaptured(bool captured) override;
 	void SetRelativeMouse(bool enabled) override;
 	[[nodiscard]] float GetDeltaSeconds() const override;
 	[[nodiscard]] float GetInterpolationAlpha() const override;

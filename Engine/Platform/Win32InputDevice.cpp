@@ -137,6 +137,8 @@ void Win32InputDevice::Reset(HWND hwnd, std::uint32_t clientWidth, std::uint32_t
 	state.m_buttons.fill({});
 	state.m_mousePixelPos = {};
 	state.m_mouseDelta = {};
+	state.m_mouseWheelDelta = 0;
+	state.m_textInput = {};
 	m_lastMousePixelPos = {};
 
 	if (hwnd == nullptr || clientWidth == 0 || clientHeight == 0)
@@ -153,9 +155,14 @@ void Win32InputDevice::Update(
 	std::uint32_t clientWidth,
 	std::uint32_t clientHeight,
 	InputState& state,
-	bool relativeMouseRequested)
+	bool relativeMouseRequested,
+	int mouseWheelDelta,
+	const TextInput& textInput)
 {
 	const bool focused = IsForegroundWindow(hwnd, clientWidth, clientHeight);
+	state.m_mouseWheelDelta = focused ? mouseWheelDelta : 0;
+	state.m_textInput = focused ? textInput : TextInput{};
+
 	if (!focused && m_relativeActive)
 	{
 		EndRelativeMouse(hwnd, state);

@@ -3,11 +3,20 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 struct MousePixelPosition
 {
 	int x = 0;
 	int y = 0;
+};
+
+inline constexpr std::size_t kTextInputCapacity = 32;
+
+struct TextInput
+{
+	std::array<char32_t, kTextInputCapacity> codePoints{};
+	std::uint8_t count = 0;
 };
 
 enum class Key : std::uint8_t
@@ -44,6 +53,15 @@ public:
 	[[nodiscard]] MousePixelPosition GetMousePositionPixels() const noexcept { return m_mousePixelPos; }
 	[[nodiscard]] MousePixelPosition GetMouseDeltaPixels() const noexcept { return m_mouseDelta; }
 
+	// Accumulated this frame. 120 units is one notch. Positive is away from the user.
+	[[nodiscard]] int GetMouseWheelDelta() const noexcept { return m_mouseWheelDelta; }
+
+	// Unicode code points received this frame, in order.
+	[[nodiscard]] std::span<const char32_t> GetTextInput() const noexcept
+	{
+		return { m_textInput.codePoints.data(), m_textInput.count };
+	}
+
 private:
 	friend class Win32InputDevice;
 
@@ -59,6 +77,8 @@ private:
 	std::array<Button, static_cast<std::size_t>(Key::Count)> m_buttons{};
 	MousePixelPosition m_mousePixelPos{};
 	MousePixelPosition m_mouseDelta{};
+	int m_mouseWheelDelta = 0;
+	TextInput m_textInput{};
 };
 
 inline const InputState::Button* InputState::Find(Key key) const noexcept

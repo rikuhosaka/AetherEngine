@@ -22,7 +22,9 @@ public:
 		std::uint32_t clientWidth,
 		std::uint32_t clientHeight,
 		InputState& state,
-		bool relativeMouseRequested);
+		bool relativeMouseRequested,
+		int mouseWheelDelta,
+		const TextInput& textInput);
 	void RefreshRelativeMouse(HWND hwnd, std::uint32_t clientWidth, std::uint32_t clientHeight, InputState& state);
 
 private:
