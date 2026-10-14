@@ -7,6 +7,7 @@
 #include "Engine/RHI/Common/RHIPipeline.h"
 #include "Engine/RHI/Common/RHIInput.h"
 #include "Engine/RHI/Common/RHIRootSignatureLayout.h"
+#include "Engine/RHI/Interface/RHIImGui.h"
 
 #include <cstddef>
 #include <memory>
@@ -103,4 +104,6 @@ public:
 
 	// Sync Creation
 	virtual Result<std::unique_ptr<RHIFence>> CreateFence() = 0;
+
+	virtual Result<std::unique_ptr<RHIImGui>> CreateImGui(const RHIImGuiDesc& desc) = 0;
 };

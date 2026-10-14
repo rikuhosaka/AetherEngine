@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string_view>
 
 class FrameContext;
 class RenderResourceServices;
@@ -37,6 +38,7 @@ private:
 	};
 
 	[[nodiscard]] WorldSpawnDesc MakeSpawnDesc(
+		std::string_view name,
 		const Transform& transform,
 		MeshHandle mesh,
 		const MaterialTint& tint) const;

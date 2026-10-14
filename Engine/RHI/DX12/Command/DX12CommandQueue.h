@@ -30,4 +30,5 @@ protected:
 
 	friend class DX12Device;
 	friend class DX12SwapChain;
+	friend class DX12ImGui;
 };

@@ -157,11 +157,14 @@ void Win32InputDevice::Update(
 	InputState& state,
 	bool relativeMouseRequested,
 	int mouseWheelDelta,
-	const TextInput& textInput)
+	const TextInput& textInput,
+	bool suppressMouse,
+	bool suppressKeyboard)
 {
 	const bool focused = IsForegroundWindow(hwnd, clientWidth, clientHeight);
-	state.m_mouseWheelDelta = focused ? mouseWheelDelta : 0;
-	state.m_textInput = focused ? textInput : TextInput{};
+	const bool wantRelative = relativeMouseRequested && !suppressMouse;
+	state.m_mouseWheelDelta = focused && !suppressMouse ? mouseWheelDelta : 0;
+	state.m_textInput = focused && !suppressKeyboard ? textInput : TextInput{};
 
 	if (!focused && m_relativeActive)
 	{
@@ -173,28 +176,49 @@ void Win32InputDevice::Update(
 	if (!focused)
 	{
 		state.m_mouseDelta = {};
-		return;
 	}
-
-	if (relativeMouseRequested && !m_relativeActive)
+	else if (wantRelative && !m_relativeActive)
 	{
 		BeginRelativeMouse(hwnd, clientWidth, clientHeight, state);
-		return;
 	}
-
-	if (!relativeMouseRequested && m_relativeActive)
+	else if (!wantRelative && m_relativeActive)
 	{
 		EndRelativeMouse(hwnd, state);
-		return;
 	}
-
-	if (m_relativeActive)
+	else if (m_relativeActive)
 	{
 		ApplyRelativeMouse(hwnd, clientWidth, clientHeight, state);
-		return;
+	}
+	else
+	{
+		WriteMouse(hwnd, clientWidth, clientHeight, state);
 	}
 
-	WriteMouse(hwnd, clientWidth, clientHeight, state);
+	SuppressCapturedInput(state, suppressMouse, suppressKeyboard);
+}
+
+void Win32InputDevice::SuppressCapturedInput(InputState& state, bool suppressMouse, bool suppressKeyboard)
+{
+	if (suppressMouse)
+	{
+		state.m_mouseDelta = {};
+		state.m_mouseWheelDelta = 0;
+		for (std::uint8_t key = static_cast<std::uint8_t>(Key::MouseLeft);
+			key <= static_cast<std::uint8_t>(Key::MouseX2);
+			++key)
+		{
+			state.m_buttons[key] = {};
+		}
+	}
+
+	if (suppressKeyboard)
+	{
+		state.m_textInput = {};
+		for (std::uint8_t key = 0; key < static_cast<std::uint8_t>(Key::MouseLeft); ++key)
+		{
+			state.m_buttons[key] = {};
+		}
+	}
 }
 
 void Win32InputDevice::RefreshRelativeMouse(

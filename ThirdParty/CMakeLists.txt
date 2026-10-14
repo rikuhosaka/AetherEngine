@@ -14,6 +14,9 @@ set_target_properties(Fbxsdk PROPERTIES FOLDER "ThirdParty")
 add_subdirectory(Jolt)
 set_target_properties(Jolt PROPERTIES FOLDER "ThirdParty")
 
+add_subdirectory(ImGui)
+set_target_properties(ImGui PROPERTIES FOLDER "ThirdParty")
+
 if(AETHER_ENABLE_PIX AND NOT TARGET WinPixEventRuntime)
     add_subdirectory(WinPixEventRuntime)
     set_target_properties(WinPixEventRuntime PROPERTIES FOLDER "ThirdParty")

@@ -42,6 +42,8 @@ target_link_libraries(DX12
         d3dcompiler
         dxguid
         DirectXTex
+        ImGui
+        Platform
 )
 
 target_precompile_headers(DX12 PRIVATE "${CMAKE_SOURCE_DIR}/Engine/RHI/DX12/pch.h")

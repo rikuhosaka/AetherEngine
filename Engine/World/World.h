@@ -7,10 +7,13 @@
 #include <DirectXMath.h>
 
 #include <cstdint>
+#include <string>
+#include <string_view>
 #include <vector>
 
 struct WorldSpawnDesc
 {
+	std::string name{};
 	Transform transform{};
 	Renderable renderable{};
 	EntityId parent{};
@@ -32,6 +35,8 @@ public:
 	[[nodiscard]] DirectX::XMMATRIX GetWorldMatrix(EntityId id) const;
 
 	[[nodiscard]] bool IsAlive(EntityId id) const;
+	// Empty when the entity is dead or was spawned without a name.
+	[[nodiscard]] std::string_view GetName(EntityId id) const;
 	[[nodiscard]] Transform* GetTransform(EntityId id);
 	[[nodiscard]] const Transform* GetTransform(EntityId id) const;
 	[[nodiscard]] Renderable* GetRenderable(EntityId id);
@@ -53,12 +58,50 @@ public:
 		}
 	}
 
+	// Alive entities whose parent is missing or dead, in slot order.
+	template<typename Fn>
+	void ForEachRoot(Fn&& fn) const
+	{
+		for (uint32_t index = 0; index < m_slots.size(); ++index)
+		{
+			const Slot& slot = m_slots[index];
+			if (!slot.alive || FindSlot(slot.parent) != nullptr)
+			{
+				continue;
+			}
+
+			fn(EntityId{ index, slot.generation });
+		}
+	}
+
+	// Direct children in slot order. A dead or missing parent yields no children.
+	template<typename Fn>
+	void ForEachChild(EntityId parent, Fn&& fn) const
+	{
+		if (FindSlot(parent) == nullptr)
+		{
+			return;
+		}
+
+		for (uint32_t index = 0; index < m_slots.size(); ++index)
+		{
+			const Slot& slot = m_slots[index];
+			if (!slot.alive || slot.parent != parent)
+			{
+				continue;
+			}
+
+			fn(EntityId{ index, slot.generation });
+		}
+	}
+
 private:
 	struct Slot
 	{
 		bool alive = false;
 		uint32_t generation = 0;
 		EntityId parent{};
+		std::string name{};
 		Transform transform{};
 		Renderable renderable{};
 	};

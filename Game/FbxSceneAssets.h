@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <vector>
 
 class FrameContext;
@@ -39,12 +40,14 @@ public:
 private:
 	struct FbxNodeSpawn
 	{
+		std::string name{};
 		Transform local{};
 		int32_t parentIndex = -1;
 	};
 
 	struct FbxSubmeshSpawn
 	{
+		std::string name{};
 		uint32_t nodeIndex = 0;
 		MeshHandle mesh{};
 		TextureHandle baseColor{};

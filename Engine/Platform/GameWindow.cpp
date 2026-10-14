@@ -222,6 +222,33 @@ void GameWindow::AppendUtf16(char16_t unit)
 	AppendCodePoint(unit);
 }
 
+void GameWindow::SetMessageHook(MessageHook hook, void* userData) noexcept
+{
+	m_messageHook = hook;
+	m_messageHookUser = userData;
+}
+
+void GameWindow::ClearMessageHook(void* userData) noexcept
+{
+	if (m_messageHookUser != userData)
+	{
+		return;
+	}
+
+	m_messageHook = nullptr;
+	m_messageHookUser = nullptr;
+}
+
+GameWindow* GameWindow::FromHwnd(HWND hwnd) noexcept
+{
+	if (hwnd == nullptr)
+	{
+		return nullptr;
+	}
+
+	return reinterpret_cast<GameWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+}
+
 LRESULT CALLBACK GameWindow::WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	if (msg == WM_NCCREATE)
@@ -235,14 +262,28 @@ LRESULT CALLBACK GameWindow::WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam,
 	auto* window = reinterpret_cast<GameWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 	if (window != nullptr)
 	{
-		return window->HandleMessage(msg, wparam, lparam);
+		return window->HandleMessage(hwnd, msg, wparam, lparam);
 	}
 
 	return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 
-LRESULT GameWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam)
+LRESULT GameWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+	if (m_messageHook != nullptr)
+	{
+		Message message{};
+		message.hwnd = hwnd;
+		message.message = msg;
+		message.wparam = wparam;
+		message.lparam = lparam;
+		const MessageReply reply = m_messageHook(message, m_messageHookUser);
+		if (reply.handled)
+		{
+			return reply.result;
+		}
+	}
+
 	switch (msg)
 	{
 	case WM_SIZE:
@@ -285,6 +326,6 @@ LRESULT GameWindow::HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam)
 		return 0;
 
 	default:
-		return DefWindowProcW(m_hwnd, msg, wparam, lparam);
+		return DefWindowProcW(hwnd, msg, wparam, lparam);
 	}
 }

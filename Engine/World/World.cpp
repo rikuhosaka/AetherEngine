@@ -57,6 +57,7 @@ EntityId World::Spawn(WorldSpawnDesc desc)
 	Slot& slot = m_slots[index];
 	slot.alive = true;
 	slot.parent = desc.parent;
+	slot.name = std::move(desc.name);
 	slot.transform = desc.transform;
 	slot.renderable = std::move(desc.renderable);
 	return EntityId{ index, slot.generation };
@@ -94,6 +95,7 @@ void World::ReleaseSlot(EntityId id)
 
 	slot->alive = false;
 	slot->parent = {};
+	slot->name.clear();
 	slot->transform = Transform{};
 	slot->renderable = Renderable{};
 	++slot->generation;
@@ -216,6 +218,12 @@ DirectX::XMMATRIX World::GetWorldMatrix(EntityId id) const
 bool World::IsAlive(EntityId id) const
 {
 	return FindSlot(id) != nullptr;
+}
+
+std::string_view World::GetName(EntityId id) const
+{
+	const Slot* slot = FindSlot(id);
+	return slot == nullptr ? std::string_view{} : std::string_view{ slot->name };
 }
 
 Transform* World::GetTransform(EntityId id)

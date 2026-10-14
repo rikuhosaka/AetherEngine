@@ -20,6 +20,7 @@
 #include "Engine/RHI/DX12/Pipeline/DX12RootSignature.h"
 #include "Engine/RHI/DX12/Pipeline/DX12PipelineState.h"
 #include "Engine/RHI/DX12/Sync/DX12Fence.h"
+#include "Engine/RHI/DX12/ImGui/DX12ImGui.h"
 #include "Engine/RHI/DX12/Common/DX12Result.h"
 #include "Engine/RHI/DX12/Debug/DX12Debug.h"
 #include "Engine/RHI/DX12/Debug/DX12GpuNaming.h"
@@ -408,4 +409,9 @@ Result<std::unique_ptr<RHIPipelineState>> DX12Device::CreatePipelineState(const 
 Result<std::unique_ptr<RHIFence>> DX12Device::CreateFence()
 {
 	return CastResourceResult<RHIFence, DX12Fence>(DX12Fence::Create(this));
+}
+
+Result<std::unique_ptr<RHIImGui>> DX12Device::CreateImGui(const RHIImGuiDesc& desc)
+{
+	return CastResourceResult<RHIImGui, DX12ImGui>(DX12ImGui::Create(this, desc));
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Engine/Application/Services/DebugStatsServices.h"
+#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
@@ -42,6 +44,8 @@ public:
 private:
 	std::unique_ptr<IGameModule> m_module{};
 	std::unique_ptr<GameHost> m_host{};
+	DebugStatsServices m_debugStats{};
+	WorldServices m_worldServices{};
 };
 
 std::unique_ptr<ISubsystem> CreateGameSubsystem();

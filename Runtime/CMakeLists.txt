@@ -26,6 +26,8 @@ target_link_libraries(Runtime
 PUBLIC
     Engine
     Game
+PRIVATE
+    ImGui
 )
 
 # WinMain用に WindowsSubsystem の設定（必要であれば）

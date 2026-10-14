@@ -1,6 +1,7 @@
 #include "Runtime/Subsystems/RenderSubsystem.h"
 
 #include "Engine/Application/Services/DisplayServices.h"
+#include "Engine/Application/Services/UiServices.h"
 #include "Engine/Application/Services/GpuQueueRetirement.h"
 #include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
@@ -11,6 +12,7 @@
 #include "Engine/Renderer/Core/RendererConfig.h"
 #include "Engine/Renderer/Core/ShaderSourcePolicy.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
+#include "Engine/RHI/Interface/RHIImGui.h"
 #include "Engine/RHI/Interface/RHIDescriptorAllocator.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
 #include "Engine/RHI/Common/RHIScopedDebugEvent.h"
@@ -136,6 +138,11 @@ Result<void> RenderSubsystem::DrawFrame(
 		m_impl->renderer->Render(commandList);
 		displayServices->display->PrepareSceneDepthForRead(frameContext, commandList);
 		m_impl->renderer->DrawSceneDepthDebug(commandList);
+		if (auto* uiServices = ctx.GetService<UiServices>();
+			uiServices != nullptr && uiServices->imgui != nullptr)
+		{
+			uiServices->imgui->Draw(commandList);
+		}
 		displayServices->display->EndMainRenderPass(frameContext, commandList);
 	}
 

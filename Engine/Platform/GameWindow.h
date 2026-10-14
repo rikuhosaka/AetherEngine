@@ -40,6 +40,26 @@ public:
 	[[nodiscard]] uint32_t GetPendingWidth() const noexcept { return m_pendingWidth; }
 	[[nodiscard]] uint32_t GetPendingHeight() const noexcept { return m_pendingHeight; }
 
+	struct Message
+	{
+		HWND hwnd = nullptr;
+		UINT message = 0;
+		WPARAM wparam = 0;
+		LPARAM lparam = 0;
+	};
+
+	struct MessageReply
+	{
+		bool handled = false;
+		LRESULT result = 0;
+	};
+
+	using MessageHook = MessageReply (*)(const Message& message, void* userData);
+
+	void SetMessageHook(MessageHook hook, void* userData) noexcept;
+	void ClearMessageHook(void* userData) noexcept;
+	[[nodiscard]] static GameWindow* FromHwnd(HWND hwnd) noexcept;
+
 private:
 	GameWindow() = default;
 
@@ -49,7 +69,7 @@ private:
 	void DestroyNativeWindow();
 
 	static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
-	LRESULT HandleMessage(UINT msg, WPARAM wparam, LPARAM lparam);
+	LRESULT HandleMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 	void AppendUtf16(char16_t unit);
 	void AppendCodePoint(char32_t codePoint);
 
@@ -66,4 +86,6 @@ private:
 	int m_pendingMouseWheelDelta = 0;
 	TextInput m_pendingTextInput{};
 	char16_t m_pendingHighSurrogate = 0;
+	MessageHook m_messageHook = nullptr;
+	void* m_messageHookUser = nullptr;
 };

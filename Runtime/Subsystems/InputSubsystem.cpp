@@ -67,6 +67,7 @@ void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 	}
 
 	const bool mouseCaptured = m_services.mouseCaptured;
+	const bool keyboardCaptured = m_services.keyboardCaptured;
 	m_device->Update(
 		windowServices->hwnd,
 		windowServices->clientWidth,
@@ -74,7 +75,9 @@ void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 		m_state,
 		m_services.relativeMouse && !mouseCaptured,
 		windowServices->mouseWheelDelta,
-		windowServices->textInput);
+		windowServices->textInput,
+		mouseCaptured,
+		keyboardCaptured);
 	m_services.mouseCaptured = false;
 	m_services.keyboardCaptured = false;
 }

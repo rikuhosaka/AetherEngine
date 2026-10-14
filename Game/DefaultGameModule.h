@@ -21,6 +21,7 @@ public:
 	void OnExtractView(IGameHost& host, ExtractedView& outView) override;
 	void OnExtractLighting(IGameHost& host, ExtractedLighting& outLighting) override;
 	void OnShutdown(IGameHost& host) override;
+	[[nodiscard]] World* GetWorld() override { return &m_world; }
 
 private:
 	static constexpr DirectX::XMFLOAT3 kCameraStartPosition{ 0.0f, 1.6f, -4.0f };

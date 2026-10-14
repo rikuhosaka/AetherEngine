@@ -84,11 +84,13 @@ const std::array<DirectX::XMFLOAT3, 8> kHullCorners = {{
 } // namespace
 
 WorldSpawnDesc PhysicsDropScene::MakeSpawnDesc(
+	std::string_view name,
 	const Transform& transform,
 	MeshHandle mesh,
 	const MaterialTint& tint) const
 {
 	WorldSpawnDesc desc{};
+	desc.name = name;
 	desc.transform = transform;
 	desc.renderable.mesh = ToWorldMeshId(mesh);
 	desc.renderable.material = ToWorldMaterialId(m_material);
@@ -309,11 +311,11 @@ Result<void> PhysicsDropScene::SpawnInto(World& world)
 	const MaterialTint sphereTint{ { 0.90f, 0.35f, 0.12f, 1.0f } };
 	const MaterialTint capsuleTint{ { 0.25f, 0.45f, 0.86f, 1.0f } };
 	const MaterialTint hullTint{ { 0.30f, 0.72f, 0.38f, 1.0f } };
-	const EntityId floor = world.Spawn(MakeSpawnDesc(floorTransform, m_floorMesh, floorTint));
-	const EntityId box = world.Spawn(MakeSpawnDesc(boxTransform, m_boxMesh, boxTint));
-	const EntityId sphere = world.Spawn(MakeSpawnDesc(sphereTransform, m_sphereMesh, sphereTint));
-	const EntityId capsule = world.Spawn(MakeSpawnDesc(capsuleTransform, m_capsuleMesh, capsuleTint));
-	const EntityId hull = world.Spawn(MakeSpawnDesc(hullTransform, m_hullMesh, hullTint));
+	const EntityId floor = world.Spawn(MakeSpawnDesc("Floor", floorTransform, m_floorMesh, floorTint));
+	const EntityId box = world.Spawn(MakeSpawnDesc("Box", boxTransform, m_boxMesh, boxTint));
+	const EntityId sphere = world.Spawn(MakeSpawnDesc("Sphere", sphereTransform, m_sphereMesh, sphereTint));
+	const EntityId capsule = world.Spawn(MakeSpawnDesc("Capsule", capsuleTransform, m_capsuleMesh, capsuleTint));
+	const EntityId hull = world.Spawn(MakeSpawnDesc("Hull", hullTransform, m_hullMesh, hullTint));
 	if (auto bound = physics.value.Bind(world, floor, floorDesc); !bound)
 	{
 		return FailInternal(LogCategory::Physics, bound.error.code, bound.error.message);

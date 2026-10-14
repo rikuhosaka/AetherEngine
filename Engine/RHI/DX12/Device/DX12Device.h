@@ -69,6 +69,8 @@ public:
 	// Sync Creation
 	Result<std::unique_ptr<RHIFence>> CreateFence() override;
 
+	Result<std::unique_ptr<RHIImGui>> CreateImGui(const RHIImGuiDesc& desc) override;
+
 protected:
 	std::unique_ptr<DeviceImpl> m_impl = nullptr;
 
@@ -87,4 +89,5 @@ protected:
 	friend class DX12PipelineState;
 	friend class DX12Fence;
 	friend class DX12UploadBuffer;
+	friend class DX12ImGui;
 };

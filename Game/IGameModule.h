@@ -11,6 +11,7 @@ struct ExtractedView;
 
 class IGameHost;
 class RHICommandList;
+class World;
 
 class IGameModule
 {
@@ -56,6 +57,8 @@ public:
 		(void)outLighting;
 	}
 	virtual void OnShutdown(IGameHost& host) = 0;
+
+	[[nodiscard]] virtual World* GetWorld() { return nullptr; }
 };
 
 IGameModule* CreateGameModule();

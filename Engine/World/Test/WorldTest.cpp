@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -19,6 +20,37 @@ namespace
 		++count;
 	});
 	return count;
+}
+
+[[nodiscard]] std::vector<EntityId> CollectRoots(const World& world)
+{
+	std::vector<EntityId> ids;
+	world.ForEachRoot([&ids](EntityId id) {
+		ids.push_back(id);
+	});
+	return ids;
+}
+
+[[nodiscard]] std::vector<EntityId> CollectChildren(const World& world, EntityId parent)
+{
+	std::vector<EntityId> ids;
+	world.ForEachChild(parent, [&ids](EntityId id) {
+		ids.push_back(id);
+	});
+	return ids;
+}
+
+[[nodiscard]] bool ContainsEntity(const std::vector<EntityId>& ids, EntityId id)
+{
+	for (const EntityId entry : ids)
+	{
+		if (entry == id)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 [[nodiscard]] bool IsNearlyEqual(float left, float right, float epsilon = 0.0001f)
@@ -39,6 +71,7 @@ Result<void> RunWorldTests()
 {
 	World world{};
 	WorldSpawnDesc spawnDesc{};
+	spawnDesc.name = "First";
 	spawnDesc.transform.position = { 5.0f, 2.0f, -1.0f };
 	spawnDesc.renderable.visible = true;
 
@@ -60,6 +93,14 @@ Result<void> RunWorldTests()
 			"Spawn should store the entity transform");
 	}
 
+	if (world.GetName(first) != "First")
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Spawn should store the entity display name");
+	}
+
 	if (!world.GetRenderable(first)->visible || CountAlive(world) != 1)
 	{
 		return FailRuntime(
@@ -69,7 +110,8 @@ Result<void> RunWorldTests()
 	}
 
 	world.Destroy(first);
-	if (world.IsAlive(first) || world.GetTransform(first) != nullptr || CountAlive(world) != 0)
+	if (world.IsAlive(first) || world.GetTransform(first) != nullptr || !world.GetName(first).empty()
+		|| CountAlive(world) != 0)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -103,6 +145,14 @@ Result<void> RunWorldTests()
 			"Old entity id should stay invalid after reuse");
 	}
 
+	if (!world.GetName(second).empty())
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Reused slot should not keep the previous display name");
+	}
+
 	bool sawSecond = false;
 	world.ForEachAlive([&](EntityId id, const Transform&, const Renderable&) {
 		sawSecond = id.Index == second.Index && id.Generation == second.Generation;
@@ -131,6 +181,32 @@ Result<void> RunWorldTests()
 			"Spawn should store the parent entity");
 	}
 
+	const std::vector<EntityId> roots = CollectRoots(world);
+	const std::vector<EntityId> children = CollectChildren(world, parent);
+	if (roots.size() != 2 || !ContainsEntity(roots, second) || !ContainsEntity(roots, parent)
+		|| ContainsEntity(roots, child) || children.size() != 1 || children.front() != child
+		|| !CollectChildren(world, child).empty() || !CollectChildren(world, first).empty())
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Hierarchy reads should list roots and direct children");
+	}
+
+	WorldSpawnDesc siblingDesc{};
+	siblingDesc.parent = parent;
+	const EntityId sibling = world.Spawn(std::move(siblingDesc));
+	const std::vector<EntityId> siblings = CollectChildren(world, parent);
+	if (siblings.size() != 2 || siblings[0] != child || siblings[1] != sibling)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Direct children should be listed in slot order");
+	}
+
+	world.Destroy(sibling);
+
 	const DirectX::XMMATRIX childWorld = world.GetWorldMatrix(child);
 	DirectX::XMFLOAT4X4 childWorldStored{};
 	DirectX::XMStoreFloat4x4(&childWorldStored, childWorld);
@@ -154,7 +230,8 @@ Result<void> RunWorldTests()
 	}
 
 	if (world.GetParent(child).IsValid() ||
-		world.GetTransform(child)->position.x != childLocalBefore.position.x)
+		world.GetTransform(child)->position.x != childLocalBefore.position.x ||
+		!CollectChildren(world, parent).empty() || !ContainsEntity(CollectRoots(world), child))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -187,6 +264,17 @@ Result<void> RunWorldTests()
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"SetParent should attach a live child");
+	}
+
+	const std::vector<EntityId> parentChildren = CollectChildren(world, parent);
+	const std::vector<EntityId> childChildren = CollectChildren(world, child);
+	if (parentChildren.size() != 1 || parentChildren.front() != child || childChildren.size() != 1
+		|| childChildren.front() != grandchild || ContainsEntity(parentChildren, grandchild))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Hierarchy reads should not skip to grandchildren");
 	}
 
 	const DirectX::XMVECTOR yawRotation = DirectX::XMQuaternionRotationAxis(
@@ -234,9 +322,10 @@ Result<void> RunWorldTests()
 	staleChildDesc.parent = parent;
 	staleChildDesc.transform.position = { 4.0f, 0.0f, 0.0f };
 	const EntityId staleChild = world.Spawn(std::move(staleChildDesc));
+	EntityId reusedParentSlot{};
 	if (staleChild.Index != parent.Index)
 	{
-		bool reusedParentSlot = false;
+		bool foundReusedParentSlot = false;
 		for (int attempt = 0; attempt < 4; ++attempt)
 		{
 			const EntityId spawned = world.Spawn(WorldSpawnDesc{});
@@ -246,11 +335,12 @@ Result<void> RunWorldTests()
 			}
 
 			world.GetTransform(spawned)->position = { 100.0f, 0.0f, 0.0f };
-			reusedParentSlot = true;
+			reusedParentSlot = spawned;
+			foundReusedParentSlot = true;
 			break;
 		}
 
-		if (!reusedParentSlot)
+		if (!foundReusedParentSlot)
 		{
 			return FailRuntime(
 				LogCategory::ECS,
@@ -263,7 +353,10 @@ Result<void> RunWorldTests()
 	DirectX::XMStoreFloat4x4(&staleStored, world.GetWorldMatrix(staleChild));
 	if (!IsNearlyEqual(staleStored._41, 4.0f) ||
 		!IsNearlyEqual(staleStored._42, 0.0f) ||
-		!IsNearlyEqual(staleStored._43, 0.0f))
+		!IsNearlyEqual(staleStored._43, 0.0f) ||
+		!ContainsEntity(CollectRoots(world), staleChild) ||
+		!CollectChildren(world, parent).empty() ||
+		(reusedParentSlot.IsValid() && ContainsEntity(CollectChildren(world, reusedParentSlot), staleChild)))
 	{
 		return FailRuntime(
 			LogCategory::ECS,

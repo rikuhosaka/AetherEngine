@@ -182,11 +182,13 @@ Result<void> RoomSceneAssets::SpawnInto(World& world)
 	const XMVECTOR zAxis = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
 
 	const auto spawnPlane = [this, &world](
+		const char* name,
 		const Transform& transform,
 		MaterialHandle material,
 		const RoomMaterialConstants& constants,
 		uint8_t layerMask) {
 		WorldSpawnDesc desc{};
+		desc.name = name;
 		desc.transform = transform;
 		desc.renderable.mesh = ToWorldMeshId(m_planeMesh);
 		desc.renderable.material = ToWorldMaterialId(material);
@@ -211,43 +213,43 @@ Result<void> RoomSceneAssets::SpawnInto(World& world)
 
 	Transform floor{};
 	floor.scale = { width, 1.0f, depth };
-	spawnPlane(floor, m_material, m_materialConstants, opaqueLayer);
+	spawnPlane("Floor", floor, m_material, m_materialConstants, opaqueLayer);
 
 	Transform ceiling{};
 	ceiling.position = { 0.0f, height, 0.0f };
 	ceiling.rotation = QuaternionFromAxisAngle(xAxis, XM_PI);
 	ceiling.scale = { width, 1.0f, depth };
-	spawnPlane(ceiling, m_material, m_materialConstants, opaqueLayer);
+	spawnPlane("Ceiling", ceiling, m_material, m_materialConstants, opaqueLayer);
 
 	Transform northWall{};
 	northWall.position = { 0.0f, height * 0.5f, depth * 0.5f };
 	northWall.rotation = QuaternionFromAxisAngle(xAxis, -XM_PIDIV2);
 	northWall.scale = { width, 1.0f, height };
-	spawnPlane(northWall, m_material, m_materialConstants, opaqueLayer);
+	spawnPlane("NorthWall", northWall, m_material, m_materialConstants, opaqueLayer);
 
 	Transform southWall{};
 	southWall.position = { 0.0f, height * 0.5f, -depth * 0.5f };
 	southWall.rotation = QuaternionFromAxisAngle(xAxis, XM_PIDIV2);
 	southWall.scale = { width, 1.0f, height };
-	spawnPlane(southWall, m_material, m_materialConstants, opaqueLayer);
+	spawnPlane("SouthWall", southWall, m_material, m_materialConstants, opaqueLayer);
 
 	Transform eastWall{};
 	eastWall.position = { width * 0.5f, height * 0.5f, 0.0f };
 	eastWall.rotation = QuaternionFromAxisAngle(zAxis, XM_PIDIV2);
 	eastWall.scale = { height, 1.0f, depth };
-	spawnPlane(eastWall, m_material, m_materialConstants, opaqueLayer);
+	spawnPlane("EastWall", eastWall, m_material, m_materialConstants, opaqueLayer);
 
 	Transform westWall{};
 	westWall.position = { -width * 0.5f, height * 0.5f, 0.0f };
 	westWall.rotation = QuaternionFromAxisAngle(zAxis, -XM_PIDIV2);
 	westWall.scale = { height, 1.0f, depth };
-	spawnPlane(westWall, m_material, m_materialConstants, opaqueLayer);
+	spawnPlane("WestWall", westWall, m_material, m_materialConstants, opaqueLayer);
 
 	Transform glassPane{};
 	glassPane.position = { 0.0f, 1.4f, 0.0f };
 	glassPane.rotation = QuaternionFromAxisAngle(xAxis, -XM_PIDIV2);
 	glassPane.scale = { 2.0f, 1.0f, 2.0f };
-	spawnPlane(glassPane, m_transparentMaterial, m_transparentConstants, WorldLayer::Transparent);
+	spawnPlane("Glass", glassPane, m_transparentMaterial, m_transparentConstants, WorldLayer::Transparent);
 
 	m_spawned = true;
 	return MakeOk();

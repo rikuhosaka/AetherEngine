@@ -39,6 +39,9 @@ Result<void> GameSubsystem::Initialize(SubsystemContext& ctx)
 		return initResult;
 	}
 
+	m_worldServices.world = m_module->GetWorld();
+	ctx.RegisterService(&m_debugStats);
+	ctx.RegisterService(&m_worldServices);
 	return MakeOk();
 }
 
@@ -100,6 +103,8 @@ void GameSubsystem::Extract(std::vector<ExtractedObject>& outObjects)
 	{
 		m_module->OnExtract(*m_host, outObjects);
 	}
+
+	m_debugStats.extractedObjectCount = static_cast<uint32_t>(outObjects.size());
 }
 
 void GameSubsystem::ExtractView(ExtractedView& outView)
@@ -120,6 +125,9 @@ void GameSubsystem::ExtractLighting(ExtractedLighting& outLighting)
 
 void GameSubsystem::Shutdown(SubsystemContext& ctx)
 {
+	ctx.UnregisterService(&m_worldServices);
+	m_worldServices.world = nullptr;
+
 	if (m_module != nullptr && m_host != nullptr)
 	{
 		m_module->OnShutdown(*m_host);
@@ -133,6 +141,8 @@ void GameSubsystem::Shutdown(SubsystemContext& ctx)
 		}
 	}
 
+	ctx.UnregisterService(&m_debugStats);
+	m_debugStats = {};
 	m_module.reset();
 	m_host.reset();
 }

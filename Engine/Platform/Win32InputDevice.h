@@ -24,11 +24,14 @@ public:
 		InputState& state,
 		bool relativeMouseRequested,
 		int mouseWheelDelta,
-		const TextInput& textInput);
+		const TextInput& textInput,
+		bool suppressMouse,
+		bool suppressKeyboard);
 	void RefreshRelativeMouse(HWND hwnd, std::uint32_t clientWidth, std::uint32_t clientHeight, InputState& state);
 
 private:
 	void WriteButtons(bool focused, InputState& state);
+	void SuppressCapturedInput(InputState& state, bool suppressMouse, bool suppressKeyboard);
 	void WriteMouse(HWND hwnd, std::uint32_t clientWidth, std::uint32_t clientHeight, InputState& state);
 	void BeginRelativeMouse(HWND hwnd, std::uint32_t clientWidth, std::uint32_t clientHeight, InputState& state);
 	void EndRelativeMouse(HWND hwnd, InputState& state);

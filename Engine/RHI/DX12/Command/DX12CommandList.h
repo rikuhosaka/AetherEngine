@@ -93,6 +93,7 @@ private:
 
 	friend class DX12Device;
 	friend class DX12CommandQueue;
+	friend class DX12ImGui;
 	friend class RHIResource;
 	friend class ResourceImpl;
 };

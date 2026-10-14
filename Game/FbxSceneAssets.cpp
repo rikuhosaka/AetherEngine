@@ -388,6 +388,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 		}
 
 		FbxNodeSpawn record{};
+		record.name = node.name;
 		record.local = localResult.value;
 		record.parentIndex = node.parentIndex;
 		m_nodes.push_back(record);
@@ -414,6 +415,10 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 			const uint32_t materialSlot = meshData.submeshes[submeshIndex].materialSlot;
 
 			FbxSubmeshSpawn submesh{};
+			const std::string& meshName = meshData.name.empty() ? node.name : meshData.name;
+			submesh.name = meshData.submeshes.size() <= 1
+				? meshName
+				: meshName + " " + std::to_string(submeshIndex);
 			submesh.nodeIndex = nodeIndex;
 			submesh.mesh = meshIt->second;
 			submesh.submeshIndex = submeshIndex;
@@ -460,6 +465,7 @@ Result<void> FbxSceneAssets::SpawnInto(World& world)
 	for (const FbxNodeSpawn& node : m_nodes)
 	{
 		WorldSpawnDesc desc{};
+		desc.name = node.name;
 		desc.transform = node.local;
 		desc.renderable.visible = false;
 		nodeEntities.push_back(world.Spawn(std::move(desc)));
@@ -490,6 +496,7 @@ Result<void> FbxSceneAssets::SpawnInto(World& world)
 		}
 
 		WorldSpawnDesc desc{};
+		desc.name = submesh.name;
 		desc.parent = nodeEntities[submesh.nodeIndex];
 		desc.renderable.mesh = ToWorldMeshId(submesh.mesh);
 		desc.renderable.material = ToWorldMaterialId(m_material);

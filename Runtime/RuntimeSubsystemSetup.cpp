@@ -10,6 +10,7 @@
 #include "Runtime/Subsystems/InputSubsystem.h"
 #include "Runtime/Subsystems/RenderSubsystem.h"
 #include "Runtime/Subsystems/RHISubsystem.h"
+#include "Runtime/Subsystems/UiSubsystem.h"
 #include "Runtime/Subsystems/WindowSubsystem.h"
 
 #include <cstring>
@@ -20,6 +21,7 @@ void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConf
 	registry.Register(std::make_unique<WindowSubsystem>(config));
 	registry.Register(CreateRHISubsystem(config));
 	registry.Register(CreateDisplaySubsystem(config));
+	registry.Register(CreateUiSubsystem());
 	registry.Register(CreateRenderSubsystem(config));
 	registry.Register(CreateInputSubsystem());
 	registry.Register(CreateGameSubsystem());
