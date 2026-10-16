@@ -28,5 +28,7 @@ target_include_directories(Game
         ${CMAKE_SOURCE_DIR}/ThirdParty/Fbxsdk/include
 )
 
+# pch が windows.h を先に取り込む。NOMINMAX はコンパイル定義として先に渡す。
+target_compile_definitions(Game PRIVATE NOMINMAX)
 
 target_precompile_headers(Game PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

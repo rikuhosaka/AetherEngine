@@ -42,6 +42,13 @@ public:
 	[[nodiscard]] Renderable* GetRenderable(EntityId id);
 	[[nodiscard]] const Renderable* GetRenderable(EntityId id) const;
 
+	// Copies slots, generations, parents, names, transforms, renderables, and free indices.
+	// Mesh and material handles are shared. Dead slots stay dead, so entity ids match.
+	[[nodiscard]] World Clone() const
+	{
+		return *this;
+	}
+
 	template<typename Fn>
 	void ForEachAlive(Fn&& fn) const
 	{

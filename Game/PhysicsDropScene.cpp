@@ -9,40 +9,21 @@
 #include "Engine/Renderer/Scene/RenderConstantsLayout.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
-#include "Engine/World/Transform.h"
-#include "Game/WorldRenderBridge.h"
+#include "Game/SceneDocument.h"
 
 #include <array>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace
 {
-constexpr float kFloorExtent = 4.0f;
-constexpr float kBoxWidth = 4.0f;
-constexpr float kBoxHeight = 1.0f;
-constexpr float kBoxDepth = 4.0f;
-constexpr float kSphereRadius = 0.5f;
-constexpr float kCapsuleRadius = 0.22f;
-constexpr float kCapsuleHalfHeight = 0.55f;
-constexpr float kHullHalfExtent = 0.28f;
-
-const std::array<DirectX::XMFLOAT3, 4> kFloorCorners = {{
-	{ -kFloorExtent, 0.0f, -kFloorExtent },
-	{ -kFloorExtent, 0.0f, kFloorExtent },
-	{ kFloorExtent, 0.0f, -kFloorExtent },
-	{ kFloorExtent, 0.0f, kFloorExtent },
-}};
-const std::array<uint32_t, 6> kFloorIndices = { 0, 1, 2, 3, 2, 1 };
-const std::array<DirectX::XMFLOAT3, 8> kHullCorners = {{
-	{ -kHullHalfExtent, -kHullHalfExtent, -kHullHalfExtent },
-	{ kHullHalfExtent, -kHullHalfExtent, -kHullHalfExtent },
-	{ kHullHalfExtent, kHullHalfExtent, -kHullHalfExtent },
-	{ -kHullHalfExtent, kHullHalfExtent, -kHullHalfExtent },
-	{ -kHullHalfExtent, -kHullHalfExtent, kHullHalfExtent },
-	{ kHullHalfExtent, -kHullHalfExtent, kHullHalfExtent },
-	{ kHullHalfExtent, kHullHalfExtent, kHullHalfExtent },
-	{ -kHullHalfExtent, kHullHalfExtent, kHullHalfExtent },
-}};
+constexpr uint32_t kSphereStacks = 12;
+constexpr uint32_t kSphereSlices = 16;
+constexpr uint32_t kCapsuleSlices = 16;
+constexpr uint32_t kCapsuleHemisphereStacks = 4;
 
 [[nodiscard]] Result<MeshHandle> UploadPrimitive(
 	RenderResourceServices& resources,
@@ -81,40 +62,79 @@ const std::array<DirectX::XMFLOAT3, 8> kHullCorners = {{
 	return resources.GetTextureServices().UploadTexture(textureDesc, frameContext, commandList);
 }
 
-} // namespace
-
-WorldSpawnDesc PhysicsDropScene::MakeSpawnDesc(
-	std::string_view name,
-	const Transform& transform,
-	MeshHandle mesh,
-	const MaterialTint& tint) const
+[[nodiscard]] Result<std::string> ReadSceneText(const std::filesystem::path& scenePath)
 {
-	WorldSpawnDesc desc{};
-	desc.name = name;
-	desc.transform = transform;
-	desc.renderable.mesh = ToWorldMeshId(mesh);
-	desc.renderable.material = ToWorldMaterialId(m_material);
-	desc.renderable.submeshIndex = 0;
-	desc.renderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
-	desc.renderable.visible = true;
-	desc.renderable.overrides.baseColor = ToWorldTextureId(m_baseColor);
-	if (m_materialConstantsSlot.has_value())
+	std::ifstream file(scenePath);
+	if (!file)
 	{
-		WorldMaterialParameterBlock materialBlock{};
-		materialBlock.bindingSlot = *m_materialConstantsSlot;
-		const auto* bytes = reinterpret_cast<const std::byte*>(&tint);
-		materialBlock.data.assign(bytes, bytes + sizeof(tint));
-		desc.renderable.overrides.parameters.push_back(std::move(materialBlock));
+		return FailRuntime<std::string>(
+			LogCategory::Physics,
+			ErrorCode::FileNotFound,
+			"PhysicsDropScene could not open the scene document");
 	}
 
+	return MakeOk(std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()));
+}
+
+[[nodiscard]] const SceneEntity* FindMeshEntity(const SceneDocument& document, std::string_view key)
+{
+	for (const SceneEntity& entity : document.entities)
+	{
+		if (entity.mesh == key)
+		{
+			return &entity;
+		}
+	}
+
+	return nullptr;
+}
+
+[[nodiscard]] const SceneEntity* FindEntity(const SceneDocument& document, uint32_t id)
+{
+	for (const SceneEntity& entity : document.entities)
+	{
+		if (entity.id == id)
+		{
+			return &entity;
+		}
+	}
+
+	return nullptr;
+}
+
+[[nodiscard]] PhysicsBodyDesc MakeBodyDesc(const SceneBody& body)
+{
+	PhysicsBodyDesc desc{};
+	desc.motion = body.motion;
+	desc.friction = body.friction;
+	desc.restitution = body.restitution;
+	desc.mass = body.mass;
+	desc.shape.type = body.shape.type;
+	desc.shape.halfExtent = body.shape.halfExtent;
+	desc.shape.radius = body.shape.radius;
+	desc.shape.halfHeight = body.shape.halfHeight;
+	desc.shape.points = body.shape.points;
+	desc.shape.indices = body.shape.indices;
 	return desc;
 }
+
+[[nodiscard]] const SceneBody* BodyOfType(const SceneEntity* entity, PhysicsShapeType type)
+{
+	if (entity == nullptr || !entity->body.has_value() || entity->body->shape.type != type)
+	{
+		return nullptr;
+	}
+
+	return &(*entity->body);
+}
+} // namespace
 
 Result<void> PhysicsDropScene::EnsureInitialized(
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
-	const std::filesystem::path& shaderRoot)
+	const std::filesystem::path& shaderRoot,
+	const std::filesystem::path& scenePath)
 {
 	if (m_ready)
 	{
@@ -133,7 +153,30 @@ Result<void> PhysicsDropScene::EnsureInitialized(
 			"PhysicsDropScene requires a valid shader root path");
 	}
 
-	const Result<PrimitiveMeshData> floorMesh = GenerateTriangleMesh({ kFloorCorners, kFloorIndices });
+	const Result<std::string> sceneText = ReadSceneText(scenePath);
+	if (!sceneText)
+	{
+		return MakeFail(sceneText.error.code, sceneText.error.message);
+	}
+
+	Result<SceneDocument> document = ReadSceneDocument(sceneText.value);
+	if (!document)
+	{
+		return MakeFail(document.error.code, document.error.message);
+	}
+
+	const SceneBody* floor = BodyOfType(FindMeshEntity(document.value, "builtin:floor"), PhysicsShapeType::Mesh);
+	const SceneBody* box = BodyOfType(FindMeshEntity(document.value, "builtin:box"), PhysicsShapeType::Box);
+	const SceneBody* sphere = BodyOfType(FindMeshEntity(document.value, "builtin:sphere"), PhysicsShapeType::Sphere);
+	const SceneBody* capsule = BodyOfType(FindMeshEntity(document.value, "builtin:capsule"), PhysicsShapeType::Capsule);
+	const SceneBody* hull = BodyOfType(FindMeshEntity(document.value, "builtin:hull"), PhysicsShapeType::ConvexHull);
+	if (floor == nullptr || box == nullptr || sphere == nullptr || capsule == nullptr || hull == nullptr)
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::InvalidArgument,
+			"PhysicsDropScene scene document is missing a built-in shape");
+	}
+
+	const Result<PrimitiveMeshData> floorMesh = GenerateTriangleMesh({ floor->shape.points, floor->shape.indices });
 	if (!floorMesh)
 	{
 		return MakeFail(floorMesh.error.code, floorMesh.error.message);
@@ -147,7 +190,11 @@ Result<void> PhysicsDropScene::EnsureInitialized(
 	}
 	m_floorMesh = floorUpload.value;
 
-	const Result<PrimitiveMeshData> boxMesh = GenerateCubeMesh({ kBoxWidth, kBoxHeight, kBoxDepth, false });
+	const Result<PrimitiveMeshData> boxMesh = GenerateCubeMesh({
+		box->shape.halfExtent.x * 2.0f,
+		box->shape.halfExtent.y * 2.0f,
+		box->shape.halfExtent.z * 2.0f,
+		false });
 	if (!boxMesh)
 	{
 		return MakeFail(boxMesh.error.code, boxMesh.error.message);
@@ -161,7 +208,8 @@ Result<void> PhysicsDropScene::EnsureInitialized(
 	}
 	m_boxMesh = boxUpload.value;
 
-	const Result<PrimitiveMeshData> sphereMesh = GenerateSphereMesh({ kSphereRadius, 12, 16 });
+	const Result<PrimitiveMeshData> sphereMesh = GenerateSphereMesh({
+		sphere->shape.radius, kSphereStacks, kSphereSlices });
 	if (!sphereMesh)
 	{
 		return MakeFail(sphereMesh.error.code, sphereMesh.error.message);
@@ -175,7 +223,11 @@ Result<void> PhysicsDropScene::EnsureInitialized(
 	}
 	m_sphereMesh = sphereUpload.value;
 
-	const Result<PrimitiveMeshData> capsuleMesh = GenerateCapsuleMesh({ kCapsuleRadius, kCapsuleHalfHeight, 16, 4 });
+	const Result<PrimitiveMeshData> capsuleMesh = GenerateCapsuleMesh({
+		capsule->shape.radius,
+		capsule->shape.halfHeight,
+		kCapsuleSlices,
+		kCapsuleHemisphereStacks });
 	if (!capsuleMesh)
 	{
 		return MakeFail(capsuleMesh.error.code, capsuleMesh.error.message);
@@ -189,7 +241,7 @@ Result<void> PhysicsDropScene::EnsureInitialized(
 	}
 	m_capsuleMesh = capsuleUpload.value;
 
-	const Result<PrimitiveMeshData> hullMesh = GenerateConvexHullMesh({ kHullCorners });
+	const Result<PrimitiveMeshData> hullMesh = GenerateConvexHullMesh({ hull->shape.points });
 	if (!hullMesh)
 	{
 		return MakeFail(hullMesh.error.code, hullMesh.error.message);
@@ -243,6 +295,7 @@ Result<void> PhysicsDropScene::EnsureInitialized(
 		}
 	}
 
+	m_document = std::move(document.value);
 	m_ready = true;
 	return MakeOk();
 }
@@ -266,77 +319,30 @@ Result<void> PhysicsDropScene::SpawnInto(World& world)
 		return FailInternal(LogCategory::Physics, physics.error.code, physics.error.message);
 	}
 
-	PhysicsBodyDesc floorDesc{};
-	floorDesc.motion = PhysicsMotion::Static;
-	floorDesc.shape.type = PhysicsShapeType::Mesh;
-	floorDesc.shape.points = kFloorCorners;
-	floorDesc.shape.indices = kFloorIndices;
+	const SceneMeshRef meshes[] = {
+		{ "builtin:floor", m_floorMesh },
+		{ "builtin:box", m_boxMesh },
+		{ "builtin:sphere", m_sphereMesh },
+		{ "builtin:capsule", m_capsuleMesh },
+		{ "builtin:hull", m_hullMesh },
+	};
+	SceneRenderResources render{};
+	render.material = m_material;
+	render.baseColor = m_baseColor;
+	render.materialConstantsSlot = m_materialConstantsSlot;
 
-	PhysicsBodyDesc boxDesc{};
-	boxDesc.motion = PhysicsMotion::Static;
-	boxDesc.shape.type = PhysicsShapeType::Box;
-	boxDesc.shape.halfExtent = { kBoxWidth * 0.5f, kBoxHeight * 0.5f, kBoxDepth * 0.5f };
-
-	PhysicsBodyDesc sphereDesc{};
-	sphereDesc.motion = PhysicsMotion::Dynamic;
-	sphereDesc.shape.type = PhysicsShapeType::Sphere;
-	sphereDesc.shape.radius = kSphereRadius;
-
-	PhysicsBodyDesc capsuleDesc{};
-	capsuleDesc.motion = PhysicsMotion::Dynamic;
-	capsuleDesc.shape.type = PhysicsShapeType::Capsule;
-	capsuleDesc.shape.radius = kCapsuleRadius;
-	capsuleDesc.shape.halfHeight = kCapsuleHalfHeight;
-
-	PhysicsBodyDesc hullDesc{};
-	hullDesc.motion = PhysicsMotion::Dynamic;
-	hullDesc.shape.type = PhysicsShapeType::ConvexHull;
-	hullDesc.shape.points = kHullCorners;
-
-	Transform floorTransform{};
-	Transform boxTransform{};
-	boxTransform.position = { 0.0f, kBoxHeight * 0.5f, 0.0f };
-	Transform sphereTransform{};
-	sphereTransform.position = { 0.0f, 4.0f, 0.0f };
-	Transform capsuleTransform{};
-	capsuleTransform.position = { -1.15f, 4.4f, 0.85f };
-	Transform hullTransform{};
-	hullTransform.position = { 1.15f, 3.6f, -0.7f };
-	DirectX::XMStoreFloat4(
-		&hullTransform.rotation,
-		DirectX::XMQuaternionRotationRollPitchYaw(0.45f, 0.35f, 0.7f));
-
-	const MaterialTint floorTint{ { 0.42f, 0.48f, 0.40f, 1.0f } };
-	const MaterialTint boxTint{ { 0.62f, 0.64f, 0.68f, 1.0f } };
-	const MaterialTint sphereTint{ { 0.90f, 0.35f, 0.12f, 1.0f } };
-	const MaterialTint capsuleTint{ { 0.25f, 0.45f, 0.86f, 1.0f } };
-	const MaterialTint hullTint{ { 0.30f, 0.72f, 0.38f, 1.0f } };
-	const EntityId floor = world.Spawn(MakeSpawnDesc("Floor", floorTransform, m_floorMesh, floorTint));
-	const EntityId box = world.Spawn(MakeSpawnDesc("Box", boxTransform, m_boxMesh, boxTint));
-	const EntityId sphere = world.Spawn(MakeSpawnDesc("Sphere", sphereTransform, m_sphereMesh, sphereTint));
-	const EntityId capsule = world.Spawn(MakeSpawnDesc("Capsule", capsuleTransform, m_capsuleMesh, capsuleTint));
-	const EntityId hull = world.Spawn(MakeSpawnDesc("Hull", hullTransform, m_hullMesh, hullTint));
-	if (auto bound = physics.value.Bind(world, floor, floorDesc); !bound)
+	Result<std::vector<WorldDocumentBinding>> bindings = InstantiateScene(
+		world,
+		physics.value,
+		m_document,
+		meshes,
+		render);
+	if (!bindings)
 	{
-		return FailInternal(LogCategory::Physics, bound.error.code, bound.error.message);
-	}
-	if (auto bound = physics.value.Bind(world, box, boxDesc); !bound)
-	{
-		return FailInternal(LogCategory::Physics, bound.error.code, bound.error.message);
-	}
-	if (auto bound = physics.value.Bind(world, sphere, sphereDesc); !bound)
-	{
-		return FailInternal(LogCategory::Physics, bound.error.code, bound.error.message);
-	}
-	if (auto bound = physics.value.Bind(world, capsule, capsuleDesc); !bound)
-	{
-		return FailInternal(LogCategory::Physics, bound.error.code, bound.error.message);
-	}
-	if (auto bound = physics.value.Bind(world, hull, hullDesc); !bound)
-	{
-		return FailInternal(LogCategory::Physics, bound.error.code, bound.error.message);
+		return MakeFail(bindings.error.code, bindings.error.message);
 	}
 
+	m_bindings = std::move(bindings.value);
 	m_physics = std::move(physics.value);
 	m_spawned = true;
 
@@ -344,8 +350,74 @@ Result<void> PhysicsDropScene::SpawnInto(World& world)
 	return MakeOk();
 }
 
+Result<std::string> PhysicsDropScene::CaptureEditor(const World& world) const
+{
+	if (!m_spawned)
+	{
+		return FailRuntime<std::string>(
+			LogCategory::Physics,
+			ErrorCode::InvalidArgument,
+			"PhysicsDropScene::CaptureEditor requires a spawned editor world");
+	}
+
+	const Result<SceneDocument> captured = CaptureScene(world, m_document, m_bindings);
+	if (!captured)
+	{
+		return MakeFail<std::string>(captured.error.code, captured.error.message);
+	}
+
+	return WriteSceneDocument(captured.value);
+}
+
+Result<void> PhysicsDropScene::BeginPlay(World& playWorld)
+{
+	if (m_playPhysics.has_value())
+	{
+		return MakeOk();
+	}
+
+	if (!m_spawned)
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::InvalidArgument,
+			"PhysicsDropScene::BeginPlay requires a spawned editor world");
+	}
+
+	Result<EntityPhysics> physics = EntityPhysics::Create();
+	if (!physics)
+	{
+		return FailInternal(LogCategory::Physics, physics.error.code, physics.error.message);
+	}
+
+	for (const WorldDocumentBinding& binding : m_bindings)
+	{
+		const SceneEntity* entity = FindEntity(m_document, binding.id);
+		if (entity == nullptr || !entity->body.has_value())
+		{
+			continue;
+		}
+
+		if (auto bound = physics.value.Bind(playWorld, binding.entity, MakeBodyDesc(*entity->body)); !bound)
+		{
+			return FailInternal(LogCategory::Physics, bound.error.code, bound.error.message);
+		}
+	}
+
+	m_playPhysics = std::move(physics.value);
+	return MakeOk();
+}
+
+void PhysicsDropScene::EndPlay()
+{
+	m_playPhysics.reset();
+}
+
 Result<void> PhysicsDropScene::Step(World& world, float fixedDeltaSeconds)
 {
+	if (m_playPhysics.has_value())
+	{
+		return m_playPhysics->Step(world, fixedDeltaSeconds);
+	}
+
 	if (!m_spawned)
 	{
 		return MakeOk();
@@ -356,10 +428,10 @@ Result<void> PhysicsDropScene::Step(World& world, float fixedDeltaSeconds)
 
 void PhysicsDropScene::WriteRenderTransforms(World& world, float alpha)
 {
-	if (!m_spawned)
+	if (!m_playPhysics.has_value())
 	{
 		return;
 	}
 
-	m_physics.WriteTransforms(world, alpha);
+	m_playPhysics->WriteTransforms(world, alpha);
 }

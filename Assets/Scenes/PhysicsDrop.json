@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "entities": [
+    {
+      "id": 1,
+      "name": "Floor",
+      "parent": null,
+      "transform": {
+        "position": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "renderable": {
+        "mesh": "builtin:floor",
+        "submesh": 0,
+        "layerMask": 3,
+        "visible": true,
+        "tint": [0.42, 0.48, 0.40, 1.0]
+      },
+      "physics": {
+        "motion": "static",
+        "friction": 0.2,
+        "restitution": 0.0,
+        "mass": 0.0,
+        "shape": {
+          "type": "mesh",
+          "points": [
+            [-4.0, 0.0, -4.0],
+            [-4.0, 0.0, 4.0],
+            [4.0, 0.0, -4.0],
+            [4.0, 0.0, 4.0]
+          ],
+          "indices": [0, 1, 2, 3, 2, 1]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Box",
+      "parent": null,
+      "transform": {
+        "position": [0.0, 0.5, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "renderable": {
+        "mesh": "builtin:box",
+        "submesh": 0,
+        "layerMask": 3,
+        "visible": true,
+        "tint": [0.62, 0.64, 0.68, 1.0]
+      },
+      "physics": {
+        "motion": "static",
+        "friction": 0.2,
+        "restitution": 0.0,
+        "mass": 0.0,
+        "shape": {
+          "type": "box",
+          "halfExtent": [2.0, 0.5, 2.0]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Sphere",
+      "parent": null,
+      "transform": {
+        "position": [0.0, 4.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "renderable": {
+        "mesh": "builtin:sphere",
+        "submesh": 0,
+        "layerMask": 3,
+        "visible": true,
+        "tint": [0.90, 0.35, 0.12, 1.0]
+      },
+      "physics": {
+        "motion": "dynamic",
+        "friction": 0.2,
+        "restitution": 0.0,
+        "mass": 0.0,
+        "shape": {
+          "type": "sphere",
+          "radius": 0.5
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Capsule",
+      "parent": null,
+      "transform": {
+        "position": [-1.15, 4.4, 0.85],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "renderable": {
+        "mesh": "builtin:capsule",
+        "submesh": 0,
+        "layerMask": 3,
+        "visible": true,
+        "tint": [0.25, 0.45, 0.86, 1.0]
+      },
+      "physics": {
+        "motion": "dynamic",
+        "friction": 0.2,
+        "restitution": 0.0,
+        "mass": 0.0,
+        "shape": {
+          "type": "capsule",
+          "radius": 0.22,
+          "halfHeight": 0.55
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "Hull",
+      "parent": null,
+      "transform": {
+        "position": [1.15, 3.6, -0.7],
+        "rotation": [0.264575481, 0.0840957165, 0.292659938, 0.91502887],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "renderable": {
+        "mesh": "builtin:hull",
+        "submesh": 0,
+        "layerMask": 3,
+        "visible": true,
+        "tint": [0.30, 0.72, 0.38, 1.0]
+      },
+      "physics": {
+        "motion": "dynamic",
+        "friction": 0.2,
+        "restitution": 0.0,
+        "mass": 0.0,
+        "shape": {
+          "type": "convexHull",
+          "points": [
+            [-0.28, -0.28, -0.28],
+            [0.28, -0.28, -0.28],
+            [0.28, 0.28, -0.28],
+            [-0.28, 0.28, -0.28],
+            [-0.28, -0.28, 0.28],
+            [0.28, -0.28, 0.28],
+            [0.28, 0.28, 0.28],
+            [-0.28, 0.28, 0.28]
+          ]
+        }
+      }
+    }
+  ]
+}

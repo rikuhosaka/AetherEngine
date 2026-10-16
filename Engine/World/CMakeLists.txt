@@ -23,5 +23,8 @@ target_link_libraries(World
         Math
 )
 
+# pch が windows.h を先に取り込む。NOMINMAX はコンパイル定義として先に渡す。
+target_compile_definitions(World PRIVATE NOMINMAX)
+
 target_precompile_headers(World PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
 set_target_properties(World PROPERTIES FOLDER "Engine/World")

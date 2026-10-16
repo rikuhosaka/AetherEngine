@@ -40,8 +40,10 @@ Result<void> GameSubsystem::Initialize(SubsystemContext& ctx)
 	}
 
 	m_worldServices.world = m_module->GetWorld();
+	m_session.mode = SessionMode::Editor;
 	ctx.RegisterService(&m_debugStats);
 	ctx.RegisterService(&m_worldServices);
+	ctx.RegisterService(&m_session);
 	return MakeOk();
 }
 
@@ -55,16 +57,48 @@ Result<void> GameSubsystem::PostInitialize(SubsystemContext& ctx)
 	return MakeOk();
 }
 
-void GameSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
+void GameSubsystem::Tick(SubsystemContext& /*ctx*/, float deltaSeconds)
 {
-	if (m_module != nullptr && m_host != nullptr)
+	if (m_module == nullptr || m_host == nullptr)
 	{
-		m_module->OnTick(*m_host, deltaSeconds);
+		return;
 	}
+
+	const bool sessionOpen = m_appliedMode == SessionMode::Playing;
+	const bool wantSession = m_session.mode == SessionMode::Playing || m_session.mode == SessionMode::Paused;
+	if (wantSession && !sessionOpen)
+	{
+		if (m_session.mode == SessionMode::Paused)
+		{
+			m_session.mode = SessionMode::Editor;
+		}
+		else if (auto begun = m_module->OnBeginPlay(*m_host); !begun)
+		{
+			LogResult(begun, LogCategory::Core);
+			m_session.mode = SessionMode::Editor;
+		}
+		else
+		{
+			m_appliedMode = SessionMode::Playing;
+		}
+	}
+	else if (!wantSession && sessionOpen)
+	{
+		m_module->OnEndPlay(*m_host);
+		m_appliedMode = SessionMode::Editor;
+	}
+
+	m_worldServices.world = m_module->GetWorld();
+	m_module->OnTick(*m_host, deltaSeconds);
 }
 
 void GameSubsystem::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
 {
+	if (m_session.mode != SessionMode::Playing)
+	{
+		return;
+	}
+
 	if (m_module != nullptr && m_host != nullptr)
 	{
 		m_module->OnFixedTick(*m_host, fixedDeltaSeconds);
@@ -125,6 +159,9 @@ void GameSubsystem::ExtractLighting(ExtractedLighting& outLighting)
 
 void GameSubsystem::Shutdown(SubsystemContext& ctx)
 {
+	ctx.UnregisterService(&m_session);
+	m_session = {};
+
 	ctx.UnregisterService(&m_worldServices);
 	m_worldServices.world = nullptr;
 

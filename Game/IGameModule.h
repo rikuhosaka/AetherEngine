@@ -40,6 +40,15 @@ public:
 		return MakeOk();
 	}
 	virtual void OnTick(IGameHost& host, float deltaSeconds) = 0;
+	virtual Result<void> OnBeginPlay(IGameHost& host)
+	{
+		(void)host;
+		return MakeOk();
+	}
+	virtual void OnEndPlay(IGameHost& host)
+	{
+		(void)host;
+	}
 	virtual void OnFixedTick(IGameHost& host, float fixedDeltaSeconds)
 	{
 		(void)host;

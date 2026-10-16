@@ -1,10 +1,12 @@
 #include "Runtime/Subsystems/UiSubsystem.h"
 
 #include "Runtime/Subsystems/Outliner.h"
+#include "Runtime/Subsystems/Details.h"
 
 #include "Engine/Application/Services/DebugStatsServices.h"
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/RHIServices.h"
+#include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
@@ -98,16 +100,56 @@ void UiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 	ImGui::Text("Frame slot %u", ctx.GetFrameSlot());
 	ImGui::Text("Objects %u", extractedObjectCount);
 	ImGui::Text("Entities %u", entityCount);
+	if (auto* session = ctx.GetService<SessionServices>())
+	{
+		const char* modeName = "Editor";
+		if (session->mode == SessionMode::Playing)
+		{
+			modeName = "Playing";
+		}
+		else if (session->mode == SessionMode::Paused)
+		{
+			modeName = "Paused";
+		}
+		ImGui::Text("Mode %s", modeName);
+		if (ImGui::Button("Play"))
+		{
+			session->mode = SessionMode::Playing;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Pause") && session->mode == SessionMode::Playing)
+		{
+			session->mode = SessionMode::Paused;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Stop"))
+		{
+			session->mode = SessionMode::Editor;
+		}
+	}
 	ImGui::End();
 
+	const auto* session = ctx.GetService<SessionServices>();
+	const bool editable = session != nullptr && session->mode == SessionMode::Editor;
 	DrawOutliner(world, &m_selection);
+	DrawDetails(worldServices != nullptr ? worldServices->world : nullptr, &m_selection, editable);
 
 	m_imgui->Render();
 
 	if (InputServices* inputServices = ctx.GetService<InputServices>())
 	{
-		inputServices->mouseCaptured = m_imgui->WantCaptureMouse();
-		inputServices->keyboardCaptured = m_imgui->WantCaptureKeyboard();
+		const auto* session = ctx.GetService<SessionServices>();
+		if (session != nullptr && session->mode != SessionMode::Editor)
+		{
+			const bool hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+			inputServices->mouseCaptured = hovered;
+			inputServices->keyboardCaptured = hovered;
+		}
+		else
+		{
+			inputServices->mouseCaptured = m_imgui->WantCaptureMouse();
+			inputServices->keyboardCaptured = m_imgui->WantCaptureKeyboard();
+		}
 	}
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Application/Services/DebugStatsServices.h"
+#include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
@@ -46,6 +47,8 @@ private:
 	std::unique_ptr<GameHost> m_host{};
 	DebugStatsServices m_debugStats{};
 	WorldServices m_worldServices{};
+	SessionServices m_session{};
+	SessionMode m_appliedMode = SessionMode::Editor;
 };
 
 std::unique_ptr<ISubsystem> CreateGameSubsystem();

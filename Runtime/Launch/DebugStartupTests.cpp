@@ -12,6 +12,7 @@
 #include "Engine/Physics/Test/PhysicsLibraryTest.h"
 #include "Engine/Physics/Test/PhysicsWorldTest.h"
 #include "Engine/World/Test/WorldTest.h"
+#include "Game/SceneDocumentTest.h"
 #include "Game/WorldExtractTest.h"
 
 Result<void> RunDebugStartupTests(
@@ -60,6 +61,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunWorldExtractTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunSceneDocumentTests(assetsRoot); !result)
 	{
 		return result;
 	}
