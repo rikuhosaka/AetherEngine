@@ -145,8 +145,8 @@ endforeach()
 add_custom_target(CompileShaders ALL DEPENDS ${COMPILED_SHADERS})
 set(AETHER_COMPILED_SHADERS ${COMPILED_SHADERS})
 
+add_subdirectory(Editor)
+set_target_properties(Editor PROPERTIES FOLDER "Editor")
+
 add_subdirectory(Runtime)
 set_target_properties(Runtime PROPERTIES FOLDER "Runtime")
-
-add_subdirectory(Game)
-set_target_properties(Game PROPERTIES FOLDER "Game")

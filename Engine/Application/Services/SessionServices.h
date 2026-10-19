@@ -9,8 +9,8 @@ enum class SessionMode : uint8_t
 	Paused,
 };
 
-// Published by GameSubsystem. Playing runs the game fixed step.
-// Paused keeps the play world and skips that step.
+// Published by Scene. The UI writes the mode. Playing runs the fixed step.
+// Paused keeps the play scene and skips that step.
 struct SessionServices
 {
 	SessionMode mode = SessionMode::Editor;

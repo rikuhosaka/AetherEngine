@@ -22,14 +22,20 @@ set_target_properties(RHI PROPERTIES FOLDER "Engine")
 add_subdirectory(Renderer)
 set_target_properties(Renderer PROPERTIES FOLDER "Engine")
 
+add_subdirectory(Camera)
+set_target_properties(Camera PROPERTIES FOLDER "Engine/Camera")
+
 add_subdirectory(Application)
 set_target_properties(Application PROPERTIES FOLDER "Engine/Application")
+
+add_subdirectory(Physics)
+set_target_properties(Physics PROPERTIES FOLDER "Engine/Physics")
 
 add_subdirectory(World)
 set_target_properties(World PROPERTIES FOLDER "Engine/World")
 
-add_subdirectory(Physics)
-set_target_properties(Physics PROPERTIES FOLDER "Engine/Physics")
+add_subdirectory(Scene)
+set_target_properties(Scene PROPERTIES FOLDER "Engine/Scene")
 
 target_link_libraries(Engine INTERFACE
     Core
@@ -40,11 +46,13 @@ target_link_libraries(Engine INTERFACE
     RHI_Interface
     DX12
     Renderer
+    Camera
     DirectXTex
     Platform
     Application
     World
     Physics
+    Scene
 )
 
 target_include_directories(Engine INTERFACE

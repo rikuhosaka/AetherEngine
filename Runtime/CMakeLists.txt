@@ -25,7 +25,7 @@ target_include_directories(Runtime
 target_link_libraries(Runtime
 PUBLIC
     Engine
-    Game
+    Editor
 PRIVATE
     ImGui
 )

@@ -5,7 +5,8 @@
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
-#include "Game/GameSubsystem.h"
+#include "Editor/Scene/SceneLoaderSubsystem.h"
+#include "Engine/Scene/SceneSubsystem.h"
 #include "Runtime/Subsystems/DisplaySubsystem.h"
 #include "Runtime/Subsystems/InputSubsystem.h"
 #include "Runtime/Subsystems/RenderSubsystem.h"
@@ -24,7 +25,8 @@ void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConf
 	registry.Register(CreateUiSubsystem());
 	registry.Register(CreateRenderSubsystem(config));
 	registry.Register(CreateInputSubsystem());
-	registry.Register(CreateGameSubsystem());
+	registry.Register(CreateSceneSubsystem());
+	registry.Register(CreateEditorSubsystem());
 }
 
 WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)

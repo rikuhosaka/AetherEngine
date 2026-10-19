@@ -2,7 +2,7 @@
 
 class World;
 
-// Published by the game module that owns the world. Null before that module registers it.
+// Published by Scene. The editor world, or the play clone while a session is open.
 struct WorldServices
 {
 	World* world = nullptr;

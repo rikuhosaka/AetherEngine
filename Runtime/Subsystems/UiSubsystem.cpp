@@ -4,6 +4,7 @@
 #include "Runtime/Subsystems/Details.h"
 
 #include "Engine/Application/Services/DebugStatsServices.h"
+#include "Engine/Application/Services/EditorSaveServices.h"
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Services/SessionServices.h"
@@ -125,6 +126,16 @@ void UiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 		if (ImGui::Button("Stop"))
 		{
 			session->mode = SessionMode::Editor;
+		}
+		if (auto* editorSave = ctx.GetService<EditorSaveServices>())
+		{
+			ImGui::SameLine();
+			ImGui::BeginDisabled(session->mode != SessionMode::Editor);
+			if (ImGui::Button("Save"))
+			{
+				editorSave->requested = true;
+			}
+			ImGui::EndDisabled();
 		}
 	}
 	ImGui::End();

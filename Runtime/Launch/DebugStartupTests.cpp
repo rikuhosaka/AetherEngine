@@ -8,12 +8,101 @@
 #include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
 #include "Engine/Renderer/Test/ShadowMapTest.h"
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
-#include "Engine/Physics/Test/EntityPhysicsTest.h"
+#include "Engine/Scene/SceneDocument.h"
+#include "Engine/Scene/SceneDocumentTest.h"
+#include "Engine/World/Test/EntityPhysicsTest.h"
 #include "Engine/Physics/Test/PhysicsLibraryTest.h"
 #include "Engine/Physics/Test/PhysicsWorldTest.h"
 #include "Engine/World/Test/WorldTest.h"
-#include "Game/SceneDocumentTest.h"
-#include "Game/WorldExtractTest.h"
+#include "Engine/Scene/SceneCaptureTest.h"
+#include "Engine/Scene/WorldExtractTest.h"
+
+#include <cmath>
+#include <string>
+
+namespace
+{
+[[nodiscard]] bool RoundTripNearlyEqual(float left, float right)
+{
+	return std::fabs(left - right) <= 0.0001f;
+}
+
+[[nodiscard]] SceneDocument MakeRoundTripScene()
+{
+	SceneDocument document{};
+
+	WorldDocumentEntity sphereWorld{};
+	sphereWorld.id = 1;
+	sphereWorld.name = "Sphere";
+	sphereWorld.transform.position = { 0.0f, 4.0f, 0.0f };
+	SceneEntity sphere{};
+	sphere.id = 1;
+	sphere.mesh = "builtin:sphere";
+	sphere.tint[0] = 0.90f;
+	sphere.tint[1] = 0.35f;
+	sphere.tint[2] = 0.12f;
+	sphere.tint[3] = 1.0f;
+	SceneBody sphereBody{};
+	sphereBody.motion = PhysicsMotion::Dynamic;
+	sphereBody.friction = 0.2f;
+	sphereBody.shape.type = PhysicsShapeType::Sphere;
+	sphereBody.shape.radius = 0.5f;
+	sphere.body = sphereBody;
+
+	WorldDocumentEntity hullWorld{};
+	hullWorld.id = 2;
+	hullWorld.name = "Hull";
+	SceneEntity hull{};
+	hull.id = 2;
+	hull.mesh = "builtin:hull";
+	SceneBody hullBody{};
+	hullBody.motion = PhysicsMotion::Dynamic;
+	hullBody.shape.type = PhysicsShapeType::ConvexHull;
+	hullBody.shape.points = {
+		{ 0.0f, 0.0f, 0.0f },
+		{ 1.0f, 0.0f, 0.0f },
+		{ 0.0f, 1.0f, 0.0f },
+		{ 0.0f, 0.0f, 1.0f },
+	};
+	hull.body = hullBody;
+
+	document.world.push_back(sphereWorld);
+	document.world.push_back(hullWorld);
+	document.entities.push_back(sphere);
+	document.entities.push_back(hull);
+	return document;
+}
+
+[[nodiscard]] Result<void> RunSceneDocumentRoundTrip()
+{
+	const SceneDocument source = MakeRoundTripScene();
+	const Result<std::string> written = WriteSceneDocument(source);
+	const Result<SceneDocument> readBack = written
+		? ReadSceneDocument(written.value)
+		: MakeFail<SceneDocument>(written.error.code, written.error.message);
+	const Result<std::string> writtenAgain = readBack
+		? WriteSceneDocument(readBack.value)
+		: MakeFail<std::string>(readBack.error.code, readBack.error.message);
+	const Result<SceneDocument> readAgain = writtenAgain
+		? ReadSceneDocument(writtenAgain.value)
+		: MakeFail<SceneDocument>(writtenAgain.error.code, writtenAgain.error.message);
+	const bool hullKept = readAgain && readAgain.value.entities.size() == 2
+		&& readAgain.value.entities[1].body.has_value()
+		&& readAgain.value.entities[1].body->shape.points.size() == 4
+		&& readAgain.value.entities[1].mesh == "builtin:hull"
+		&& RoundTripNearlyEqual(readAgain.value.entities[0].tint[0], 0.90f)
+		&& RoundTripNearlyEqual(readAgain.value.world[0].transform.position.y, 4.0f);
+	if (!written || !readBack || !writtenAgain || !readAgain || !hullKept)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Scene document JSON should round-trip mesh keys, tint, and owned hull points");
+	}
+
+	return MakeOk();
+}
+} // namespace
 
 Result<void> RunDebugStartupTests(
 	[[maybe_unused]] const std::filesystem::path& compiledShaderRoot,
@@ -65,7 +154,17 @@ Result<void> RunDebugStartupTests(
 		return result;
 	}
 
-	if (auto result = RunSceneDocumentTests(assetsRoot); !result)
+	if (auto result = RunSceneCaptureTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunSceneDocumentLoadTests(assetsRoot); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunSceneDocumentRoundTrip(); !result)
 	{
 		return result;
 	}
