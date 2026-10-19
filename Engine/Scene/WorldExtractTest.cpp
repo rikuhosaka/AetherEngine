@@ -27,10 +27,12 @@ Result<void> RunWorldExtractTests()
 	World world{};
 	WorldSpawnDesc spawnDesc{};
 	spawnDesc.transform.position = { 5.0f, 2.0f, -1.0f };
-	spawnDesc.renderable.visible = true;
-	spawnDesc.renderable.mesh = ToWorldMeshId(MeshHandle{ 3, 1 });
-	spawnDesc.renderable.material = ToWorldMaterialId(MaterialHandle{ 4, 2 });
-	spawnDesc.renderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
+	Renderable firstRenderable{};
+	firstRenderable.visible = true;
+	firstRenderable.mesh = ToWorldMeshId(MeshHandle{ 3, 1 });
+	firstRenderable.material = ToWorldMaterialId(MaterialHandle{ 4, 2 });
+	firstRenderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
+	spawnDesc.renderable = std::move(firstRenderable);
 
 	const EntityId first = world.Spawn(std::move(spawnDesc));
 
@@ -86,7 +88,11 @@ Result<void> RunWorldExtractTests()
 			"Destroyed entity should not extract");
 	}
 
-	const EntityId second = world.Spawn(WorldSpawnDesc{});
+	WorldSpawnDesc reusedDesc{};
+	Renderable reusedRenderable{};
+	reusedRenderable.visible = true;
+	reusedDesc.renderable = std::move(reusedRenderable);
+	const EntityId second = world.Spawn(std::move(reusedDesc));
 	extracted.clear();
 	ExtractWorld(world, extracted);
 	if (extracted.size() != 1 ||
@@ -97,6 +103,25 @@ Result<void> RunWorldExtractTests()
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Extract should use the reused entity generation");
+	}
+
+	const EntityId unrendered = world.Spawn(WorldSpawnDesc{});
+	extracted.clear();
+	ExtractWorld(world, extracted);
+	bool sawUnrendered = false;
+	for (const ExtractedObject& object : extracted)
+	{
+		if (object.objectId.Index == unrendered.Index && object.objectId.Generation == unrendered.Generation)
+		{
+			sawUnrendered = true;
+		}
+	}
+	if (extracted.size() != 1 || sawUnrendered)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"An entity without a renderable should not extract");
 	}
 
 	WorldSpawnDesc parentDesc{};
@@ -110,7 +135,9 @@ Result<void> RunWorldExtractTests()
 	WorldSpawnDesc childDesc{};
 	childDesc.parent = parent;
 	childDesc.transform.position = { 1.0f, 0.0f, 0.0f };
-	childDesc.renderable.visible = true;
+	Renderable childRenderable{};
+	childRenderable.visible = true;
+	childDesc.renderable = std::move(childRenderable);
 	const EntityId child = world.Spawn(std::move(childDesc));
 
 	extracted.clear();
@@ -173,6 +200,9 @@ Result<void> RunWorldExtractTests()
 	WorldSpawnDesc staleDesc{};
 	staleDesc.parent = parent;
 	staleDesc.transform.position = { 4.0f, 0.0f, 0.0f };
+	Renderable staleRenderable{};
+	staleRenderable.visible = true;
+	staleDesc.renderable = std::move(staleRenderable);
 	const EntityId staleChild = world.Spawn(std::move(staleDesc));
 	if (staleChild.Index != parent.Index)
 	{

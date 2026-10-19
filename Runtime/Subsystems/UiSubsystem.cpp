@@ -85,11 +85,17 @@ void UiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 	const auto* debugStats = ctx.GetService<DebugStatsServices>();
 	const uint32_t extractedObjectCount = debugStats != nullptr ? debugStats->extractedObjectCount : 0;
 	const auto* worldServices = ctx.GetService<WorldServices>();
+	const uint32_t worldGeneration = worldServices != nullptr ? worldServices->generation : 0;
+	if (m_selection.worldGeneration != worldGeneration)
+	{
+		m_selection.selected = {};
+		m_selection.worldGeneration = worldGeneration;
+	}
 	const World* world = worldServices != nullptr ? worldServices->world : nullptr;
 	uint32_t entityCount = 0;
 	if (world != nullptr)
 	{
-		world->ForEachAlive([&entityCount](EntityId, const Transform&, const Renderable&) {
+		world->ForEachAlive([&entityCount](EntityId, const Transform&) {
 			++entityCount;
 		});
 	}

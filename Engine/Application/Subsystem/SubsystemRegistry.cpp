@@ -8,6 +8,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -51,8 +52,17 @@ Result<void> SubsystemRegistry::BuildOrders()
 	m_initOrder.clear();
 	m_tickOrder.clear();
 
-	std::unordered_map<std::string_view, ISubsystem*> subsystemByName{};
-	subsystemByName.reserve(m_subsystems.size());
+	struct Node
+	{
+		ISubsystem* subsystem = nullptr;
+		uint32_t inDegree = 0;
+		std::vector<uint32_t> dependents{};
+	};
+
+	std::vector<Node> nodes{};
+	nodes.reserve(m_subsystems.size());
+	std::unordered_map<std::string_view, uint32_t> indexByName{};
+	indexByName.reserve(m_subsystems.size());
 
 	for (const std::unique_ptr<ISubsystem>& subsystem : m_subsystems)
 	{
@@ -68,7 +78,7 @@ Result<void> SubsystemRegistry::BuildOrders()
 				"Subsystem name must not be empty");
 		}
 
-		if (subsystemByName.contains(name))
+		if (indexByName.contains(name))
 		{
 			return FailInternal(
 				LogCategory::Core,
@@ -76,17 +86,14 @@ Result<void> SubsystemRegistry::BuildOrders()
 				std::string("Duplicate subsystem name: ") + std::string(name));
 		}
 
-		subsystemByName.emplace(name, subsystem.get());
+		indexByName.emplace(name, static_cast<uint32_t>(nodes.size()));
+		nodes.push_back(Node{ subsystem.get(), 0, {} });
 	}
 
-	std::unordered_map<std::string_view, uint32_t> inDegree{};
-	std::unordered_map<std::string_view, std::vector<std::string_view>> dependents{};
-
-	for (const auto& [name, subsystem] : subsystemByName)
+	for (uint32_t index = 0; index < nodes.size(); ++index)
 	{
-		inDegree[name] = 0;
-
-		for (const char* const dependencyName : subsystem->GetDependencies())
+		const std::string_view name = nodes[index].subsystem->GetName();
+		for (const char* const dependencyName : nodes[index].subsystem->GetDependencies())
 		{
 			if (dependencyName == nullptr || dependencyName[0] == '\0')
 			{
@@ -94,7 +101,8 @@ Result<void> SubsystemRegistry::BuildOrders()
 			}
 
 			const std::string_view dependencyView = dependencyName;
-			if (!subsystemByName.contains(dependencyView))
+			const auto dependency = indexByName.find(dependencyView);
+			if (dependency == indexByName.end())
 			{
 				return FailInternal(
 					LogCategory::Core,
@@ -106,41 +114,41 @@ Result<void> SubsystemRegistry::BuildOrders()
 						+ "'");
 			}
 
-			++inDegree[name];
-			dependents[dependencyView].push_back(name);
+			++nodes[index].inDegree;
+			nodes[dependency->second].dependents.push_back(index);
 		}
 	}
 
-	std::queue<std::string_view> ready{};
-	for (const auto& [name, degree] : inDegree)
+	// Lower registration index is ready first when several dependencies are already satisfied.
+	const auto readyLater = [](uint32_t lhs, uint32_t rhs) { return lhs > rhs; };
+	std::priority_queue<uint32_t, std::vector<uint32_t>, decltype(readyLater)> ready{ readyLater };
+	for (uint32_t index = 0; index < nodes.size(); ++index)
 	{
-		if (degree == 0)
+		if (nodes[index].inDegree == 0)
 		{
-			ready.push(name);
+			ready.push(index);
 		}
 	}
 
-	m_initOrder.reserve(subsystemByName.size());
+	m_initOrder.reserve(nodes.size());
 	while (!ready.empty())
 	{
-		const std::string_view name = ready.front();
+		const uint32_t index = ready.top();
 		ready.pop();
+		m_initOrder.push_back(nodes[index].subsystem);
 
-		ISubsystem* subsystem = subsystemByName[name];
-		m_initOrder.push_back(subsystem);
-
-		for (const std::string_view dependentName : dependents[name])
+		for (const uint32_t dependentIndex : nodes[index].dependents)
 		{
-			uint32_t& degree = inDegree[dependentName];
+			uint32_t& degree = nodes[dependentIndex].inDegree;
 			--degree;
 			if (degree == 0)
 			{
-				ready.push(dependentName);
+				ready.push(dependentIndex);
 			}
 		}
 	}
 
-	if (m_initOrder.size() != subsystemByName.size())
+	if (m_initOrder.size() != nodes.size())
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"Circular subsystem dependency detected");

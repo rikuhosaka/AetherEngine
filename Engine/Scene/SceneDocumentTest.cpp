@@ -21,7 +21,7 @@ namespace
 [[nodiscard]] size_t CountAlive(const World& world)
 {
 	size_t count = 0;
-	world.ForEachAlive([&count](EntityId, const Transform&, const Renderable&) {
+	world.ForEachAlive([&count](EntityId, const Transform&) {
 		++count;
 	});
 	return count;

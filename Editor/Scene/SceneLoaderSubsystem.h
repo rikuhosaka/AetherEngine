@@ -13,6 +13,8 @@ public:
 
 	[[nodiscard]] const char* GetName() const override { return "Editor"; }
 
+	[[nodiscard]] std::span<const char* const> GetDependencies() const override;
+
 	[[nodiscard]] bool WantsTick() const override { return true; }
 
 	Result<void> Initialize(SubsystemContext& ctx) override;

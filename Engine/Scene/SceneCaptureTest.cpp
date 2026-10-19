@@ -121,16 +121,20 @@ namespace
 	WorldSpawnDesc sphereDesc{};
 	sphereDesc.name = "Sphere";
 	sphereDesc.transform = source.world[0].transform;
+	sphereDesc.renderable = Renderable{};
 	const EntityId sphere = world.Spawn(std::move(sphereDesc));
 
 	WorldSpawnDesc hullDesc{};
 	hullDesc.name = "Hull";
 	hullDesc.transform = source.world[1].transform;
+	hullDesc.renderable = Renderable{};
 	const EntityId hull = world.Spawn(std::move(hullDesc));
 
 	WorldSpawnDesc markerDesc{};
 	markerDesc.name = "Marker";
-	markerDesc.renderable.visible = false;
+	Renderable markerRenderable{};
+	markerRenderable.visible = false;
+	markerDesc.renderable = std::move(markerRenderable);
 	const EntityId marker = world.Spawn(std::move(markerDesc));
 	Transform* sphereTransform = world.GetTransform(sphere);
 	if (!sphere.IsValid() || !hull.IsValid() || !marker.IsValid() || sphereTransform == nullptr

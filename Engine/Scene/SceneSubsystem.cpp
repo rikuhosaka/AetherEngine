@@ -1,6 +1,7 @@
 #include "Engine/Scene/SceneSubsystem.h"
 
 #include "Engine/Application/Services/EditorCameraServices.h"
+#include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
@@ -17,13 +18,29 @@
 #include <utility>
 #include <vector>
 
+namespace
+{
+constexpr const char* kDependencies[] = { "Render", "Input" };
+} // namespace
+
 std::unique_ptr<ISubsystem> CreateSceneSubsystem()
 {
 	return std::make_unique<SceneSubsystem>();
 }
 
+std::span<const char* const> SceneSubsystem::GetDependencies() const
+{
+	return kDependencies;
+}
+
 Result<void> SceneSubsystem::Initialize(SubsystemContext& ctx)
 {
+	if (ctx.GetService<RenderServices>() == nullptr || ctx.GetService<InputServices>() == nullptr)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"SceneSubsystem requires RenderServices and InputServices");
+	}
+
 	m_context = &ctx;
 	m_session.mode = SessionMode::Editor;
 	m_appliedMode = SessionMode::Editor;
@@ -242,7 +259,7 @@ void SceneSubsystem::ApplySession()
 
 void SceneSubsystem::PublishWorld()
 {
-	m_worldServices.world = m_game.has_value() ? &m_game->GetWorld() : &m_editor.GetWorld();
+	m_worldServices.Publish(m_game.has_value() ? &m_game->GetWorld() : &m_editor.GetWorld());
 }
 
 Result<void> SceneSubsystem::BeginPlay()

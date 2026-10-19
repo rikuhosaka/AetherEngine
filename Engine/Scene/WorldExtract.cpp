@@ -13,7 +13,7 @@ static_assert(WorldLayer::Transparent == RenderLayer::Transparent);
 
 void ExtractWorld(const World& world, std::vector<ExtractedObject>& outObjects)
 {
-	world.ForEachAlive([&world, &outObjects](EntityId id, const Transform&, const Renderable& renderable) {
+	world.ForEachRenderable([&world, &outObjects](EntityId id, const Transform&, const Renderable& renderable) {
 		ExtractedObject object{};
 		object.objectId.Index = id.Index;
 		object.objectId.Generation = id.Generation;

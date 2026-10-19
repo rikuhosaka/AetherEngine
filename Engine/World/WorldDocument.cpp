@@ -137,9 +137,11 @@ Result<std::vector<WorldDocumentBinding>> Instantiate(World& world, const WorldD
 		WorldSpawnDesc desc{};
 		desc.name = entity.name;
 		desc.transform = entity.transform;
-		desc.renderable.submeshIndex = entity.submeshIndex;
-		desc.renderable.layerMask = entity.layerMask;
-		desc.renderable.visible = entity.visible;
+		Renderable renderable{};
+		renderable.submeshIndex = entity.submeshIndex;
+		renderable.layerMask = entity.layerMask;
+		renderable.visible = entity.visible;
+		desc.renderable = std::move(renderable);
 
 		const EntityId spawnedId = world.Spawn(std::move(desc));
 		spawned.push_back(spawnedId);

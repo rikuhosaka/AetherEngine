@@ -15,18 +15,32 @@
 #include <fstream>
 #include <span>
 
+namespace
+{
+constexpr const char* kDependencies[] = { "Window", "Input", "Scene" };
+} // namespace
+
 std::unique_ptr<ISubsystem> CreateEditorSubsystem()
 {
 	return std::make_unique<SceneLoaderSubsystem>();
 }
 
+std::span<const char* const> SceneLoaderSubsystem::GetDependencies() const
+{
+	return kDependencies;
+}
+
 Result<void> SceneLoaderSubsystem::Initialize(SubsystemContext& ctx)
 {
-	m_camera.Reset();
 	const WindowServices* windowServices = ctx.GetService<WindowServices>();
-	const uint32_t width = windowServices != nullptr ? windowServices->clientWidth : 0;
-	const uint32_t height = windowServices != nullptr ? windowServices->clientHeight : 0;
-	m_camera.Publish(width, height, m_cameraServices);
+	if (windowServices == nullptr)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"SceneLoaderSubsystem requires WindowServices");
+	}
+
+	m_camera.Reset();
+	m_camera.Publish(windowServices->clientWidth, windowServices->clientHeight, m_cameraServices);
 
 	ctx.RegisterService(&m_cameraServices);
 	ctx.RegisterService(&m_editorSave);
@@ -86,7 +100,7 @@ Result<void> SceneLoaderSubsystem::SaveEditorScene(SubsystemContext& ctx)
 	const Result<SceneDocument> captured = CaptureScene(
 		*scene->world,
 		*scene->document,
-		std::span<const WorldDocumentBinding>(scene->bindings, scene->bindingCount));
+		std::span<const WorldDocumentBinding>(scene->bindings));
 	if (!captured)
 	{
 		return MakeFail(captured.error.code, captured.error.message);

@@ -7,6 +7,7 @@
 #include <DirectXMath.h>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,7 +16,7 @@ struct WorldSpawnDesc
 {
 	std::string name{};
 	Transform transform{};
-	Renderable renderable{};
+	std::optional<Renderable> renderable{};
 	EntityId parent{};
 };
 
@@ -44,6 +45,7 @@ public:
 
 	// Copies slots, generations, parents, names, transforms, renderables, and free indices.
 	// Mesh and material handles are shared. Dead slots stay dead, so entity ids match.
+	// A missing renderable stays missing.
 	[[nodiscard]] World Clone() const
 	{
 		return *this;
@@ -61,7 +63,23 @@ public:
 			}
 
 			const EntityId id{ index, slot.generation };
-			fn(id, slot.transform, slot.renderable);
+			fn(id, slot.transform);
+		}
+	}
+
+	// Alive entities that have a renderable, in slot order.
+	template<typename Fn>
+	void ForEachRenderable(Fn&& fn) const
+	{
+		for (uint32_t index = 0; index < m_slots.size(); ++index)
+		{
+			const Slot& slot = m_slots[index];
+			if (!slot.alive || !m_renderables[index].has_value())
+			{
+				continue;
+			}
+
+			fn(EntityId{ index, slot.generation }, slot.transform, *m_renderables[index]);
 		}
 	}
 
@@ -110,7 +128,6 @@ private:
 		EntityId parent{};
 		std::string name{};
 		Transform transform{};
-		Renderable renderable{};
 	};
 
 	static constexpr int kMaxParentDepth = 64;
@@ -121,5 +138,6 @@ private:
 	void ReleaseSlot(EntityId id);
 
 	std::vector<Slot> m_slots{};
+	std::vector<std::optional<Renderable>> m_renderables{};
 	std::vector<uint32_t> m_freeIndices{};
 };

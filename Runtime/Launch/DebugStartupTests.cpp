@@ -1,6 +1,7 @@
 #include "Runtime/Launch/DebugStartupTests.h"
 
 #include "Engine/Application/Test/FixedStepTest.h"
+#include "Engine/Application/Test/SubsystemOrderTest.h"
 #include "Engine/Renderer/Test/FbxModelFileLoaderTest.h"
 #include "Engine/Renderer/Test/FrustumCullTest.h"
 #include "Engine/Renderer/Test/PrimitiveMeshTest.h"
@@ -15,6 +16,7 @@
 #include "Engine/Physics/Test/PhysicsWorldTest.h"
 #include "Engine/World/Test/WorldTest.h"
 #include "Engine/Scene/SceneCaptureTest.h"
+#include "Engine/Scene/ServiceLifetimeTest.h"
 #include "Engine/Scene/WorldExtractTest.h"
 
 #include <cmath>
@@ -159,6 +161,11 @@ Result<void> RunDebugStartupTests(
 		return result;
 	}
 
+	if (auto result = RunServiceLifetimeTests(); !result)
+	{
+		return result;
+	}
+
 	if (auto result = RunSceneDocumentLoadTests(assetsRoot); !result)
 	{
 		return result;
@@ -175,6 +182,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunFixedStepTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunSubsystemOrderTests(); !result)
 	{
 		return result;
 	}

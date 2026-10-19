@@ -25,15 +25,17 @@ void EditorScene::SetPath(std::filesystem::path path)
 
 void EditorScene::Publish(EditorSceneServices& out) const
 {
-	out = {};
 	if (!m_hasDocument)
 	{
+		out.world = nullptr;
+		out.document = nullptr;
+		out.bindings.clear();
+		out.path.clear();
 		return;
 	}
 
 	out.world = &m_world;
 	out.document = &m_document;
-	out.bindings = m_bindings.data();
-	out.bindingCount = m_bindings.size();
+	out.bindings = m_bindings;
 	out.path = m_path;
 }

@@ -17,7 +17,7 @@ namespace
 [[nodiscard]] size_t CountAlive(const World& world)
 {
 	size_t count = 0;
-	world.ForEachAlive([&count](EntityId, const Transform&, const Renderable&) {
+	world.ForEachAlive([&count](EntityId, const Transform&) {
 		++count;
 	});
 	return count;
@@ -91,7 +91,9 @@ Result<void> RunWorldTests()
 	WorldSpawnDesc spawnDesc{};
 	spawnDesc.name = "First";
 	spawnDesc.transform.position = { 5.0f, 2.0f, -1.0f };
-	spawnDesc.renderable.visible = true;
+	Renderable firstRenderable{};
+	firstRenderable.visible = true;
+	spawnDesc.renderable = std::move(firstRenderable);
 
 	const EntityId first = world.Spawn(std::move(spawnDesc));
 	if (!world.IsAlive(first) || world.GetTransform(first) == nullptr || world.GetRenderable(first) == nullptr)
@@ -172,7 +174,7 @@ Result<void> RunWorldTests()
 	}
 
 	bool sawSecond = false;
-	world.ForEachAlive([&](EntityId id, const Transform&, const Renderable&) {
+	world.ForEachAlive([&](EntityId id, const Transform&) {
 		sawSecond = id.Index == second.Index && id.Generation == second.Generation;
 	});
 	if (!sawSecond || CountAlive(world) != 1)
@@ -386,17 +388,21 @@ Result<void> RunWorldTests()
 	WorldSpawnDesc cloneRootDesc{};
 	cloneRootDesc.name = "Root";
 	cloneRootDesc.transform.position = { 1.0f, 2.0f, 3.0f };
-	cloneRootDesc.renderable.mesh.Index = 7;
-	cloneRootDesc.renderable.mesh.Generation = 1;
-	cloneRootDesc.renderable.visible = false;
+	Renderable cloneRootRenderable{};
+	cloneRootRenderable.mesh.Index = 7;
+	cloneRootRenderable.mesh.Generation = 1;
+	cloneRootRenderable.visible = false;
+	cloneRootDesc.renderable = std::move(cloneRootRenderable);
 	const EntityId cloneRoot = cloneSource.Spawn(std::move(cloneRootDesc));
 
 	WorldSpawnDesc cloneChildDesc{};
 	cloneChildDesc.name = "Child";
 	cloneChildDesc.parent = cloneRoot;
 	cloneChildDesc.transform.position = { 0.5f, 0.0f, -2.0f };
-	cloneChildDesc.renderable.material.Index = 3;
-	cloneChildDesc.renderable.material.Generation = 2;
+	Renderable cloneChildRenderable{};
+	cloneChildRenderable.material.Index = 3;
+	cloneChildRenderable.material.Generation = 2;
+	cloneChildDesc.renderable = std::move(cloneChildRenderable);
 	const EntityId cloneChild = cloneSource.Spawn(std::move(cloneChildDesc));
 
 	WorldSpawnDesc cloneDoomedDesc{};
@@ -612,6 +618,54 @@ Result<void> RunWorldTests()
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"World document JSON should reject an unsupported version, invalid text, and a missing field");
+	}
+
+	World bare{};
+	const EntityId bareEntity = bare.Spawn(WorldSpawnDesc{});
+	if (!bare.IsAlive(bareEntity) || bare.GetRenderable(bareEntity) != nullptr)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Spawn without a renderable should leave that component empty");
+	}
+
+	Renderable marked{};
+	marked.mesh.Index = 4;
+	marked.mesh.Generation = 2;
+	WorldSpawnDesc markedDesc{};
+	markedDesc.renderable = std::move(marked);
+	const EntityId markedEntity = bare.Spawn(std::move(markedDesc));
+	bare.Destroy(markedEntity);
+	const EntityId reusedBare = bare.Spawn(WorldSpawnDesc{});
+	if (reusedBare.Index != markedEntity.Index || reusedBare.Generation != markedEntity.Generation + 1
+		|| bare.GetRenderable(reusedBare) != nullptr)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Reused slot should not keep the previous renderable");
+	}
+
+	World renderSource{};
+	Renderable copied{};
+	copied.mesh.Index = 9;
+	copied.mesh.Generation = 1;
+	copied.visible = false;
+	WorldSpawnDesc copiedDesc{};
+	copiedDesc.renderable = std::move(copied);
+	const EntityId copiedEntity = renderSource.Spawn(std::move(copiedDesc));
+	const EntityId emptyEntity = renderSource.Spawn(WorldSpawnDesc{});
+	const World renderClone = renderSource.Clone();
+	const Renderable* clonedRenderable = renderClone.GetRenderable(copiedEntity);
+	if (renderClone.GetRenderable(emptyEntity) != nullptr || clonedRenderable == nullptr
+		|| clonedRenderable->mesh.Index != 9 || clonedRenderable->mesh.Generation != 1
+		|| clonedRenderable->visible)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Clone should copy renderable presence and contents");
 	}
 
 	LOG_INFO(LogCategory::ECS, "WorldTests passed");
