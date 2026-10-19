@@ -8,7 +8,7 @@
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Renderer/Scene/RenderViewTypes.h"
 #include "Engine/Scene/EditorScene.h"
-#include "Engine/Scene/PhysicsDropScene.h"
+#include "Engine/Scene/SceneDocument.h"
 
 #include <utility>
 
@@ -27,11 +27,18 @@ GameScene::GameScene(World world, EntityPhysics physics, SceneLightingSettings l
 
 Result<GameScene> GameScene::Begin(
 	const EditorScene& editor,
-	PhysicsDropScene& content,
 	const EditorCameraServices* camera)
 {
+	if (!editor.HasDocument())
+	{
+		return FailInternal<GameScene>(
+			LogCategory::Physics,
+			ErrorCode::InvalidArgument,
+			"GameScene::Begin requires a scene document");
+	}
+
 	World world = editor.GetWorld().Clone();
-	Result<EntityPhysics> physics = content.CreatePlayPhysics(editor, world);
+	Result<EntityPhysics> physics = BindScenePhysics(world, editor.GetDocument(), editor.GetBindings());
 	if (!physics)
 	{
 		return MakeFail<GameScene>(physics.error.code, physics.error.message);

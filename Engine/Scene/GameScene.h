@@ -10,7 +10,6 @@
 #include <cstdint>
 
 class EditorScene;
-class PhysicsDropScene;
 class SubsystemContext;
 struct EditorCameraServices;
 struct ExtractedLighting;
@@ -24,7 +23,6 @@ public:
 
 	[[nodiscard]] static Result<GameScene> Begin(
 		const EditorScene& editor,
-		PhysicsDropScene& content,
 		const EditorCameraServices* camera);
 
 	[[nodiscard]] World& GetWorld() { return m_world; }

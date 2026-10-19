@@ -8,7 +8,6 @@
 #include "Engine/Application/Subsystem/ISubsystem.h"
 #include "Engine/Scene/EditorScene.h"
 #include "Engine/Scene/GameScene.h"
-#include "Engine/Scene/PhysicsDropScene.h"
 
 #include <memory>
 #include <optional>
@@ -42,7 +41,6 @@ private:
 
 	SubsystemContext* m_context = nullptr;
 	EditorScene m_editor{};
-	PhysicsDropScene m_drop{};
 	std::optional<GameScene> m_game{};
 	DebugStatsServices m_debugStats{};
 	WorldServices m_worldServices{};

@@ -9,8 +9,6 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <string>
 
 namespace
@@ -139,17 +137,7 @@ namespace
 [[nodiscard]] Result<void> TestPhysicsDropDocument(const std::filesystem::path& assetsRoot)
 {
 	const std::filesystem::path scenePath = assetsRoot / "Scenes" / "PhysicsDrop.json";
-	std::ifstream file(scenePath);
-	if (!file)
-	{
-		return FailRuntime(
-			LogCategory::ECS,
-			ErrorCode::FileNotFound,
-			"Physics drop scene document should be readable");
-	}
-
-	const std::string text{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
-	const Result<SceneDocument> document = ReadSceneDocument(text);
+	const Result<SceneDocument> document = LoadSceneDocument(scenePath);
 	const WorldDocumentEntity* floor = document ? FindNamedWorld(document.value, "Floor") : nullptr;
 	const WorldDocumentEntity* box = document ? FindNamedWorld(document.value, "Box") : nullptr;
 	const WorldDocumentEntity* sphere = document ? FindNamedWorld(document.value, "Sphere") : nullptr;
@@ -247,6 +235,33 @@ namespace
 	return MakeOk();
 }
 
+[[nodiscard]] Result<void> TestBindScenePhysics()
+{
+	const SceneDocument source = MakeScene();
+	World world{};
+	const Result<std::vector<WorldDocumentBinding>> spawned = Instantiate(world, source.world);
+	if (!spawned)
+	{
+		return MakeFail(spawned.error.code, spawned.error.message);
+	}
+
+	Result<EntityPhysics> physics = BindScenePhysics(world, source, spawned.value);
+	const WorldDocumentBinding* sphere = spawned ? FindBinding(spawned.value, 1) : nullptr;
+	const WorldDocumentBinding* hull = spawned ? FindBinding(spawned.value, 2) : nullptr;
+	const WorldDocumentBinding* marker = spawned ? FindBinding(spawned.value, 3) : nullptr;
+	if (!physics || sphere == nullptr || hull == nullptr || marker == nullptr
+		|| !physics.value.Unbind(sphere->entity) || !physics.value.Unbind(hull->entity)
+		|| physics.value.Unbind(marker->entity))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"BindScenePhysics should bind only entities with bodies");
+	}
+
+	return MakeOk();
+}
+
 [[nodiscard]] Result<void> TestWriteScene()
 {
 	const SceneDocument source = MakeScene();
@@ -276,6 +291,11 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	if (auto library = InitializePhysicsLibrary(); !library)
 	{
 		return library;
+	}
+
+	if (auto bound = TestBindScenePhysics(); !bound)
+	{
+		return bound;
 	}
 
 	const SceneDocument source = MakeScene();

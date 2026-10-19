@@ -4,6 +4,9 @@
 #include "ThirdParty/nlohmann/json.hpp"
 
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <utility>
 
 namespace
@@ -443,6 +446,19 @@ using Json = nlohmann::json;
 	return nullptr;
 }
 
+[[nodiscard]] const SceneEntity* FindSceneEntity(const SceneDocument& document, uint32_t id)
+{
+	for (const SceneEntity& entity : document.entities)
+	{
+		if (entity.id == id)
+		{
+			return &entity;
+		}
+	}
+
+	return nullptr;
+}
+
 [[nodiscard]] const WorldDocumentBinding* FindBinding(
 	const std::vector<WorldDocumentBinding>& bindings,
 	uint32_t id)
@@ -603,6 +619,58 @@ Result<SceneDocument> ReadSceneDocument(std::string_view text)
 			ErrorCode::InvalidArgument,
 			"Scene document JSON is invalid");
 	}
+}
+
+Result<SceneDocument> LoadSceneDocument(const std::filesystem::path& path)
+{
+	std::ifstream file(path);
+	if (!file)
+	{
+		return FailRuntime<SceneDocument>(
+			LogCategory::ECS,
+			ErrorCode::FileNotFound,
+			"Scene document file could not be opened");
+	}
+
+	const std::string text{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
+	return ReadSceneDocument(text);
+}
+
+Result<EntityPhysics> BindScenePhysics(
+	World& world,
+	const SceneDocument& document,
+	std::span<const WorldDocumentBinding> bindings)
+{
+	Result<EntityPhysics> physics = EntityPhysics::Create();
+	if (!physics)
+	{
+		return FailInternal<EntityPhysics>(LogCategory::Physics, physics.error.code, physics.error.message);
+	}
+
+	std::vector<EntityId> bound{};
+	for (const WorldDocumentBinding& binding : bindings)
+	{
+		const SceneEntity* entity = FindSceneEntity(document, binding.id);
+		if (entity == nullptr || !entity->body.has_value())
+		{
+			continue;
+		}
+
+		const Result<PhysicsBodyId> body = physics.value.Bind(world, binding.entity, MakeBodyDesc(*entity->body));
+		if (!body)
+		{
+			for (const EntityId id : bound)
+			{
+				(void)physics.value.Unbind(id);
+			}
+
+			return FailInternal<EntityPhysics>(LogCategory::Physics, body.error.code, body.error.message);
+		}
+
+		bound.push_back(binding.entity);
+	}
+
+	return physics;
 }
 
 Result<std::vector<WorldDocumentBinding>> InstantiateScene(

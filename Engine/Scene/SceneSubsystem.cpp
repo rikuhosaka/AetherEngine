@@ -7,8 +7,11 @@
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/Scene/SceneAssetLoader.h"
+#include "Engine/Scene/SceneDocument.h"
 #include "Engine/Scene/SceneLighting.h"
 #include "Engine/Scene/WorldExtract.h"
+#include "Engine/World/EntityPhysics.h"
 
 #include <memory>
 #include <utility>
@@ -83,22 +86,46 @@ Result<void> SceneSubsystem::LoadContent(
 	}
 
 	const std::filesystem::path scenePath = renderServices->shaderRoot.parent_path() / "Scenes" / "PhysicsDrop.json";
-	if (auto initResult = m_drop.EnsureInitialized(
-			m_editor,
-			*renderServices->resources,
-			frameContext,
-			commandList,
-			renderServices->shaderRoot,
-			scenePath);
-		!initResult)
+	Result<SceneDocument> document = LoadSceneDocument(scenePath);
+	if (!document)
 	{
-		return initResult;
+		return MakeFail(document.error.code, document.error.message);
 	}
 
-	if (auto spawned = m_drop.SpawnInto(m_editor); !spawned)
+	SceneAssetLoader loader{};
+	Result<SceneAssets> assets = loader.Load(
+		document.value,
+		*renderServices->resources,
+		frameContext,
+		commandList,
+		renderServices->shaderRoot);
+	if (!assets)
 	{
-		return spawned;
+		return MakeFail(assets.error.code, assets.error.message);
 	}
+
+	m_editor.SetPath(scenePath);
+	m_editor.SetDocument(std::move(document.value));
+
+	Result<EntityPhysics> physics = EntityPhysics::Create();
+	if (!physics)
+	{
+		return FailInternal(LogCategory::Physics, physics.error.code, physics.error.message);
+	}
+
+	Result<std::vector<WorldDocumentBinding>> bindings = InstantiateScene(
+		m_editor.GetWorld(),
+		physics.value,
+		m_editor.GetDocument(),
+		assets.value.meshes,
+		assets.value.render);
+	if (!bindings)
+	{
+		return MakeFail(bindings.error.code, bindings.error.message);
+	}
+
+	m_editor.SetBindings(std::move(bindings.value));
+	m_editor.SetPhysics(std::move(physics.value));
 
 	m_editor.Publish(m_editorServices);
 	PublishWorld();
@@ -226,7 +253,7 @@ Result<void> SceneSubsystem::BeginPlay()
 	}
 
 	const EditorCameraServices* camera = m_context != nullptr ? m_context->GetService<EditorCameraServices>() : nullptr;
-	Result<GameScene> opened = GameScene::Begin(m_editor, m_drop, camera);
+	Result<GameScene> opened = GameScene::Begin(m_editor, camera);
 	if (!opened)
 	{
 		return MakeFail(opened.error.code, opened.error.message);
