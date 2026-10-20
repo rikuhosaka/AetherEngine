@@ -1,28 +1,22 @@
 #include "Runtime/Subsystems/UiSubsystem.h"
 
-#include "Runtime/Subsystems/Outliner.h"
-#include "Runtime/Subsystems/Details.h"
-
-#include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/EditorSaveServices.h"
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WindowServices.h"
-#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemTypes.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/RHI/Interface/RHIDevice.h"
 #include "Engine/RHI/Interface/RHIImGui.h"
-#include "Engine/World/World.h"
 
 #include "imgui.h"
 
 namespace
 {
 constexpr const char* kDependencies[] = { "Window", "RHI", "Display" };
+constexpr const char* kPresentDependencies[] = { "UI" };
 } // namespace
 
 UiSubsystem::UiSubsystem() = default;
@@ -32,6 +26,11 @@ UiSubsystem::~UiSubsystem() = default;
 std::unique_ptr<ISubsystem> CreateUiSubsystem()
 {
 	return std::make_unique<UiSubsystem>();
+}
+
+std::unique_ptr<ISubsystem> CreateUiPresentSubsystem()
+{
+	return std::make_unique<UiPresentSubsystem>();
 }
 
 std::span<const char* const> UiSubsystem::GetDependencies() const
@@ -64,11 +63,10 @@ Result<void> UiSubsystem::Initialize(SubsystemContext& ctx)
 	m_imgui = std::move(imguiResult.value);
 	m_services.imgui = m_imgui.get();
 	ctx.RegisterService(&m_services);
-	ctx.RegisterService(&m_selection);
 	return MakeOk();
 }
 
-void UiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
+void UiSubsystem::Tick(SubsystemContext& /*ctx*/, float /*deltaSeconds*/)
 {
 	if (m_imgui == nullptr)
 	{
@@ -76,82 +74,34 @@ void UiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 	}
 
 	m_imgui->NewFrame();
+}
 
-	const float deltaSeconds = ctx.GetDeltaSeconds();
-	const float framesPerSecond = deltaSeconds > 0.0f ? 1.0f / deltaSeconds : 0.0f;
-	const auto* windowServices = ctx.GetService<WindowServices>();
-	const uint32_t clientWidth = windowServices != nullptr ? windowServices->clientWidth : 0;
-	const uint32_t clientHeight = windowServices != nullptr ? windowServices->clientHeight : 0;
-	const auto* debugStats = ctx.GetService<DebugStatsServices>();
-	const uint32_t extractedObjectCount = debugStats != nullptr ? debugStats->extractedObjectCount : 0;
-	const auto* worldServices = ctx.GetService<WorldServices>();
-	const uint32_t worldGeneration = worldServices != nullptr ? worldServices->generation : 0;
-	if (m_selection.worldGeneration != worldGeneration)
+void UiSubsystem::Shutdown(SubsystemContext& ctx)
+{
+	ctx.UnregisterService(&m_services);
+	m_services = {};
+	m_imgui.reset();
+}
+
+std::span<const char* const> UiPresentSubsystem::GetDependencies() const
+{
+	return kPresentDependencies;
+}
+
+Result<void> UiPresentSubsystem::Initialize(SubsystemContext& /*ctx*/)
+{
+	return MakeOk();
+}
+
+void UiPresentSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
+{
+	auto* uiServices = ctx.GetService<UiServices>();
+	if (uiServices == nullptr || uiServices->imgui == nullptr)
 	{
-		m_selection.selected = {};
-		m_selection.worldGeneration = worldGeneration;
-	}
-	const World* world = worldServices != nullptr ? worldServices->world : nullptr;
-	uint32_t entityCount = 0;
-	if (world != nullptr)
-	{
-		world->ForEachAlive([&entityCount](EntityId, const Transform&) {
-			++entityCount;
-		});
+		return;
 	}
 
-	ImGui::Begin("Stats");
-	ImGui::Text("FPS %.1f   %.2f ms", framesPerSecond, deltaSeconds * 1000.0f);
-	ImGui::Text("Client %u x %u", clientWidth, clientHeight);
-	ImGui::Text("Alpha %.3f", ctx.GetInterpolationAlpha());
-	ImGui::Text("Frame slot %u", ctx.GetFrameSlot());
-	ImGui::Text("Objects %u", extractedObjectCount);
-	ImGui::Text("Entities %u", entityCount);
-	if (auto* session = ctx.GetService<SessionServices>())
-	{
-		const char* modeName = "Editor";
-		if (session->mode == SessionMode::Playing)
-		{
-			modeName = "Playing";
-		}
-		else if (session->mode == SessionMode::Paused)
-		{
-			modeName = "Paused";
-		}
-		ImGui::Text("Mode %s", modeName);
-		if (ImGui::Button("Play"))
-		{
-			session->mode = SessionMode::Playing;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Pause") && session->mode == SessionMode::Playing)
-		{
-			session->mode = SessionMode::Paused;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Stop"))
-		{
-			session->mode = SessionMode::Editor;
-		}
-		if (auto* editorSave = ctx.GetService<EditorSaveServices>())
-		{
-			ImGui::SameLine();
-			ImGui::BeginDisabled(session->mode != SessionMode::Editor);
-			if (ImGui::Button("Save"))
-			{
-				editorSave->requested = true;
-			}
-			ImGui::EndDisabled();
-		}
-	}
-	ImGui::End();
-
-	const auto* session = ctx.GetService<SessionServices>();
-	const bool editable = session != nullptr && session->mode == SessionMode::Editor;
-	DrawOutliner(world, &m_selection);
-	DrawDetails(worldServices != nullptr ? worldServices->world : nullptr, &m_selection, editable);
-
-	m_imgui->Render();
+	uiServices->imgui->Render();
 
 	if (InputServices* inputServices = ctx.GetService<InputServices>())
 	{
@@ -164,17 +114,12 @@ void UiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 		}
 		else
 		{
-			inputServices->mouseCaptured = m_imgui->WantCaptureMouse();
-			inputServices->keyboardCaptured = m_imgui->WantCaptureKeyboard();
+			inputServices->mouseCaptured = uiServices->imgui->WantCaptureMouse();
+			inputServices->keyboardCaptured = uiServices->imgui->WantCaptureKeyboard();
 		}
 	}
 }
 
-void UiSubsystem::Shutdown(SubsystemContext& ctx)
+void UiPresentSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 {
-	ctx.UnregisterService(&m_selection);
-	m_selection = {};
-	ctx.UnregisterService(&m_services);
-	m_services = {};
-	m_imgui.reset();
 }

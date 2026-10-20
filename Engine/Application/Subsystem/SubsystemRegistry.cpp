@@ -74,13 +74,13 @@ Result<void> SubsystemRegistry::BuildOrders()
 		const std::string_view name = subsystem->GetName();
 		if (name.empty())
 		{
-			return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			return FailRuntime(LogCategory::Core, ErrorCode::InvalidArgument,
 				"Subsystem name must not be empty");
 		}
 
 		if (indexByName.contains(name))
 		{
-			return FailInternal(
+			return FailRuntime(
 				LogCategory::Core,
 				ErrorCode::InvalidArgument,
 				std::string("Duplicate subsystem name: ") + std::string(name));
@@ -104,7 +104,7 @@ Result<void> SubsystemRegistry::BuildOrders()
 			const auto dependency = indexByName.find(dependencyView);
 			if (dependency == indexByName.end())
 			{
-				return FailInternal(
+				return FailRuntime(
 					LogCategory::Core,
 					ErrorCode::InvalidArgument,
 					std::string("Subsystem '")
@@ -150,7 +150,7 @@ Result<void> SubsystemRegistry::BuildOrders()
 
 	if (m_initOrder.size() != nodes.size())
 	{
-		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+		return FailRuntime(LogCategory::Core, ErrorCode::InvalidArgument,
 			"Circular subsystem dependency detected");
 	}
 
@@ -211,11 +211,7 @@ void SubsystemRegistry::ShutdownAll(SubsystemContext& ctx)
 {
 	if (!m_ordersBuilt)
 	{
-		if (auto buildResult = BuildOrders(); !buildResult)
-		{
-			LogFatalResult(buildResult, LogCategory::Core);
-			return;
-		}
+		return;
 	}
 
 	for (auto it = m_initOrder.rbegin(); it != m_initOrder.rend(); ++it)

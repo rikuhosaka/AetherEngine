@@ -1,5 +1,6 @@
 #include "Engine/Scene/SceneAssetLoader.h"
 
+#include "Engine/AssetSystem/AssetCache.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Mesh/PrimitiveMesh.h"
@@ -16,44 +17,6 @@
 
 namespace
 {
-constexpr uint32_t kSphereStacks = 12;
-constexpr uint32_t kSphereSlices = 16;
-constexpr uint32_t kCapsuleSlices = 16;
-constexpr uint32_t kCapsuleHemisphereStacks = 4;
-
-[[nodiscard]] bool SameFloat3(const DirectX::XMFLOAT3& left, const DirectX::XMFLOAT3& right)
-{
-	return left.x == right.x && left.y == right.y && left.z == right.z;
-}
-
-[[nodiscard]] bool SameShape(const RigidBodyShape& left, const RigidBodyShape& right)
-{
-	if (left.type != right.type || !SameFloat3(left.halfExtent, right.halfExtent) || left.radius != right.radius
-		|| left.halfHeight != right.halfHeight || left.points.size() != right.points.size()
-		|| left.indices.size() != right.indices.size())
-	{
-		return false;
-	}
-
-	for (size_t index = 0; index < left.points.size(); ++index)
-	{
-		if (!SameFloat3(left.points[index], right.points[index]))
-		{
-			return false;
-		}
-	}
-
-	for (size_t index = 0; index < left.indices.size(); ++index)
-	{
-		if (left.indices[index] != right.indices[index])
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
 [[nodiscard]] bool ContainsKey(const std::vector<std::string>& keys, std::string_view key)
 {
 	for (const std::string& existing : keys)
@@ -67,60 +30,29 @@ constexpr uint32_t kCapsuleHemisphereStacks = 4;
 	return false;
 }
 
-[[nodiscard]] const RigidBodyShape* ShapeForKey(const SceneDocument& document, std::string_view key, bool& conflict)
+[[nodiscard]] Result<PrimitiveMeshData> GenerateAssetMesh(const MeshAsset& asset)
 {
-	const RigidBodyShape* shape = nullptr;
-	for (const SceneEntity& entity : document.entities)
+	switch (asset.kind)
 	{
-		if (entity.mesh != key || !entity.body.has_value())
-		{
-			continue;
-		}
-
-		if (shape == nullptr)
-		{
-			shape = &entity.body->shape;
-			continue;
-		}
-
-		if (!SameShape(*shape, entity.body->shape))
-		{
-			conflict = true;
-			return nullptr;
-		}
-	}
-
-	conflict = false;
-	return shape;
-}
-
-[[nodiscard]] Result<PrimitiveMeshData> GenerateShapeMesh(const RigidBodyShape& shape)
-{
-	switch (shape.type)
-	{
-	case PhysicsShapeType::Box:
-		return GenerateCubeMesh({
-			shape.halfExtent.x * 2.0f,
-			shape.halfExtent.y * 2.0f,
-			shape.halfExtent.z * 2.0f,
-			false });
-	case PhysicsShapeType::Sphere:
-		return GenerateSphereMesh({ shape.radius, kSphereStacks, kSphereSlices });
-	case PhysicsShapeType::Capsule:
+	case MeshAssetKind::Box:
+		return GenerateCubeMesh({ asset.width, asset.height, asset.depth, false });
+	case MeshAssetKind::Sphere:
+		return GenerateSphereMesh({ asset.radius, asset.stacks, asset.slices });
+	case MeshAssetKind::Capsule:
 		return GenerateCapsuleMesh({
-			shape.radius,
-			shape.halfHeight,
-			kCapsuleSlices,
-			kCapsuleHemisphereStacks });
-	case PhysicsShapeType::ConvexHull:
-		return GenerateConvexHullMesh({ shape.points });
-	case PhysicsShapeType::Mesh:
-		return GenerateTriangleMesh({ shape.points, shape.indices });
+			asset.radius,
+			asset.halfHeight,
+			asset.slices,
+			asset.hemisphereStacks });
+	case MeshAssetKind::ConvexHull:
+		return GenerateConvexHullMesh({ asset.points });
+	case MeshAssetKind::TriangleList:
+		return GenerateTriangleMesh({ asset.points, asset.indices });
 	default:
 		return FailInternal<PrimitiveMeshData>(
 			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
-			"Scene asset mesh key has an unsupported shape");
+			"Scene asset mesh kind is unsupported");
 	}
 }
 
@@ -162,8 +94,58 @@ constexpr uint32_t kCapsuleHemisphereStacks = 4;
 }
 } // namespace
 
+Result<void> ApplyMeshCollision(SceneDocument& document, const AssetCache& cache)
+{
+	for (SceneEntity& entity : document.entities)
+	{
+		if (!entity.body.has_value())
+		{
+			continue;
+		}
+
+		RigidBodyShape& shape = entity.body->shape;
+		if (shape.type != PhysicsShapeType::Mesh && shape.type != PhysicsShapeType::ConvexHull)
+		{
+			continue;
+		}
+
+		if (shape.mesh.empty())
+		{
+			return FailRuntime(
+				LogCategory::Asset,
+				ErrorCode::InvalidArgument,
+				"Scene mesh collision asset is empty");
+		}
+
+		const MeshAsset* asset = cache.Find(shape.mesh);
+		if (asset == nullptr)
+		{
+			return FailRuntime(
+				LogCategory::Asset,
+				ErrorCode::InvalidArgument,
+				"Scene mesh collision asset was not found: " + shape.mesh);
+		}
+
+		const bool triangle = shape.type == PhysicsShapeType::Mesh && asset->kind == MeshAssetKind::TriangleList;
+		const bool hull = shape.type == PhysicsShapeType::ConvexHull && asset->kind == MeshAssetKind::ConvexHull;
+		if (!triangle && !hull)
+		{
+			return FailRuntime(
+				LogCategory::Asset,
+				ErrorCode::InvalidArgument,
+				"Scene mesh collision asset kind does not match the shape");
+		}
+
+		shape.points = asset->points;
+		shape.indices = asset->indices;
+	}
+
+	return MakeOk();
+}
+
 Result<SceneAssets> SceneAssetLoader::Load(
 	const SceneDocument& document,
+	const AssetCache& cache,
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
@@ -206,25 +188,16 @@ Result<SceneAssets> SceneAssetLoader::Load(
 	assets.meshes.reserve(keys.size());
 	for (const std::string& key : keys)
 	{
-		bool conflict = false;
-		const RigidBodyShape* shape = ShapeForKey(document, key, conflict);
-		if (conflict)
+		const MeshAsset* asset = cache.Find(key);
+		if (asset == nullptr)
 		{
-			return FailInternal<SceneAssets>(
+			return FailRuntime<SceneAssets>(
 				LogCategory::Asset,
 				ErrorCode::InvalidArgument,
-				"Scene asset mesh key has conflicting shapes");
+				"Scene asset mesh was not found: " + key);
 		}
 
-		if (shape == nullptr)
-		{
-			return FailInternal<SceneAssets>(
-				LogCategory::Asset,
-				ErrorCode::InvalidArgument,
-				"Scene asset mesh key has no shape");
-		}
-
-		const Result<PrimitiveMeshData> mesh = GenerateShapeMesh(*shape);
+		const Result<PrimitiveMeshData> mesh = GenerateAssetMesh(*asset);
 		if (!mesh)
 		{
 			return MakeFail<SceneAssets>(mesh.error.code, mesh.error.message);

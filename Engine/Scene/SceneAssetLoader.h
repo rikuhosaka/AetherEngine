@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <vector>
 
+class AssetCache;
 class FrameContext;
 class RenderResourceServices;
 class RHICommandList;
@@ -16,12 +17,16 @@ struct SceneAssets
 	SceneRenderResources render{};
 };
 
-// Uploads one mesh per document mesh key from that key's rigid body shape.
+// Copies mesh and convex-hull collision points from the asset cache onto authored bodies.
+[[nodiscard]] Result<void> ApplyMeshCollision(SceneDocument& document, const AssetCache& cache);
+
+// Uploads one mesh per document mesh key from the asset cache.
 class SceneAssetLoader
 {
 public:
 	[[nodiscard]] Result<SceneAssets> Load(
 		const SceneDocument& document,
+		const AssetCache& cache,
 		RenderResourceServices& resources,
 		FrameContext& frameContext,
 		RHICommandList* commandList,

@@ -20,6 +20,8 @@ target_include_directories(Editor
 target_link_libraries(Editor
     PUBLIC
         Engine
+    PRIVATE
+        ImGui
 )
 
 target_compile_definitions(Editor PRIVATE NOMINMAX)

@@ -1,5 +1,7 @@
 #include "Engine/Scene/SceneDocumentTest.h"
 
+#include "Engine/AssetSystem/AssetCache.h"
+#include "Engine/Scene/SceneAssetLoader.h"
 #include "Engine/Scene/SceneDocument.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Physics/PhysicsLibrary.h"
@@ -139,7 +141,7 @@ namespace
 [[nodiscard]] Result<void> TestPhysicsDropDocument(const std::filesystem::path& assetsRoot)
 {
 	const std::filesystem::path scenePath = assetsRoot / "Scenes" / "PhysicsDrop.json";
-	const Result<SceneDocument> document = LoadSceneDocument(scenePath);
+	Result<SceneDocument> document = LoadSceneDocument(scenePath);
 	const WorldDocumentEntity* floor = document ? FindNamedWorld(document.value, "Floor") : nullptr;
 	const WorldDocumentEntity* box = document ? FindNamedWorld(document.value, "Box") : nullptr;
 	const WorldDocumentEntity* sphere = document ? FindNamedWorld(document.value, "Sphere") : nullptr;
@@ -154,10 +156,8 @@ namespace
 		&& capsuleEntity != nullptr && hullEntity != nullptr && floorEntity->body.has_value()
 		&& boxEntity->body.has_value() && sphereEntity->body.has_value() && capsuleEntity->body.has_value()
 		&& hullEntity->body.has_value() && floorEntity->body->shape.type == PhysicsShapeType::Mesh
-		&& floorEntity->body->shape.indices.size() == 6 && floorEntity->body->shape.indices[0] == 0
-		&& floorEntity->body->shape.indices[1] == 1 && floorEntity->body->shape.indices[2] == 2
-		&& floorEntity->body->shape.indices[3] == 3 && floorEntity->body->shape.indices[4] == 2
-		&& floorEntity->body->shape.indices[5] == 1 && boxEntity->body->shape.type == PhysicsShapeType::Box
+		&& floorEntity->body->shape.mesh == "builtin:floor" && floorEntity->body->shape.points.empty()
+		&& floorEntity->body->shape.indices.empty() && boxEntity->body->shape.type == PhysicsShapeType::Box
 		&& IsNearlyEqual(boxEntity->body->shape.halfExtent.x, 2.0f)
 		&& IsNearlyEqual(boxEntity->body->shape.halfExtent.y, 0.5f)
 		&& IsNearlyEqual(boxEntity->body->shape.halfExtent.z, 2.0f)
@@ -167,7 +167,7 @@ namespace
 		&& IsNearlyEqual(capsuleEntity->body->shape.radius, 0.22f)
 		&& IsNearlyEqual(capsuleEntity->body->shape.halfHeight, 0.55f)
 		&& hullEntity->body->shape.type == PhysicsShapeType::ConvexHull
-		&& hullEntity->body->shape.points.size() == 8;
+		&& hullEntity->body->shape.mesh == "builtin:hull" && hullEntity->body->shape.points.empty();
 	const bool placed = floor != nullptr && box != nullptr && sphere != nullptr && capsule != nullptr && hull != nullptr
 		&& IsNearlyEqual(floor->transform.position.x, 0.0f) && IsNearlyEqual(box->transform.position.y, 0.5f)
 		&& IsNearlyEqual(sphere->transform.position.y, 4.0f) && IsNearlyEqual(capsule->transform.position.x, -1.15f)
@@ -184,6 +184,22 @@ namespace
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Physics drop scene document should keep the five shapes and positions");
+	}
+
+	AssetCache cache{};
+	const Result<void> loaded = cache.LoadDirectory(assetsRoot);
+	const Result<void> collision = loaded
+		? ApplyMeshCollision(document.value, cache)
+		: MakeFail(loaded.error.code, loaded.error.message);
+	if (!loaded || !collision || floorEntity->body->shape.indices.size() != 6
+		|| floorEntity->body->shape.indices[0] != 0 || hullEntity->body->shape.points.size() != 8)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			loaded && collision
+				? "Physics drop scene should copy collision from mesh assets"
+				: (loaded ? collision.error.message : loaded.error.message));
 	}
 
 	World world{};
@@ -442,7 +458,11 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	const char* badCamera =
 		R"({"version":1,"entities":[{"id":1,"name":"Bad","parent":null,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"renderable":{"mesh":"builtin:sphere","submesh":0,"layerMask":1,"visible":true,"tint":[1,1,1,1]},"camera":{"fovY":"wide"}}]})";
 	const Result<SceneDocument> cameraResult = ReadSceneDocument(badCamera);
-	if (missingMeshResult || childResult || shapeResult || cameraResult || CountAlive(world) != aliveBeforeReject || !world.IsAlive(existing))
+	const char* embeddedMesh =
+		R"({"version":1,"entities":[{"id":1,"name":"Bad","parent":null,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"renderable":{"mesh":"builtin:floor","submesh":0,"layerMask":1,"visible":true,"tint":[1,1,1,1]},"physics":{"motion":"static","friction":0.2,"restitution":0,"mass":0,"shape":{"type":"mesh","mesh":"builtin:floor","points":[[0,0,0],[1,0,0],[0,1,0]],"indices":[0,1,2]}}}]})";
+	const Result<SceneDocument> embeddedResult = ReadSceneDocument(embeddedMesh);
+	if (missingMeshResult || childResult || shapeResult || cameraResult || embeddedResult
+		|| CountAlive(world) != aliveBeforeReject || !world.IsAlive(existing))
 	{
 		return FailRuntime(
 			LogCategory::ECS,

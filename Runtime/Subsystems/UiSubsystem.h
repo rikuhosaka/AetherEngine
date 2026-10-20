@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Engine/Application/Services/UiServices.h"
-#include "Engine/Application/Services/WorldSelectionServices.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 
 #include <memory>
@@ -28,7 +27,22 @@ public:
 private:
 	std::unique_ptr<RHIImGui> m_imgui{};
 	UiServices m_services{};
-	WorldSelectionServices m_selection{};
+};
+
+class UiPresentSubsystem final : public ISubsystem
+{
+public:
+	[[nodiscard]] const char* GetName() const override { return "UiPresent"; }
+
+	[[nodiscard]] std::span<const char* const> GetDependencies() const override;
+
+	[[nodiscard]] SubsystemTickGroup GetTickGroup() const override { return SubsystemTickGroup::UiPresent; }
+	[[nodiscard]] bool WantsTick() const override { return true; }
+
+	Result<void> Initialize(SubsystemContext& ctx) override;
+	void Tick(SubsystemContext& ctx, float deltaSeconds) override;
+	void Shutdown(SubsystemContext& ctx) override;
 };
 
 std::unique_ptr<ISubsystem> CreateUiSubsystem();
+std::unique_ptr<ISubsystem> CreateUiPresentSubsystem();

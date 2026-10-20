@@ -24,6 +24,7 @@ target_link_libraries(Scene
         Physics
         World
         Renderer
+        AssetSystem
 )
 
 target_compile_definitions(Scene PRIVATE NOMINMAX)

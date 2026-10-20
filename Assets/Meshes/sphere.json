@@ -1,0 +1,7 @@
+{
+  "id": "builtin:sphere",
+  "kind": "sphere",
+  "radius": 0.5,
+  "stacks": 12,
+  "slices": 16
+}

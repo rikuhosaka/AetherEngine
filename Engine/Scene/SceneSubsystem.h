@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/AssetSystem/AssetCache.h"
 #include "Engine/Application/Services/DebugStatsServices.h"
 #include "Engine/Application/Services/EditorSceneServices.h"
 #include "Engine/Application/Services/SessionServices.h"
@@ -42,6 +43,7 @@ private:
 	[[nodiscard]] Result<void> Step(float fixedDeltaSeconds);
 
 	SubsystemContext* m_context = nullptr;
+	AssetCache m_assetCache{};
 	EditorScene m_editor{};
 	std::optional<GameScene> m_game{};
 	DebugStatsServices m_debugStats{};

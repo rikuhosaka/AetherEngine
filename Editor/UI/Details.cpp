@@ -1,4 +1,4 @@
-#include "Runtime/Subsystems/Details.h"
+#include "Editor/UI/Details.h"
 
 #include "Engine/Application/Services/WorldSelectionServices.h"
 #include "Engine/World/Transform.h"

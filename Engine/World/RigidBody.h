@@ -5,6 +5,7 @@
 #include <DirectXMath.h>
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 // Points and indices are owned here. PhysicsBodyDesc spans are only valid during Bind.
@@ -14,6 +15,7 @@ struct RigidBodyShape
 	DirectX::XMFLOAT3 halfExtent{ 0.5f, 0.5f, 0.5f };
 	float radius = 0.5f;
 	float halfHeight = 0.5f;
+	std::string mesh{};
 	std::vector<DirectX::XMFLOAT3> points{};
 	std::vector<uint32_t> indices{};
 };

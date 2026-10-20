@@ -1,4 +1,4 @@
-#include "Runtime/Subsystems/Outliner.h"
+#include "Editor/UI/Outliner.h"
 
 #include "Engine/Application/Services/WorldSelectionServices.h"
 #include "Engine/World/World.h"

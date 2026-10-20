@@ -1,6 +1,7 @@
 #include "Runtime/Launch/DebugStartupTests.h"
 
 #include "Engine/Application/Test/FixedStepTest.h"
+#include "Engine/AssetSystem/Test/AssetCacheTest.h"
 #include "Engine/Application/Test/SubsystemOrderTest.h"
 #include "Engine/Renderer/Test/FbxModelFileLoaderTest.h"
 #include "Engine/Renderer/Test/FrustumCullTest.h"
@@ -71,6 +72,7 @@ namespace
 	RigidBody hullBody{};
 	hullBody.motion = PhysicsMotion::Dynamic;
 	hullBody.shape.type = PhysicsShapeType::ConvexHull;
+	hullBody.shape.mesh = "builtin:hull";
 	hullBody.shape.points = {
 		{ 0.0f, 0.0f, 0.0f },
 		{ 1.0f, 0.0f, 0.0f },
@@ -101,7 +103,8 @@ namespace
 		: MakeFail<SceneDocument>(writtenAgain.error.code, writtenAgain.error.message);
 	const bool hullKept = readAgain && readAgain.value.entities.size() == 2
 		&& readAgain.value.entities[1].body.has_value()
-		&& readAgain.value.entities[1].body->shape.points.size() == 4
+		&& readAgain.value.entities[1].body->shape.mesh == "builtin:hull"
+		&& readAgain.value.entities[1].body->shape.points.empty()
 		&& readAgain.value.entities[1].mesh == "builtin:hull"
 		&& RoundTripNearlyEqual(readAgain.value.entities[0].tint[0], 0.90f)
 		&& RoundTripNearlyEqual(readAgain.value.world[0].transform.position.y, 4.0f)
@@ -119,7 +122,7 @@ namespace
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"Scene document JSON should round-trip mesh keys, tint, and owned hull points");
+			"Scene document JSON should round-trip mesh keys, tint, and hull asset ids");
 	}
 
 	return MakeOk();
@@ -182,6 +185,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunServiceLifetimeTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunAssetCacheTests(assetsRoot); !result)
 	{
 		return result;
 	}

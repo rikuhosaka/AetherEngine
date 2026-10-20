@@ -109,16 +109,24 @@ Result<void> SceneSubsystem::LoadContent(
 			"SceneSubsystem requires RenderServices");
 	}
 
-	const std::filesystem::path scenePath = renderServices->shaderRoot.parent_path() / "Scenes" / "PhysicsDrop.json";
+	const std::filesystem::path assetsRoot = renderServices->shaderRoot.parent_path();
+	const std::filesystem::path scenePath = assetsRoot / "Scenes" / "PhysicsDrop.json";
 	Result<SceneDocument> document = LoadSceneDocument(scenePath);
 	if (!document)
 	{
 		return MakeFail(document.error.code, document.error.message);
 	}
 
+	Result<void> assetsLoaded = m_assetCache.LoadDirectory(assetsRoot);
+	if (!assetsLoaded)
+	{
+		return MakeFail(assetsLoaded.error.code, assetsLoaded.error.message);
+	}
+
 	SceneAssetLoader loader{};
 	Result<SceneAssets> assets = loader.Load(
 		document.value,
+		m_assetCache,
 		*renderServices->resources,
 		frameContext,
 		commandList,
@@ -126,6 +134,12 @@ Result<void> SceneSubsystem::LoadContent(
 	if (!assets)
 	{
 		return MakeFail(assets.error.code, assets.error.message);
+	}
+
+	Result<void> collision = ApplyMeshCollision(document.value, m_assetCache);
+	if (!collision)
+	{
+		return MakeFail(collision.error.code, collision.error.message);
 	}
 
 	m_editor.SetPath(scenePath);

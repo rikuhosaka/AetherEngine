@@ -29,23 +29,6 @@ using Json = nlohmann::json;
 	return &(*field);
 }
 
-[[nodiscard]] bool ReadUint32(const Json& value, uint32_t& out)
-{
-	if (!value.is_number_unsigned())
-	{
-		return false;
-	}
-
-	const uint64_t number = value.get<uint64_t>();
-	if (number > UINT32_MAX)
-	{
-		return false;
-	}
-
-	out = static_cast<uint32_t>(number);
-	return true;
-}
-
 [[nodiscard]] bool ReadFloat(const Json& value, float& out)
 {
 	if (!value.is_number())
@@ -120,35 +103,6 @@ using Json = nlohmann::json;
 	return false;
 }
 
-[[nodiscard]] Result<std::vector<DirectX::XMFLOAT3>> ReadPoints(const Json& value)
-{
-	if (!value.is_array())
-	{
-		return FailRuntime<std::vector<DirectX::XMFLOAT3>>(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"Scene document shape is missing points");
-	}
-
-	std::vector<DirectX::XMFLOAT3> points{};
-	points.reserve(value.size());
-	for (const Json& pointValue : value)
-	{
-		DirectX::XMFLOAT3 point{};
-		if (!ReadFloats(pointValue, &point.x, 3))
-		{
-			return FailRuntime<std::vector<DirectX::XMFLOAT3>>(
-				LogCategory::ECS,
-				ErrorCode::InvalidArgument,
-				"Scene document shape point must have three components");
-		}
-
-		points.push_back(point);
-	}
-
-	return MakeOk(std::move(points));
-}
-
 [[nodiscard]] Result<RigidBodyShape> ReadShape(const Json& value)
 {
 	if (!value.is_object())
@@ -211,56 +165,24 @@ using Json = nlohmann::json;
 	else if (type == "convexHull" || type == "mesh")
 	{
 		shape.type = type == "convexHull" ? PhysicsShapeType::ConvexHull : PhysicsShapeType::Mesh;
-		const Json* points = FindField(value, "points");
-		if (points == nullptr)
+		if (FindField(value, "points") != nullptr || FindField(value, "indices") != nullptr)
 		{
 			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
-				"Scene document shape is missing points");
+				"Scene document mesh asset must not embed points or indices");
 		}
 
-		Result<std::vector<DirectX::XMFLOAT3>> readPoints = ReadPoints(*points);
-		if (!readPoints)
-		{
-			return MakeFail<RigidBodyShape>(readPoints.error.code, readPoints.error.message);
-		}
-
-		shape.points = std::move(readPoints.value);
-		if (shape.type == PhysicsShapeType::ConvexHull && shape.points.size() < 4)
+		const Json* mesh = FindField(value, "mesh");
+		if (mesh == nullptr || !mesh->is_string() || mesh->get<std::string>().empty())
 		{
 			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
-				"Scene document convex hull requires at least four points");
+				"Scene document shape is missing a mesh asset");
 		}
 
-		if (shape.type == PhysicsShapeType::Mesh)
-		{
-			const Json* indices = FindField(value, "indices");
-			if (indices == nullptr || !indices->is_array() || indices->empty() || indices->size() % 3 != 0)
-			{
-				return FailRuntime<RigidBodyShape>(
-					LogCategory::ECS,
-					ErrorCode::InvalidArgument,
-					"Scene document mesh is missing triangle indices");
-			}
-
-			shape.indices.reserve(indices->size());
-			for (const Json& indexValue : *indices)
-			{
-				uint32_t index = 0;
-				if (!ReadUint32(indexValue, index))
-				{
-					return FailRuntime<RigidBodyShape>(
-						LogCategory::ECS,
-						ErrorCode::InvalidArgument,
-						"Scene document mesh index must be an unsigned integer");
-				}
-
-				shape.indices.push_back(index);
-			}
-		}
+		shape.mesh = mesh->get<std::string>();
 	}
 	else
 	{
@@ -565,19 +487,8 @@ using Json = nlohmann::json;
 		break;
 	case PhysicsShapeType::ConvexHull:
 	case PhysicsShapeType::Mesh:
-	{
-		Json points = Json::array();
-		for (const DirectX::XMFLOAT3& point : shape.points)
-		{
-			points.push_back(Json::array({ point.x, point.y, point.z }));
-		}
-		value["points"] = std::move(points);
-		if (shape.type == PhysicsShapeType::Mesh)
-		{
-			value["indices"] = shape.indices;
-		}
+		value["mesh"] = shape.mesh;
 		break;
-	}
 	default:
 		break;
 	}

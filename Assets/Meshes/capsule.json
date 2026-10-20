@@ -1,0 +1,8 @@
+{
+  "id": "builtin:capsule",
+  "kind": "capsule",
+  "radius": 0.22,
+  "halfHeight": 0.55,
+  "slices": 16,
+  "hemisphereStacks": 4
+}
