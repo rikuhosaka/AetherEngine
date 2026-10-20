@@ -137,15 +137,23 @@ Result<std::vector<WorldDocumentBinding>> Instantiate(World& world, const WorldD
 		WorldSpawnDesc desc{};
 		desc.name = entity.name;
 		desc.transform = entity.transform;
-		Renderable renderable{};
-		renderable.submeshIndex = entity.submeshIndex;
-		renderable.layerMask = entity.layerMask;
-		renderable.visible = entity.visible;
-		desc.renderable = std::move(renderable);
 
 		const EntityId spawnedId = world.Spawn(std::move(desc));
 		spawned.push_back(spawnedId);
 		bindings.push_back(WorldDocumentBinding{ entity.id, spawnedId });
+
+		Renderable renderable{};
+		renderable.submeshIndex = entity.submeshIndex;
+		renderable.layerMask = entity.layerMask;
+		renderable.visible = entity.visible;
+		if (!world.Add<Renderable>(spawnedId, std::move(renderable)))
+		{
+			DestroySpawned(world, spawned);
+			return FailRuntime<std::vector<WorldDocumentBinding>>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"World document renderable was rejected");
+		}
 	}
 
 	for (const WorldDocumentEntity& entity : document)

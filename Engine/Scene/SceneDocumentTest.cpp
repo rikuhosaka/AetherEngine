@@ -3,6 +3,8 @@
 #include "Engine/Scene/SceneDocument.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Physics/PhysicsLibrary.h"
+#include "Engine/Renderer/Scene/RenderLightingTypes.h"
+#include "Engine/Scene/SceneLighting.h"
 #include "Engine/World/EntityPhysics.h"
 #include "Engine/World/World.h"
 
@@ -57,7 +59,7 @@ namespace
 	sphere.tint[1] = 0.35f;
 	sphere.tint[2] = 0.12f;
 	sphere.tint[3] = 1.0f;
-	SceneBody sphereBody{};
+	RigidBody sphereBody{};
 	sphereBody.motion = PhysicsMotion::Dynamic;
 	sphereBody.friction = 0.2f;
 	sphereBody.shape.type = PhysicsShapeType::Sphere;
@@ -75,7 +77,7 @@ namespace
 	hull.tint[1] = 0.72f;
 	hull.tint[2] = 0.38f;
 	hull.tint[3] = 1.0f;
-	SceneBody hullBody{};
+	RigidBody hullBody{};
 	hullBody.motion = PhysicsMotion::Dynamic;
 	hullBody.friction = 0.4f;
 	hullBody.shape.type = PhysicsShapeType::ConvexHull;
@@ -184,12 +186,6 @@ namespace
 			"Physics drop scene document should keep the five shapes and positions");
 	}
 
-	Result<EntityPhysics> created = EntityPhysics::Create();
-	if (!created)
-	{
-		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
-	}
-
 	World world{};
 	const SceneMeshRef meshes[] = {
 		{ "builtin:floor", WorldMeshId{ 1, 1 } },
@@ -200,12 +196,12 @@ namespace
 	};
 	const Result<std::vector<WorldDocumentBinding>> instantiated = InstantiateScene(
 		world,
-		created.value,
 		document.value,
 		meshes,
 		SceneRenderResources{});
 	const WorldDocumentBinding* sphereBinding = instantiated ? FindBinding(instantiated.value, sphereEntity->id) : nullptr;
-	if (!instantiated || sphereBinding == nullptr)
+	Result<EntityPhysics> created = instantiated ? BindRigidBodies(world) : MakeFail<EntityPhysics>(ErrorCode::InvalidArgument, "Scene did not instantiate");
+	if (!instantiated || !created || sphereBinding == nullptr)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -245,7 +241,24 @@ namespace
 		return MakeFail(spawned.error.code, spawned.error.message);
 	}
 
-	Result<EntityPhysics> physics = BindScenePhysics(world, source, spawned.value);
+	for (const SceneEntity& entity : source.entities)
+	{
+		if (!entity.body.has_value())
+		{
+			continue;
+		}
+
+		const WorldDocumentBinding* binding = FindBinding(spawned.value, entity.id);
+		if (binding == nullptr || !world.Add<RigidBody>(binding->entity, *entity.body))
+		{
+			return FailRuntime(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"BindRigidBodies test should add authored bodies");
+		}
+	}
+
+	Result<EntityPhysics> physics = BindRigidBodies(world);
 	const WorldDocumentBinding* sphere = spawned ? FindBinding(spawned.value, 1) : nullptr;
 	const WorldDocumentBinding* hull = spawned ? FindBinding(spawned.value, 2) : nullptr;
 	const WorldDocumentBinding* marker = spawned ? FindBinding(spawned.value, 3) : nullptr;
@@ -256,7 +269,7 @@ namespace
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"BindScenePhysics should bind only entities with bodies");
+			"BindRigidBodies should bind only entities with rigid body components");
 	}
 
 	return MakeOk();
@@ -279,6 +292,53 @@ namespace
 	return MakeOk();
 }
 
+[[nodiscard]] Result<void> TestLightExtract()
+{
+	SceneLightingSettings settings{};
+	World empty{};
+	ExtractedLighting fallback{};
+	BuildExtractedLighting(settings, empty, fallback);
+	if (!IsNearlyEqual(fallback.mainLightDirection[0], settings.mainLightDirection[0])
+		|| !IsNearlyEqual(fallback.mainLightDirection[1], settings.mainLightDirection[1])
+		|| !IsNearlyEqual(fallback.mainLightIntensity, settings.mainLightIntensity)
+		|| !IsNearlyEqual(fallback.ambientIntensity, settings.ambientIntensity))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Lighting without a light component should keep the scene light");
+	}
+
+	World world{};
+	const EntityId entity = world.Spawn(WorldSpawnDesc{});
+	LightComponent light{};
+	light.color[0] = 0.2f;
+	light.color[1] = 0.4f;
+	light.color[2] = 0.6f;
+	light.intensity = 3.5f;
+	if (!world.Add<LightComponent>(entity, light))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Light extract test should add a light");
+	}
+
+	ExtractedLighting extracted{};
+	BuildExtractedLighting(settings, world, extracted);
+	if (!IsNearlyEqual(extracted.mainLightColor[0], 0.2f) || !IsNearlyEqual(extracted.mainLightColor[1], 0.4f)
+		|| !IsNearlyEqual(extracted.mainLightColor[2], 0.6f) || !IsNearlyEqual(extracted.mainLightIntensity, 3.5f)
+		|| !IsNearlyEqual(extracted.mainLightDirection[2], 1.0f) || !IsNearlyEqual(extracted.ambientIntensity, settings.ambientIntensity))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"The first light component should replace the main light and keep ambient");
+	}
+
+	return MakeOk();
+}
+
 } // namespace
 
 Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
@@ -286,6 +346,11 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	if (auto written = TestWriteScene(); !written)
 	{
 		return written;
+	}
+
+	if (auto light = TestLightExtract(); !light)
+	{
+		return light;
 	}
 
 	if (auto library = InitializePhysicsLibrary(); !library)
@@ -299,12 +364,6 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	}
 
 	const SceneDocument source = MakeScene();
-	Result<EntityPhysics> created = EntityPhysics::Create();
-	if (!created)
-	{
-		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
-	}
-
 	World world{};
 	WorldSpawnDesc existingDesc{};
 	existingDesc.name = "Existing";
@@ -322,15 +381,18 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 
 	const Result<std::vector<WorldDocumentBinding>> instantiated = InstantiateScene(
 		world,
-		created.value,
 		source,
 		meshes,
 		render);
 	const WorldDocumentBinding* sphereBinding = instantiated ? FindBinding(instantiated.value, 1) : nullptr;
 	const WorldDocumentBinding* hullBinding = instantiated ? FindBinding(instantiated.value, 2) : nullptr;
 	const WorldDocumentBinding* markerBinding = instantiated ? FindBinding(instantiated.value, 3) : nullptr;
-	const Renderable* sphereRenderable = sphereBinding == nullptr ? nullptr : world.GetRenderable(sphereBinding->entity);
-	const Renderable* markerRenderable = markerBinding == nullptr ? nullptr : world.GetRenderable(markerBinding->entity);
+	const Renderable* sphereRenderable = sphereBinding == nullptr ? nullptr : world.Get<Renderable>(sphereBinding->entity);
+	const Renderable* markerRenderable = markerBinding == nullptr ? nullptr : world.Get<Renderable>(markerBinding->entity);
+	const RigidBody* sphereBody = sphereBinding == nullptr ? nullptr : world.Get<RigidBody>(sphereBinding->entity);
+	const RigidBody* hullBody = hullBinding == nullptr ? nullptr : world.Get<RigidBody>(hullBinding->entity);
+	const RigidBody* markerBody = markerBinding == nullptr ? nullptr : world.Get<RigidBody>(markerBinding->entity);
+	Result<EntityPhysics> created = instantiated ? BindRigidBodies(world) : MakeFail<EntityPhysics>(ErrorCode::InvalidArgument, "Scene did not instantiate");
 	float sphereTint[4]{};
 	const bool tintCopied = sphereRenderable != nullptr && sphereRenderable->overrides.parameters.size() == 1
 		&& sphereRenderable->overrides.parameters[0].data.size() == sizeof(sphereTint)
@@ -346,13 +408,14 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 		|| sphereRenderable->material.Index != 3 || sphereRenderable->overrides.baseColor.Index != 4
 		|| !IsNearlyEqual(sphereTint[0], 0.90f) || !IsNearlyEqual(sphereTint[1], 0.35f)
 		|| !IsNearlyEqual(sphereTint[2], 0.12f) || markerRenderable->mesh.Index != 9
-		|| !created.value.Unbind(sphereBinding->entity) || !created.value.Unbind(hullBinding->entity)
+		|| sphereBody == nullptr || hullBody == nullptr || markerBody != nullptr
+		|| !created || !created.value.Unbind(sphereBinding->entity) || !created.value.Unbind(hullBinding->entity)
 		|| created.value.Unbind(markerBinding->entity) || CountAlive(world) != 4 || !world.IsAlive(existing))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"InstantiateScene should resolve meshes, copy tint, and bind only bodies");
+			"InstantiateScene should resolve meshes, copy tint, and store rigid bodies");
 	}
 
 	const size_t aliveBeforeReject = CountAlive(world);
@@ -365,7 +428,6 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	};
 	const Result<std::vector<WorldDocumentBinding>> missingMeshResult = InstantiateScene(
 		world,
-		created.value,
 		missingMesh,
 		knownMeshes,
 		render);
@@ -377,7 +439,10 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	const char* unknownShape =
 		R"({"version":1,"entities":[{"id":1,"name":"Bad","parent":null,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"renderable":{"mesh":"builtin:sphere","submesh":0,"layerMask":1,"visible":true,"tint":[1,1,1,1]},"physics":{"motion":"dynamic","friction":0.2,"restitution":0,"mass":0,"shape":{"type":"cylinder","radius":0.5}}}]})";
 	const Result<SceneDocument> shapeResult = ReadSceneDocument(unknownShape);
-	if (missingMeshResult || childResult || shapeResult || CountAlive(world) != aliveBeforeReject || !world.IsAlive(existing))
+	const char* badCamera =
+		R"({"version":1,"entities":[{"id":1,"name":"Bad","parent":null,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"renderable":{"mesh":"builtin:sphere","submesh":0,"layerMask":1,"visible":true,"tint":[1,1,1,1]},"camera":{"fovY":"wide"}}]})";
+	const Result<SceneDocument> cameraResult = ReadSceneDocument(badCamera);
+	if (missingMeshResult || childResult || shapeResult || cameraResult || CountAlive(world) != aliveBeforeReject || !world.IsAlive(existing))
 	{
 		return FailRuntime(
 			LogCategory::ECS,

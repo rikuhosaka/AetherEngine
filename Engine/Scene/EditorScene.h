@@ -2,7 +2,6 @@
 
 #include "Engine/Application/Services/EditorSceneServices.h"
 #include "Engine/Scene/SceneLighting.h"
-#include "Engine/World/EntityPhysics.h"
 #include "Engine/World/SceneDocument.h"
 #include "Engine/World/World.h"
 
@@ -24,8 +23,6 @@ public:
 	[[nodiscard]] std::span<const WorldDocumentBinding> GetBindings() const { return m_bindings; }
 	void SetBindings(std::vector<WorldDocumentBinding> bindings);
 
-	void SetPhysics(EntityPhysics physics);
-
 	[[nodiscard]] const std::filesystem::path& GetPath() const { return m_path; }
 	void SetPath(std::filesystem::path path);
 
@@ -38,7 +35,6 @@ private:
 	World m_world{};
 	SceneDocument m_document{};
 	std::vector<WorldDocumentBinding> m_bindings{};
-	EntityPhysics m_physics{};
 	std::filesystem::path m_path{};
 	SceneLightingSettings m_lighting{};
 	bool m_hasDocument = false;

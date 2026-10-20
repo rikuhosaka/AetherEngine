@@ -38,7 +38,7 @@ Result<GameScene> GameScene::Begin(
 	}
 
 	World world = editor.GetWorld().Clone();
-	Result<EntityPhysics> physics = BindScenePhysics(world, editor.GetDocument(), editor.GetBindings());
+	Result<EntityPhysics> physics = BindRigidBodies(world);
 	if (!physics)
 	{
 		return MakeFail<GameScene>(physics.error.code, physics.error.message);
@@ -71,7 +71,7 @@ void GameScene::ExtractView(uint32_t viewportWidth, uint32_t viewportHeight, Ext
 
 void GameScene::ExtractLighting(ExtractedLighting& outLighting) const
 {
-	BuildExtractedLighting(m_lighting, outLighting);
+	BuildExtractedLighting(m_lighting, m_world, outLighting);
 }
 
 void GameScene::ResetCamera(const EditorCameraServices* camera)

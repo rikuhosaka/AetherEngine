@@ -17,6 +17,28 @@ namespace
 }
 } // namespace
 
+World::World(const World& other)
+	: m_slots(other.m_slots)
+	, m_freeIndices(other.m_freeIndices)
+{
+	for (const auto& entry : other.m_pools)
+	{
+		m_pools.emplace(entry.first, entry.second->Clone());
+	}
+}
+
+World& World::operator=(const World& other)
+{
+	if (this == &other)
+	{
+		return *this;
+	}
+
+	World copy(other);
+	*this = std::move(copy);
+	return *this;
+}
+
 World::Slot* World::FindSlot(EntityId id)
 {
 	return const_cast<Slot*>(std::as_const(*this).FindSlot(id));
@@ -52,7 +74,6 @@ EntityId World::Spawn(WorldSpawnDesc desc)
 		Slot slot{};
 		slot.generation = 1;
 		m_slots.push_back(std::move(slot));
-		m_renderables.emplace_back();
 	}
 
 	Slot& slot = m_slots[index];
@@ -60,14 +81,6 @@ EntityId World::Spawn(WorldSpawnDesc desc)
 	slot.parent = desc.parent;
 	slot.name = std::move(desc.name);
 	slot.transform = desc.transform;
-	if (desc.renderable.has_value())
-	{
-		m_renderables[index] = std::move(*desc.renderable);
-	}
-	else
-	{
-		m_renderables[index].reset();
-	}
 	return EntityId{ index, slot.generation };
 }
 
@@ -105,7 +118,10 @@ void World::ReleaseSlot(EntityId id)
 	slot->parent = {};
 	slot->name.clear();
 	slot->transform = Transform{};
-	m_renderables[id.Index].reset();
+	for (const auto& entry : m_pools)
+	{
+		entry.second->Clear(id.Index);
+	}
 	++slot->generation;
 	m_freeIndices.push_back(id.Index);
 }
@@ -244,19 +260,4 @@ const Transform* World::GetTransform(EntityId id) const
 {
 	const Slot* slot = FindSlot(id);
 	return slot == nullptr ? nullptr : &slot->transform;
-}
-
-Renderable* World::GetRenderable(EntityId id)
-{
-	return const_cast<Renderable*>(std::as_const(*this).GetRenderable(id));
-}
-
-const Renderable* World::GetRenderable(EntityId id) const
-{
-	if (FindSlot(id) == nullptr || !m_renderables[id.Index].has_value())
-	{
-		return nullptr;
-	}
-
-	return &(*m_renderables[id.Index]);
 }

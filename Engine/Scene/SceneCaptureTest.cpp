@@ -36,7 +36,7 @@ namespace
 	sphere.tint[1] = 0.35f;
 	sphere.tint[2] = 0.12f;
 	sphere.tint[3] = 1.0f;
-	SceneBody sphereBody{};
+	RigidBody sphereBody{};
 	sphereBody.motion = PhysicsMotion::Dynamic;
 	sphereBody.friction = 0.2f;
 	sphereBody.shape.type = PhysicsShapeType::Sphere;
@@ -54,7 +54,7 @@ namespace
 	hull.tint[1] = 0.72f;
 	hull.tint[2] = 0.38f;
 	hull.tint[3] = 1.0f;
-	SceneBody hullBody{};
+	RigidBody hullBody{};
 	hullBody.motion = PhysicsMotion::Dynamic;
 	hullBody.friction = 0.4f;
 	hullBody.shape.type = PhysicsShapeType::ConvexHull;
@@ -121,21 +121,28 @@ namespace
 	WorldSpawnDesc sphereDesc{};
 	sphereDesc.name = "Sphere";
 	sphereDesc.transform = source.world[0].transform;
-	sphereDesc.renderable = Renderable{};
 	const EntityId sphere = world.Spawn(std::move(sphereDesc));
 
 	WorldSpawnDesc hullDesc{};
 	hullDesc.name = "Hull";
 	hullDesc.transform = source.world[1].transform;
-	hullDesc.renderable = Renderable{};
 	const EntityId hull = world.Spawn(std::move(hullDesc));
 
 	WorldSpawnDesc markerDesc{};
 	markerDesc.name = "Marker";
+	const EntityId marker = world.Spawn(std::move(markerDesc));
 	Renderable markerRenderable{};
 	markerRenderable.visible = false;
-	markerDesc.renderable = std::move(markerRenderable);
-	const EntityId marker = world.Spawn(std::move(markerDesc));
+	if (!world.Add<Renderable>(sphere, Renderable{}) || !world.Add<Renderable>(hull, Renderable{})
+		|| !world.Add<Renderable>(marker, std::move(markerRenderable))
+		|| !source.entities[0].body.has_value() || !world.Add<RigidBody>(sphere, *source.entities[0].body)
+		|| !source.entities[1].body.has_value() || !world.Add<RigidBody>(hull, *source.entities[1].body))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Scene capture test should add renderables and rigid bodies");
+	}
 	Transform* sphereTransform = world.GetTransform(sphere);
 	if (!sphere.IsValid() || !hull.IsValid() || !marker.IsValid() || sphereTransform == nullptr
 		|| !world.SetParent(marker, sphere))

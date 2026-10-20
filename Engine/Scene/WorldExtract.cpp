@@ -2,6 +2,7 @@
 
 #include "Engine/Math/Matrix.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/World/Renderable.h"
 #include "Engine/World/World.h"
 #include "Engine/Scene/WorldRenderBridge.h"
 
@@ -13,7 +14,7 @@ static_assert(WorldLayer::Transparent == RenderLayer::Transparent);
 
 void ExtractWorld(const World& world, std::vector<ExtractedObject>& outObjects)
 {
-	world.ForEachRenderable([&world, &outObjects](EntityId id, const Transform&, const Renderable& renderable) {
+	world.ForEach<Renderable>([&world, &outObjects](EntityId id, const Renderable& renderable) {
 		ExtractedObject object{};
 		object.objectId.Index = id.Index;
 		object.objectId.Generation = id.Generation;

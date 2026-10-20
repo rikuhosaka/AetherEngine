@@ -1,6 +1,7 @@
 #pragma once
 
 struct ExtractedLighting;
+class World;
 
 struct SceneLightingSettings
 {
@@ -11,4 +12,7 @@ struct SceneLightingSettings
 	float mainLightDirection[3] { 0.3f, -1.0f, 0.2f };
 };
 
-void BuildExtractedLighting(const SceneLightingSettings& settings, ExtractedLighting& outLighting);
+void BuildExtractedLighting(
+	const SceneLightingSettings& settings,
+	const World& world,
+	ExtractedLighting& outLighting);

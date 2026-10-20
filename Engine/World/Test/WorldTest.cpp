@@ -91,12 +91,12 @@ Result<void> RunWorldTests()
 	WorldSpawnDesc spawnDesc{};
 	spawnDesc.name = "First";
 	spawnDesc.transform.position = { 5.0f, 2.0f, -1.0f };
-	Renderable firstRenderable{};
-	firstRenderable.visible = true;
-	spawnDesc.renderable = std::move(firstRenderable);
 
 	const EntityId first = world.Spawn(std::move(spawnDesc));
-	if (!world.IsAlive(first) || world.GetTransform(first) == nullptr || world.GetRenderable(first) == nullptr)
+	Renderable firstRenderable{};
+	firstRenderable.visible = true;
+	if (!world.IsAlive(first) || world.GetTransform(first) == nullptr || !world.Add<Renderable>(first, std::move(firstRenderable))
+		|| world.Get<Renderable>(first) == nullptr)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -121,7 +121,8 @@ Result<void> RunWorldTests()
 			"Spawn should store the entity display name");
 	}
 
-	if (!world.GetRenderable(first)->visible || CountAlive(world) != 1)
+	Renderable extraRenderable{};
+	if (world.Add<Renderable>(first, std::move(extraRenderable)) || !world.Get<Renderable>(first)->visible || CountAlive(world) != 1)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -388,22 +389,34 @@ Result<void> RunWorldTests()
 	WorldSpawnDesc cloneRootDesc{};
 	cloneRootDesc.name = "Root";
 	cloneRootDesc.transform.position = { 1.0f, 2.0f, 3.0f };
+	const EntityId cloneRoot = cloneSource.Spawn(std::move(cloneRootDesc));
 	Renderable cloneRootRenderable{};
 	cloneRootRenderable.mesh.Index = 7;
 	cloneRootRenderable.mesh.Generation = 1;
 	cloneRootRenderable.visible = false;
-	cloneRootDesc.renderable = std::move(cloneRootRenderable);
-	const EntityId cloneRoot = cloneSource.Spawn(std::move(cloneRootDesc));
+	if (!cloneSource.Add<Renderable>(cloneRoot, std::move(cloneRootRenderable)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Clone source should accept a renderable");
+	}
 
 	WorldSpawnDesc cloneChildDesc{};
 	cloneChildDesc.name = "Child";
 	cloneChildDesc.parent = cloneRoot;
 	cloneChildDesc.transform.position = { 0.5f, 0.0f, -2.0f };
+	const EntityId cloneChild = cloneSource.Spawn(std::move(cloneChildDesc));
 	Renderable cloneChildRenderable{};
 	cloneChildRenderable.material.Index = 3;
 	cloneChildRenderable.material.Generation = 2;
-	cloneChildDesc.renderable = std::move(cloneChildRenderable);
-	const EntityId cloneChild = cloneSource.Spawn(std::move(cloneChildDesc));
+	if (!cloneSource.Add<Renderable>(cloneChild, std::move(cloneChildRenderable)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Clone source should accept a child renderable");
+	}
 
 	WorldSpawnDesc cloneDoomedDesc{};
 	cloneDoomedDesc.name = "Doomed";
@@ -413,8 +426,8 @@ Result<void> RunWorldTests()
 	World clone = cloneSource.Clone();
 	const Transform* clonedRootTransform = clone.GetTransform(cloneRoot);
 	const Transform* clonedChildTransform = clone.GetTransform(cloneChild);
-	const Renderable* clonedRootRenderable = clone.GetRenderable(cloneRoot);
-	const Renderable* clonedChildRenderable = clone.GetRenderable(cloneChild);
+	const Renderable* clonedRootRenderable = clone.Get<Renderable>(cloneRoot);
+	const Renderable* clonedChildRenderable = clone.Get<Renderable>(cloneChild);
 	if (!clone.IsAlive(cloneRoot) || !clone.IsAlive(cloneChild) || clone.IsAlive(cloneDoomed) ||
 		clone.GetName(cloneRoot) != "Root" || clone.GetName(cloneChild) != "Child" ||
 		clone.GetParent(cloneChild) != cloneRoot || clone.GetParent(cloneRoot).IsValid() ||
@@ -513,8 +526,8 @@ Result<void> RunWorldTests()
 
 	const Transform* documentParentTransform = documentWorld.GetTransform(documentParent);
 	const Transform* documentChildTransform = documentWorld.GetTransform(documentChild);
-	const Renderable* documentParentRenderable = documentWorld.GetRenderable(documentParent);
-	const Renderable* documentChildRenderable = documentWorld.GetRenderable(documentChild);
+	const Renderable* documentParentRenderable = documentWorld.Get<Renderable>(documentParent);
+	const Renderable* documentChildRenderable = documentWorld.Get<Renderable>(documentChild);
 	DirectX::XMFLOAT4X4 documentChildWorld{};
 	DirectX::XMStoreFloat4x4(&documentChildWorld, documentWorld.GetWorldMatrix(documentChild));
 	if (!instantiated || instantiated.value.size() != 2 || !documentWorld.IsAlive(documentParent)
@@ -622,7 +635,7 @@ Result<void> RunWorldTests()
 
 	World bare{};
 	const EntityId bareEntity = bare.Spawn(WorldSpawnDesc{});
-	if (!bare.IsAlive(bareEntity) || bare.GetRenderable(bareEntity) != nullptr)
+	if (!bare.IsAlive(bareEntity) || bare.Get<Renderable>(bareEntity) != nullptr)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -634,12 +647,18 @@ Result<void> RunWorldTests()
 	marked.mesh.Index = 4;
 	marked.mesh.Generation = 2;
 	WorldSpawnDesc markedDesc{};
-	markedDesc.renderable = std::move(marked);
 	const EntityId markedEntity = bare.Spawn(std::move(markedDesc));
+	if (!bare.Add<Renderable>(markedEntity, std::move(marked)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Add should store a renderable");
+	}
 	bare.Destroy(markedEntity);
 	const EntityId reusedBare = bare.Spawn(WorldSpawnDesc{});
 	if (reusedBare.Index != markedEntity.Index || reusedBare.Generation != markedEntity.Generation + 1
-		|| bare.GetRenderable(reusedBare) != nullptr)
+		|| bare.Get<Renderable>(reusedBare) != nullptr)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -653,12 +672,18 @@ Result<void> RunWorldTests()
 	copied.mesh.Generation = 1;
 	copied.visible = false;
 	WorldSpawnDesc copiedDesc{};
-	copiedDesc.renderable = std::move(copied);
 	const EntityId copiedEntity = renderSource.Spawn(std::move(copiedDesc));
+	if (!renderSource.Add<Renderable>(copiedEntity, std::move(copied)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Add should store a renderable");
+	}
 	const EntityId emptyEntity = renderSource.Spawn(WorldSpawnDesc{});
-	const World renderClone = renderSource.Clone();
-	const Renderable* clonedRenderable = renderClone.GetRenderable(copiedEntity);
-	if (renderClone.GetRenderable(emptyEntity) != nullptr || clonedRenderable == nullptr
+	World renderClone = renderSource.Clone();
+	const Renderable* clonedRenderable = renderClone.Get<Renderable>(copiedEntity);
+	if (renderClone.Get<Renderable>(emptyEntity) != nullptr || clonedRenderable == nullptr
 		|| clonedRenderable->mesh.Index != 9 || clonedRenderable->mesh.Generation != 1
 		|| clonedRenderable->visible)
 	{
@@ -666,6 +691,16 @@ Result<void> RunWorldTests()
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Clone should copy renderable presence and contents");
+	}
+
+	renderClone.Get<Renderable>(copiedEntity)->mesh.Index = 1;
+	const Renderable* sourceRenderable = renderSource.Get<Renderable>(copiedEntity);
+	if (sourceRenderable == nullptr || sourceRenderable->mesh.Index != 9)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Changing a cloned renderable should leave the source world unchanged");
 	}
 
 	LOG_INFO(LogCategory::ECS, "WorldTests passed");

@@ -13,11 +13,6 @@ void EditorScene::SetBindings(std::vector<WorldDocumentBinding> bindings)
 	m_bindings = std::move(bindings);
 }
 
-void EditorScene::SetPhysics(EntityPhysics physics)
-{
-	m_physics = std::move(physics);
-}
-
 void EditorScene::SetPath(std::filesystem::path path)
 {
 	m_path = std::move(path);

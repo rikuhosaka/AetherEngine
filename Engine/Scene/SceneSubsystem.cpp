@@ -12,7 +12,6 @@
 #include "Engine/Scene/SceneDocument.h"
 #include "Engine/Scene/SceneLighting.h"
 #include "Engine/Scene/WorldExtract.h"
-#include "Engine/World/EntityPhysics.h"
 
 #include <memory>
 #include <utility>
@@ -124,15 +123,8 @@ Result<void> SceneSubsystem::LoadContent(
 	m_editor.SetPath(scenePath);
 	m_editor.SetDocument(std::move(document.value));
 
-	Result<EntityPhysics> physics = EntityPhysics::Create();
-	if (!physics)
-	{
-		return FailInternal(LogCategory::Physics, physics.error.code, physics.error.message);
-	}
-
 	Result<std::vector<WorldDocumentBinding>> bindings = InstantiateScene(
 		m_editor.GetWorld(),
-		physics.value,
 		m_editor.GetDocument(),
 		assets.value.meshes,
 		assets.value.render);
@@ -142,7 +134,6 @@ Result<void> SceneSubsystem::LoadContent(
 	}
 
 	m_editor.SetBindings(std::move(bindings.value));
-	m_editor.SetPhysics(std::move(physics.value));
 
 	m_editor.Publish(m_editorServices);
 	PublishWorld();
@@ -203,7 +194,7 @@ void SceneSubsystem::ExtractLighting(ExtractedLighting& outLighting)
 		return;
 	}
 
-	BuildExtractedLighting(m_editor.GetLighting(), outLighting);
+	BuildExtractedLighting(m_editor.GetLighting(), m_editor.GetWorld(), outLighting);
 }
 
 void SceneSubsystem::Shutdown(SubsystemContext& ctx)

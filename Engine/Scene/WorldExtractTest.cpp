@@ -4,6 +4,7 @@
 #include "Engine/Math/Matrix.h"
 #include "Engine/Math/Transform.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/World/Renderable.h"
 #include "Engine/World/World.h"
 #include "Engine/Scene/WorldExtract.h"
 #include "Engine/Scene/WorldRenderBridge.h"
@@ -27,14 +28,19 @@ Result<void> RunWorldExtractTests()
 	World world{};
 	WorldSpawnDesc spawnDesc{};
 	spawnDesc.transform.position = { 5.0f, 2.0f, -1.0f };
+	const EntityId first = world.Spawn(std::move(spawnDesc));
 	Renderable firstRenderable{};
 	firstRenderable.visible = true;
 	firstRenderable.mesh = ToWorldMeshId(MeshHandle{ 3, 1 });
 	firstRenderable.material = ToWorldMaterialId(MaterialHandle{ 4, 2 });
 	firstRenderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
-	spawnDesc.renderable = std::move(firstRenderable);
-
-	const EntityId first = world.Spawn(std::move(spawnDesc));
+	if (!world.Add<Renderable>(first, std::move(firstRenderable)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Extract test should add a renderable");
+	}
 
 	std::vector<ExtractedObject> extracted;
 	ExtractWorld(world, extracted);
@@ -89,10 +95,16 @@ Result<void> RunWorldExtractTests()
 	}
 
 	WorldSpawnDesc reusedDesc{};
+	const EntityId second = world.Spawn(std::move(reusedDesc));
 	Renderable reusedRenderable{};
 	reusedRenderable.visible = true;
-	reusedDesc.renderable = std::move(reusedRenderable);
-	const EntityId second = world.Spawn(std::move(reusedDesc));
+	if (!world.Add<Renderable>(second, std::move(reusedRenderable)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Extract test should add a renderable");
+	}
 	extracted.clear();
 	ExtractWorld(world, extracted);
 	if (extracted.size() != 1 ||
@@ -135,10 +147,16 @@ Result<void> RunWorldExtractTests()
 	WorldSpawnDesc childDesc{};
 	childDesc.parent = parent;
 	childDesc.transform.position = { 1.0f, 0.0f, 0.0f };
+	const EntityId child = world.Spawn(std::move(childDesc));
 	Renderable childRenderable{};
 	childRenderable.visible = true;
-	childDesc.renderable = std::move(childRenderable);
-	const EntityId child = world.Spawn(std::move(childDesc));
+	if (!world.Add<Renderable>(child, std::move(childRenderable)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Extract test should add a child renderable");
+	}
 
 	extracted.clear();
 	ExtractWorld(world, extracted);
@@ -200,10 +218,16 @@ Result<void> RunWorldExtractTests()
 	WorldSpawnDesc staleDesc{};
 	staleDesc.parent = parent;
 	staleDesc.transform.position = { 4.0f, 0.0f, 0.0f };
+	const EntityId staleChild = world.Spawn(std::move(staleDesc));
 	Renderable staleRenderable{};
 	staleRenderable.visible = true;
-	staleDesc.renderable = std::move(staleRenderable);
-	const EntityId staleChild = world.Spawn(std::move(staleDesc));
+	if (!world.Add<Renderable>(staleChild, std::move(staleRenderable)))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Extract test should add a stale child renderable");
+	}
 	if (staleChild.Index != parent.Index)
 	{
 		for (int attempt = 0; attempt < 4; ++attempt)

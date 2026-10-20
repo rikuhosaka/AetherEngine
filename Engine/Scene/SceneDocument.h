@@ -16,18 +16,13 @@ class World;
 [[nodiscard]] Result<SceneDocument> ReadSceneDocument(std::string_view text);
 [[nodiscard]] Result<SceneDocument> LoadSceneDocument(const std::filesystem::path& path);
 
-// Binds document bodies onto an existing world. Bindings without a body are skipped.
-// A failure unbinds bodies from this call.
-[[nodiscard]] Result<EntityPhysics> BindScenePhysics(
-	World& world,
-	const SceneDocument& document,
-	std::span<const WorldDocumentBinding> bindings);
+// Binds RigidBody components. A failure unbinds bodies from this call.
+[[nodiscard]] Result<EntityPhysics> BindRigidBodies(World& world);
 
-// Resolves mesh keys, copies tint, and binds parentless bodies.
-// A failure unbinds bodies from this call and destroys entities from this call.
+// Resolves mesh keys, copies tint, and adds rigid body, camera, and light components.
+// A failure destroys entities from this call.
 [[nodiscard]] Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 	World& world,
-	EntityPhysics& physics,
 	const SceneDocument& document,
 	std::span<const SceneMeshRef> meshes,
 	const SceneRenderResources& render);

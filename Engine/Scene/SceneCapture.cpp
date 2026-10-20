@@ -88,7 +88,7 @@ Result<SceneDocument> CaptureScene(
 		}
 
 		const Transform* transform = world.GetTransform(binding->entity);
-		const Renderable* renderable = world.GetRenderable(binding->entity);
+		const Renderable* renderable = world.Get<Renderable>(binding->entity);
 		if (transform == nullptr || renderable == nullptr)
 		{
 			return FailRuntime<SceneDocument>(
@@ -123,8 +123,36 @@ Result<SceneDocument> CaptureScene(
 			capturedWorld.parent = parentBinding->id;
 		}
 
+		SceneEntity capturedEntity = authored.entities[index];
+		if (const RigidBody* body = world.Get<RigidBody>(binding->entity))
+		{
+			capturedEntity.body = *body;
+		}
+		else
+		{
+			capturedEntity.body.reset();
+		}
+
+		if (const CameraComponent* camera = world.Get<CameraComponent>(binding->entity))
+		{
+			capturedEntity.camera = *camera;
+		}
+		else
+		{
+			capturedEntity.camera.reset();
+		}
+
+		if (const LightComponent* light = world.Get<LightComponent>(binding->entity))
+		{
+			capturedEntity.light = *light;
+		}
+		else
+		{
+			capturedEntity.light.reset();
+		}
+
 		captured.world.push_back(std::move(capturedWorld));
-		captured.entities.push_back(authored.entities[index]);
+		captured.entities.push_back(std::move(capturedEntity));
 	}
 
 	return MakeOk(std::move(captured));

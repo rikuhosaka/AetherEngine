@@ -26,7 +26,7 @@ constexpr uint32_t kCapsuleHemisphereStacks = 4;
 	return left.x == right.x && left.y == right.y && left.z == right.z;
 }
 
-[[nodiscard]] bool SameShape(const SceneShape& left, const SceneShape& right)
+[[nodiscard]] bool SameShape(const RigidBodyShape& left, const RigidBodyShape& right)
 {
 	if (left.type != right.type || !SameFloat3(left.halfExtent, right.halfExtent) || left.radius != right.radius
 		|| left.halfHeight != right.halfHeight || left.points.size() != right.points.size()
@@ -67,9 +67,9 @@ constexpr uint32_t kCapsuleHemisphereStacks = 4;
 	return false;
 }
 
-[[nodiscard]] const SceneShape* ShapeForKey(const SceneDocument& document, std::string_view key, bool& conflict)
+[[nodiscard]] const RigidBodyShape* ShapeForKey(const SceneDocument& document, std::string_view key, bool& conflict)
 {
-	const SceneShape* shape = nullptr;
+	const RigidBodyShape* shape = nullptr;
 	for (const SceneEntity& entity : document.entities)
 	{
 		if (entity.mesh != key || !entity.body.has_value())
@@ -94,7 +94,7 @@ constexpr uint32_t kCapsuleHemisphereStacks = 4;
 	return shape;
 }
 
-[[nodiscard]] Result<PrimitiveMeshData> GenerateShapeMesh(const SceneShape& shape)
+[[nodiscard]] Result<PrimitiveMeshData> GenerateShapeMesh(const RigidBodyShape& shape)
 {
 	switch (shape.type)
 	{
@@ -207,7 +207,7 @@ Result<SceneAssets> SceneAssetLoader::Load(
 	for (const std::string& key : keys)
 	{
 		bool conflict = false;
-		const SceneShape* shape = ShapeForKey(document, key, conflict);
+		const RigidBodyShape* shape = ShapeForKey(document, key, conflict);
 		if (conflict)
 		{
 			return FailInternal<SceneAssets>(

@@ -44,12 +44,23 @@ namespace
 	sphere.tint[1] = 0.35f;
 	sphere.tint[2] = 0.12f;
 	sphere.tint[3] = 1.0f;
-	SceneBody sphereBody{};
+	RigidBody sphereBody{};
 	sphereBody.motion = PhysicsMotion::Dynamic;
 	sphereBody.friction = 0.2f;
 	sphereBody.shape.type = PhysicsShapeType::Sphere;
 	sphereBody.shape.radius = 0.5f;
 	sphere.body = sphereBody;
+	CameraComponent sphereCamera{};
+	sphereCamera.fovYDegrees = 50.0f;
+	sphereCamera.nearPlane = 0.2f;
+	sphereCamera.farPlane = 500.0f;
+	sphere.camera = sphereCamera;
+	LightComponent sphereLight{};
+	sphereLight.color[0] = 0.1f;
+	sphereLight.color[1] = 0.2f;
+	sphereLight.color[2] = 0.3f;
+	sphereLight.intensity = 2.0f;
+	sphere.light = sphereLight;
 
 	WorldDocumentEntity hullWorld{};
 	hullWorld.id = 2;
@@ -57,7 +68,7 @@ namespace
 	SceneEntity hull{};
 	hull.id = 2;
 	hull.mesh = "builtin:hull";
-	SceneBody hullBody{};
+	RigidBody hullBody{};
 	hullBody.motion = PhysicsMotion::Dynamic;
 	hullBody.shape.type = PhysicsShapeType::ConvexHull;
 	hullBody.shape.points = {
@@ -93,7 +104,16 @@ namespace
 		&& readAgain.value.entities[1].body->shape.points.size() == 4
 		&& readAgain.value.entities[1].mesh == "builtin:hull"
 		&& RoundTripNearlyEqual(readAgain.value.entities[0].tint[0], 0.90f)
-		&& RoundTripNearlyEqual(readAgain.value.world[0].transform.position.y, 4.0f);
+		&& RoundTripNearlyEqual(readAgain.value.world[0].transform.position.y, 4.0f)
+		&& readAgain.value.entities[0].camera.has_value()
+		&& RoundTripNearlyEqual(readAgain.value.entities[0].camera->fovYDegrees, 50.0f)
+		&& RoundTripNearlyEqual(readAgain.value.entities[0].camera->nearPlane, 0.2f)
+		&& RoundTripNearlyEqual(readAgain.value.entities[0].camera->farPlane, 500.0f)
+		&& readAgain.value.entities[0].light.has_value()
+		&& RoundTripNearlyEqual(readAgain.value.entities[0].light->intensity, 2.0f)
+		&& RoundTripNearlyEqual(readAgain.value.entities[0].light->color[2], 0.3f)
+		&& !readAgain.value.entities[1].camera.has_value()
+		&& !readAgain.value.entities[1].light.has_value();
 	if (!written || !readBack || !writtenAgain || !readAgain || !hullKept)
 	{
 		return FailRuntime(

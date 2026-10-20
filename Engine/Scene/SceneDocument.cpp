@@ -149,11 +149,11 @@ using Json = nlohmann::json;
 	return MakeOk(std::move(points));
 }
 
-[[nodiscard]] Result<SceneShape> ReadShape(const Json& value)
+[[nodiscard]] Result<RigidBodyShape> ReadShape(const Json& value)
 {
 	if (!value.is_object())
 	{
-		return FailRuntime<SceneShape>(
+		return FailRuntime<RigidBodyShape>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document shape must be an object");
@@ -162,21 +162,21 @@ using Json = nlohmann::json;
 	const Json* typeValue = FindField(value, "type");
 	if (typeValue == nullptr || !typeValue->is_string())
 	{
-		return FailRuntime<SceneShape>(
+		return FailRuntime<RigidBodyShape>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document shape is missing a type");
 	}
 
 	const std::string type = typeValue->get<std::string>();
-	SceneShape shape{};
+	RigidBodyShape shape{};
 	if (type == "box")
 	{
 		shape.type = PhysicsShapeType::Box;
 		const Json* halfExtent = FindField(value, "halfExtent");
 		if (halfExtent == nullptr || !ReadFloats(*halfExtent, &shape.halfExtent.x, 3))
 		{
-			return FailRuntime<SceneShape>(
+			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document box is missing halfExtent");
@@ -188,7 +188,7 @@ using Json = nlohmann::json;
 		const Json* radius = FindField(value, "radius");
 		if (radius == nullptr || !ReadFloat(*radius, shape.radius))
 		{
-			return FailRuntime<SceneShape>(
+			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document sphere is missing radius");
@@ -202,7 +202,7 @@ using Json = nlohmann::json;
 		if (radius == nullptr || halfHeight == nullptr || !ReadFloat(*radius, shape.radius)
 			|| !ReadFloat(*halfHeight, shape.halfHeight))
 		{
-			return FailRuntime<SceneShape>(
+			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document capsule is missing radius or halfHeight");
@@ -214,7 +214,7 @@ using Json = nlohmann::json;
 		const Json* points = FindField(value, "points");
 		if (points == nullptr)
 		{
-			return FailRuntime<SceneShape>(
+			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document shape is missing points");
@@ -223,13 +223,13 @@ using Json = nlohmann::json;
 		Result<std::vector<DirectX::XMFLOAT3>> readPoints = ReadPoints(*points);
 		if (!readPoints)
 		{
-			return MakeFail<SceneShape>(readPoints.error.code, readPoints.error.message);
+			return MakeFail<RigidBodyShape>(readPoints.error.code, readPoints.error.message);
 		}
 
 		shape.points = std::move(readPoints.value);
 		if (shape.type == PhysicsShapeType::ConvexHull && shape.points.size() < 4)
 		{
-			return FailRuntime<SceneShape>(
+			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document convex hull requires at least four points");
@@ -240,7 +240,7 @@ using Json = nlohmann::json;
 			const Json* indices = FindField(value, "indices");
 			if (indices == nullptr || !indices->is_array() || indices->empty() || indices->size() % 3 != 0)
 			{
-				return FailRuntime<SceneShape>(
+				return FailRuntime<RigidBodyShape>(
 					LogCategory::ECS,
 					ErrorCode::InvalidArgument,
 					"Scene document mesh is missing triangle indices");
@@ -252,7 +252,7 @@ using Json = nlohmann::json;
 				uint32_t index = 0;
 				if (!ReadUint32(indexValue, index))
 				{
-					return FailRuntime<SceneShape>(
+					return FailRuntime<RigidBodyShape>(
 						LogCategory::ECS,
 						ErrorCode::InvalidArgument,
 						"Scene document mesh index must be an unsigned integer");
@@ -264,7 +264,7 @@ using Json = nlohmann::json;
 	}
 	else
 	{
-		return FailRuntime<SceneShape>(
+		return FailRuntime<RigidBodyShape>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document shape is unsupported");
@@ -273,11 +273,11 @@ using Json = nlohmann::json;
 	return MakeOk(std::move(shape));
 }
 
-[[nodiscard]] Result<SceneBody> ReadBody(const Json& value)
+[[nodiscard]] Result<RigidBody> ReadBody(const Json& value)
 {
 	if (!value.is_object())
 	{
-		return FailRuntime<SceneBody>(
+		return FailRuntime<RigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document physics must be an object");
@@ -288,10 +288,10 @@ using Json = nlohmann::json;
 	const Json* restitution = FindField(value, "restitution");
 	const Json* mass = FindField(value, "mass");
 	const Json* shape = FindField(value, "shape");
-	SceneBody body{};
+	RigidBody body{};
 	if (motion == nullptr || !ReadMotion(*motion, body.motion))
 	{
-		return FailRuntime<SceneBody>(
+		return FailRuntime<RigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			motion != nullptr && motion->is_string()
@@ -303,22 +303,22 @@ using Json = nlohmann::json;
 		|| !ReadFloat(*friction, body.friction) || !ReadFloat(*restitution, body.restitution)
 		|| !ReadFloat(*mass, body.mass))
 	{
-		return FailRuntime<SceneBody>(
+		return FailRuntime<RigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document physics is missing a field");
 	}
 
-	Result<SceneShape> readShape = ReadShape(*shape);
+	Result<RigidBodyShape> readShape = ReadShape(*shape);
 	if (!readShape)
 	{
-		return MakeFail<SceneBody>(readShape.error.code, readShape.error.message);
+		return MakeFail<RigidBody>(readShape.error.code, readShape.error.message);
 	}
 
 	body.shape = std::move(readShape.value);
 	if (body.shape.type == PhysicsShapeType::Mesh && body.motion != PhysicsMotion::Static)
 	{
-		return FailRuntime<SceneBody>(
+		return FailRuntime<RigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document mesh physics requires static motion");
@@ -370,13 +370,65 @@ using Json = nlohmann::json;
 				"Scene document physics requires a root entity");
 		}
 
-		Result<SceneBody> body = ReadBody(*physics);
+		Result<RigidBody> body = ReadBody(*physics);
 		if (!body)
 		{
 			return MakeFail<SceneEntity>(body.error.code, body.error.message);
 		}
 
 		entity.body = std::move(body.value);
+	}
+
+	if (const Json* camera = FindField(value, "camera"))
+	{
+		if (!camera->is_object())
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document camera is invalid");
+		}
+
+		const Json* fovY = FindField(*camera, "fovY");
+		const Json* nearPlane = FindField(*camera, "near");
+		const Json* farPlane = FindField(*camera, "far");
+		CameraComponent component{};
+		if (fovY == nullptr || nearPlane == nullptr || farPlane == nullptr
+			|| !ReadFloat(*fovY, component.fovYDegrees) || !ReadFloat(*nearPlane, component.nearPlane)
+			|| !ReadFloat(*farPlane, component.farPlane))
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document camera is invalid");
+		}
+
+		entity.camera = component;
+	}
+
+	if (const Json* light = FindField(value, "light"))
+	{
+		if (!light->is_object())
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document light is invalid");
+		}
+
+		const Json* color = FindField(*light, "color");
+		const Json* intensity = FindField(*light, "intensity");
+		LightComponent component{};
+		if (color == nullptr || intensity == nullptr || !ReadFloats(*color, component.color, 3)
+			|| !ReadFloat(*intensity, component.intensity))
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document light is invalid");
+		}
+
+		entity.light = component;
 	}
 
 	return MakeOk(std::move(entity));
@@ -417,7 +469,7 @@ using Json = nlohmann::json;
 	return MakeOk(std::move(document));
 }
 
-[[nodiscard]] PhysicsBodyDesc MakeBodyDesc(const SceneBody& body)
+[[nodiscard]] PhysicsBodyDesc MakeBodyDesc(const RigidBody& body)
 {
 	PhysicsBodyDesc desc{};
 	desc.motion = body.motion;
@@ -440,19 +492,6 @@ using Json = nlohmann::json;
 		if (mesh.key == key)
 		{
 			return &mesh;
-		}
-	}
-
-	return nullptr;
-}
-
-[[nodiscard]] const SceneEntity* FindSceneEntity(const SceneDocument& document, uint32_t id)
-{
-	for (const SceneEntity& entity : document.entities)
-	{
-		if (entity.id == id)
-		{
-			return &entity;
 		}
 	}
 
@@ -508,7 +547,7 @@ using Json = nlohmann::json;
 	}
 }
 
-[[nodiscard]] Json WriteShape(const SceneShape& shape)
+[[nodiscard]] Json WriteShape(const RigidBodyShape& shape)
 {
 	Json value = Json::object();
 	value["type"] = ShapeName(shape.type);
@@ -585,20 +624,28 @@ using Json = nlohmann::json;
 		});
 	}
 
+	if (entity.camera.has_value())
+	{
+		item["camera"] = Json::object({
+			{ "fovY", entity.camera->fovYDegrees },
+			{ "near", entity.camera->nearPlane },
+			{ "far", entity.camera->farPlane },
+		});
+	}
+
+	if (entity.light.has_value())
+	{
+		item["light"] = Json::object({
+			{ "color", Json::array({ entity.light->color[0], entity.light->color[1], entity.light->color[2] }) },
+			{ "intensity", entity.light->intensity },
+		});
+	}
+
 	return item;
 }
 
-void Rollback(
-	World& world,
-	EntityPhysics& physics,
-	const std::vector<WorldDocumentBinding>& spawned,
-	const std::vector<EntityId>& bound)
+void Rollback(World& world, const std::vector<WorldDocumentBinding>& spawned)
 {
-	for (const EntityId id : bound)
-	{
-		(void)physics.Unbind(id);
-	}
-
 	for (const WorldDocumentBinding& binding : spawned)
 	{
 		world.Destroy(binding.entity);
@@ -636,10 +683,7 @@ Result<SceneDocument> LoadSceneDocument(const std::filesystem::path& path)
 	return ReadSceneDocument(text);
 }
 
-Result<EntityPhysics> BindScenePhysics(
-	World& world,
-	const SceneDocument& document,
-	std::span<const WorldDocumentBinding> bindings)
+Result<EntityPhysics> BindRigidBodies(World& world)
 {
 	Result<EntityPhysics> physics = EntityPhysics::Create();
 	if (!physics)
@@ -647,27 +691,32 @@ Result<EntityPhysics> BindScenePhysics(
 		return FailInternal<EntityPhysics>(LogCategory::Physics, physics.error.code, physics.error.message);
 	}
 
+	std::vector<EntityId> bodies{};
+	world.ForEach<RigidBody>([&bodies](EntityId id, const RigidBody&) {
+		bodies.push_back(id);
+	});
+
 	std::vector<EntityId> bound{};
-	for (const WorldDocumentBinding& binding : bindings)
+	for (const EntityId id : bodies)
 	{
-		const SceneEntity* entity = FindSceneEntity(document, binding.id);
-		if (entity == nullptr || !entity->body.has_value())
+		const RigidBody* body = world.Get<RigidBody>(id);
+		if (body == nullptr)
 		{
 			continue;
 		}
 
-		const Result<PhysicsBodyId> body = physics.value.Bind(world, binding.entity, MakeBodyDesc(*entity->body));
-		if (!body)
+		const Result<PhysicsBodyId> created = physics.value.Bind(world, id, MakeBodyDesc(*body));
+		if (!created)
 		{
-			for (const EntityId id : bound)
+			for (const EntityId boundId : bound)
 			{
-				(void)physics.value.Unbind(id);
+				(void)physics.value.Unbind(boundId);
 			}
 
-			return FailInternal<EntityPhysics>(LogCategory::Physics, body.error.code, body.error.message);
+			return FailInternal<EntityPhysics>(LogCategory::Physics, created.error.code, created.error.message);
 		}
 
-		bound.push_back(binding.entity);
+		bound.push_back(id);
 	}
 
 	return physics;
@@ -675,7 +724,6 @@ Result<EntityPhysics> BindScenePhysics(
 
 Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 	World& world,
-	EntityPhysics& physics,
 	const SceneDocument& document,
 	std::span<const SceneMeshRef> meshes,
 	const SceneRenderResources& render)
@@ -694,16 +742,15 @@ Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 		return spawned;
 	}
 
-	std::vector<EntityId> bound{};
 	for (size_t index = 0; index < document.entities.size(); ++index)
 	{
 		const SceneEntity& entity = document.entities[index];
 		const WorldDocumentBinding* binding = FindBinding(spawned.value, entity.id);
 		const SceneMeshRef* mesh = FindMesh(meshes, entity.mesh);
-		Renderable* renderable = binding == nullptr ? nullptr : world.GetRenderable(binding->entity);
+		Renderable* renderable = binding == nullptr ? nullptr : world.Get<Renderable>(binding->entity);
 		if (binding == nullptr || mesh == nullptr || renderable == nullptr)
 		{
-			Rollback(world, physics, spawned.value, bound);
+			Rollback(world, spawned.value);
 			return FailRuntime<std::vector<WorldDocumentBinding>>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
@@ -722,19 +769,17 @@ Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 			renderable->overrides.parameters.push_back(std::move(block));
 		}
 
-		if (!entity.body.has_value())
+		const bool bodyAdded = !entity.body.has_value() || world.Add<RigidBody>(binding->entity, *entity.body);
+		const bool cameraAdded = !entity.camera.has_value() || world.Add<CameraComponent>(binding->entity, *entity.camera);
+		const bool lightAdded = !entity.light.has_value() || world.Add<LightComponent>(binding->entity, *entity.light);
+		if (!bodyAdded || !cameraAdded || !lightAdded)
 		{
-			continue;
+			Rollback(world, spawned.value);
+			return FailRuntime<std::vector<WorldDocumentBinding>>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document component was rejected");
 		}
-
-		const Result<PhysicsBodyId> body = physics.Bind(world, binding->entity, MakeBodyDesc(*entity.body));
-		if (!body)
-		{
-			Rollback(world, physics, spawned.value, bound);
-			return MakeFail<std::vector<WorldDocumentBinding>>(body.error.code, body.error.message);
-		}
-
-		bound.push_back(binding->entity);
 	}
 
 	return spawned;
