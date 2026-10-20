@@ -72,7 +72,15 @@ void SceneSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
 	const bool wantCamera = m_session.mode == SessionMode::Playing || m_session.mode == SessionMode::Paused;
 	if (sessionOpen && wantCamera && m_game.has_value())
 	{
-		m_game->Tick(ctx, deltaSeconds);
+		InputServices* inputServices = ctx.GetService<InputServices>();
+		const InputState* input = inputServices != nullptr ? inputServices->state : nullptr;
+		const bool mouseCaptured = inputServices != nullptr && inputServices->mouseCaptured;
+		const bool keyboardCaptured = inputServices != nullptr && inputServices->keyboardCaptured;
+		const bool relativeMouse = m_game->Tick(input, deltaSeconds, mouseCaptured, keyboardCaptured);
+		if (inputServices != nullptr)
+		{
+			inputServices->relativeMouse = relativeMouse;
+		}
 	}
 }
 
@@ -261,7 +269,11 @@ Result<void> SceneSubsystem::BeginPlay()
 	}
 
 	const EditorCameraServices* camera = m_context != nullptr ? m_context->GetService<EditorCameraServices>() : nullptr;
-	Result<GameScene> opened = GameScene::Begin(m_editor, camera);
+	const bool cameraValid = camera != nullptr && camera->valid;
+	Result<GameScene> opened = GameScene::Begin(
+		m_editor,
+		cameraValid ? &camera->position : nullptr,
+		cameraValid ? &camera->forward : nullptr);
 	if (!opened)
 	{
 		return MakeFail(opened.error.code, opened.error.message);

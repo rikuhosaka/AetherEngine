@@ -34,8 +34,8 @@ target_link_libraries(Renderer
         Frame
         RHI
         RHI_Interface
-        DX12
     PRIVATE
+        DX12
         dxgi
         d3d12
         dxcompiler

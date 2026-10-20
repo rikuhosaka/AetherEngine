@@ -1,6 +1,8 @@
 #pragma once
 
-#include "Engine/Physics/PhysicsWorld.h"
+#include "Engine/Physics/PhysicsTypes.h"
+
+#include <DirectXMath.h>
 
 #include <cstdint>
 #include <vector>

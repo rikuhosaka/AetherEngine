@@ -1,8 +1,8 @@
-#include "Engine/World/Test/EntityPhysicsTest.h"
+#include "Engine/Scene/EntityPhysicsTest.h"
 
 #include "Engine/Core/Log/Result.h"
-#include "Engine/World/EntityPhysics.h"
 #include "Engine/Physics/PhysicsLibrary.h"
+#include "Engine/Scene/EntityPhysics.h"
 #include "Engine/World/World.h"
 
 #include <cmath>

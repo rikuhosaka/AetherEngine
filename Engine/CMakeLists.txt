@@ -44,7 +44,6 @@ target_link_libraries(Engine INTERFACE
     Graphics
     RHI
     RHI_Interface
-    DX12
     Renderer
     Camera
     DirectXTex

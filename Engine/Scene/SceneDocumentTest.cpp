@@ -5,7 +5,7 @@
 #include "Engine/Physics/PhysicsLibrary.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Scene/SceneLighting.h"
-#include "Engine/World/EntityPhysics.h"
+#include "Engine/Scene/EntityPhysics.h"
 #include "Engine/World/World.h"
 
 #include <cmath>

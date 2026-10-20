@@ -11,7 +11,7 @@
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
 #include "Engine/Scene/SceneDocument.h"
 #include "Engine/Scene/SceneDocumentTest.h"
-#include "Engine/World/Test/EntityPhysicsTest.h"
+#include "Engine/Scene/EntityPhysicsTest.h"
 #include "Engine/Physics/Test/PhysicsLibraryTest.h"
 #include "Engine/Physics/Test/PhysicsWorldTest.h"
 #include "Engine/World/Test/WorldTest.h"

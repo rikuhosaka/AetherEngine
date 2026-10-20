@@ -21,6 +21,7 @@ target_link_libraries(Scene
     PUBLIC
         Application
         Camera
+        Physics
         World
         Renderer
 )

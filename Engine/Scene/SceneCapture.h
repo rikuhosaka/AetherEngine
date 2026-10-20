@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Log/Result.h"
-#include "Engine/World/SceneDocument.h"
+#include "Engine/Scene/SceneDocument.h"
 
 #include <span>
 #include <vector>

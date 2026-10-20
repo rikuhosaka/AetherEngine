@@ -2,6 +2,7 @@
 
 #include "Engine/Core/Handle/Handle.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Physics/PhysicsTypes.h"
 
 #include <DirectXMath.h>
 
@@ -18,22 +19,6 @@ struct PhysicsPose
 {
 	DirectX::XMFLOAT3 position{ 0.0f, 0.0f, 0.0f };
 	DirectX::XMFLOAT4 rotation{ 0.0f, 0.0f, 0.0f, 1.0f };
-};
-
-enum class PhysicsMotion : uint8_t
-{
-	Static,
-	Dynamic,
-	Kinematic,
-};
-
-enum class PhysicsShapeType : uint8_t
-{
-	Box,
-	Sphere,
-	Capsule,
-	ConvexHull,
-	Mesh,
 };
 
 // Box reads halfExtent. Sphere reads radius. Capsule reads radius and halfHeight.

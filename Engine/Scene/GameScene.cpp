@@ -1,8 +1,5 @@
 #include "Engine/Scene/GameScene.h"
 
-#include "Engine/Application/Services/EditorCameraServices.h"
-#include "Engine/Application/Services/InputServices.h"
-#include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Camera/CameraExtract.h"
 #include "Engine/Platform/InputState.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
@@ -27,7 +24,8 @@ GameScene::GameScene(World world, EntityPhysics physics, SceneLightingSettings l
 
 Result<GameScene> GameScene::Begin(
 	const EditorScene& editor,
-	const EditorCameraServices* camera)
+	const DirectX::XMFLOAT3* cameraPosition,
+	const DirectX::XMFLOAT3* cameraForward)
 {
 	if (!editor.HasDocument())
 	{
@@ -45,13 +43,17 @@ Result<GameScene> GameScene::Begin(
 	}
 
 	GameScene scene(std::move(world), std::move(physics.value), editor.GetLighting());
-	scene.ResetCamera(camera);
+	scene.ResetCamera(cameraPosition, cameraForward);
 	return MakeOk(std::move(scene));
 }
 
-void GameScene::Tick(SubsystemContext& ctx, float deltaSeconds)
+bool GameScene::Tick(
+	const InputState* input,
+	float deltaSeconds,
+	bool mouseCaptured,
+	bool keyboardCaptured)
 {
-	UpdateCamera(ctx, deltaSeconds);
+	return UpdateCamera(input, deltaSeconds, mouseCaptured, keyboardCaptured);
 }
 
 Result<void> GameScene::Step(float fixedDeltaSeconds)
@@ -74,27 +76,30 @@ void GameScene::ExtractLighting(ExtractedLighting& outLighting) const
 	BuildExtractedLighting(m_lighting, m_world, outLighting);
 }
 
-void GameScene::ResetCamera(const EditorCameraServices* camera)
+void GameScene::ResetCamera(const DirectX::XMFLOAT3* cameraPosition, const DirectX::XMFLOAT3* cameraForward)
 {
-	if (camera != nullptr && camera->valid)
+	if (cameraPosition != nullptr && cameraForward != nullptr)
 	{
-		m_cameraController.Reset(m_camera, camera->position, camera->forward);
+		m_cameraController.Reset(m_camera, *cameraPosition, *cameraForward);
 		return;
 	}
 
 	m_cameraController.Reset(m_camera, kPlayCameraFallbackPosition, kPlayCameraFallbackForward);
 }
 
-void GameScene::UpdateCamera(SubsystemContext& ctx, float deltaSeconds)
+bool GameScene::UpdateCamera(
+	const InputState* input,
+	float deltaSeconds,
+	bool mouseCaptured,
+	bool keyboardCaptured)
 {
-	InputServices* inputServices = ctx.GetService<InputServices>();
-	if (inputServices == nullptr || inputServices->state == nullptr)
+	if (input == nullptr)
 	{
-		return;
+		return false;
 	}
 
-	const bool useMouse = !inputServices->mouseCaptured;
-	const bool useKeyboard = !inputServices->keyboardCaptured;
-	m_cameraController.Update(m_camera, *inputServices->state, deltaSeconds, useMouse, useKeyboard);
-	inputServices->relativeMouse = useMouse && inputServices->state->IsDown(Key::MouseRight);
+	const bool useMouse = !mouseCaptured;
+	const bool useKeyboard = !keyboardCaptured;
+	m_cameraController.Update(m_camera, *input, deltaSeconds, useMouse, useKeyboard);
+	return useMouse && input->IsDown(Key::MouseRight);
 }

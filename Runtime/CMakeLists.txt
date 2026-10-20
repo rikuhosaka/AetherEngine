@@ -27,6 +27,7 @@ PUBLIC
     Engine
     Editor
 PRIVATE
+    DX12
     ImGui
 )
 

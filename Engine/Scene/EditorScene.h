@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Engine/Application/Services/EditorSceneServices.h"
+#include "Engine/Scene/SceneDocument.h"
 #include "Engine/Scene/SceneLighting.h"
-#include "Engine/World/SceneDocument.h"
 #include "Engine/World/World.h"
 
 #include <filesystem>
