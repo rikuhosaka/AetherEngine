@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Renderer/Model/Loader/ModelLoadTypes.h"
+#include "Engine/AssetSystem/Model/Loader/ModelLoadTypes.h"
 
 #include <cstdint>
 #include <span>

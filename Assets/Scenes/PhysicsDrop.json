@@ -229,6 +229,30 @@
           1.0
         ]
       }
+    },
+    {
+      "id": 6,
+      "name": "Paladin",
+      "parent": null,
+      "model": "Models/Paladin J Nordstrom.fbx",
+      "transform": {
+        "position": [
+          2.4992654,
+          1.7999816,
+          2.49905
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0432115,
+          1.0432115,
+          1.0432115
+        ]
+      }
     }
   ],
   "version": 1

@@ -15,12 +15,19 @@ endif()
 target_include_directories(AssetSystem
     PUBLIC
         ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/ThirdParty/Fbxsdk/include
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/sorce/DirectXTex
 )
 
 target_link_libraries(AssetSystem
     PUBLIC
         Core
         Math
+    PRIVATE
+        Fbxsdk
+        DirectXTex
+        ole32
 )
 
 target_compile_definitions(AssetSystem PRIVATE NOMINMAX)

@@ -1,8 +1,8 @@
-#include "Engine/Renderer/Model/Loader/FbxModelFileLoader.h"
+#include "Engine/AssetSystem/Model/Loader/FbxModelFileLoader.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Renderer/Mesh/VertexTangents.h"
+#include "Engine/AssetSystem/Model/VertexTangents.h"
 
 #include <fbxsdk.h>
 #include <fbxsdk/scene/fbxaxissystem.h>
@@ -319,6 +319,148 @@ private:
 	return materialRegistry.GetOrAdd(material, fbxDirectory, fbxStem, materialSlots);
 }
 
+struct GeometricTransform
+{
+	FbxAMatrix positionMatrix{};
+	double normalMatrix[3][3]{};
+	bool apply = false;
+};
+
+[[nodiscard]] bool NearlyEqual(double value, double target)
+{
+	return std::abs(value - target) < 1.0e-8;
+}
+
+[[nodiscard]] GeometricTransform MakeGeometricTransform(FbxNode* node)
+{
+	const FbxVector4 translation = node->GetGeometricTranslation(FbxNode::eSourcePivot);
+	const FbxVector4 rotation = node->GetGeometricRotation(FbxNode::eSourcePivot);
+	const FbxVector4 scaling = node->GetGeometricScaling(FbxNode::eSourcePivot);
+
+	GeometricTransform transform{};
+	const bool isIdentity =
+		NearlyEqual(translation[0], 0.0) && NearlyEqual(translation[1], 0.0) && NearlyEqual(translation[2], 0.0) &&
+		NearlyEqual(rotation[0], 0.0) && NearlyEqual(rotation[1], 0.0) && NearlyEqual(rotation[2], 0.0) &&
+		NearlyEqual(scaling[0], 1.0) && NearlyEqual(scaling[1], 1.0) && NearlyEqual(scaling[2], 1.0);
+	if (isIdentity)
+	{
+		return transform;
+	}
+
+	transform.apply = true;
+	transform.positionMatrix = FbxAMatrix(translation, rotation, scaling);
+
+	FbxAMatrix linear = transform.positionMatrix;
+	linear.SetT(FbxVector4(0.0, 0.0, 0.0, 1.0));
+	const FbxAMatrix inverseTranspose = linear.Inverse().Transpose();
+	for (int row = 0; row < 3; ++row)
+	{
+		for (int column = 0; column < 3; ++column)
+		{
+			transform.normalMatrix[row][column] = inverseTranspose.Get(row, column);
+		}
+	}
+
+	return transform;
+}
+
+void ApplyGeometricPosition(const GeometricTransform& transform, float position[3])
+{
+	if (!transform.apply)
+	{
+		return;
+	}
+
+	const FbxVector4 source(position[0], position[1], position[2], 1.0);
+	const FbxVector4 transformed = transform.positionMatrix.MultT(source);
+	position[0] = static_cast<float>(transformed[0]);
+	position[1] = static_cast<float>(transformed[1]);
+	position[2] = static_cast<float>(transformed[2]);
+}
+
+void ApplyGeometricNormal(const GeometricTransform& transform, float normal[3])
+{
+	if (!transform.apply)
+	{
+		return;
+	}
+
+	const double x = normal[0];
+	const double y = normal[1];
+	const double z = normal[2];
+	normal[0] = static_cast<float>(
+		(transform.normalMatrix[0][0] * x) + (transform.normalMatrix[0][1] * y) + (transform.normalMatrix[0][2] * z));
+	normal[1] = static_cast<float>(
+		(transform.normalMatrix[1][0] * x) + (transform.normalMatrix[1][1] * y) + (transform.normalMatrix[1][2] * z));
+	normal[2] = static_cast<float>(
+		(transform.normalMatrix[2][0] * x) + (transform.normalMatrix[2][1] * y) + (transform.normalMatrix[2][2] * z));
+
+	const float length = std::sqrt((normal[0] * normal[0]) + (normal[1] * normal[1]) + (normal[2] * normal[2]));
+	if (length <= 1.0e-8f)
+	{
+		return;
+	}
+
+	const float inverseLength = 1.0f / length;
+	normal[0] *= inverseLength;
+	normal[1] *= inverseLength;
+	normal[2] *= inverseLength;
+}
+
+struct SharedVertexKey
+{
+	uint32_t bits[8]{};
+
+	[[nodiscard]] bool operator==(const SharedVertexKey& other) const
+	{
+		return std::memcmp(bits, other.bits, sizeof(bits)) == 0;
+	}
+};
+
+struct SharedVertexKeyHash
+{
+	[[nodiscard]] std::size_t operator()(const SharedVertexKey& key) const
+	{
+		std::size_t hash = 0;
+		for (const uint32_t value : key.bits)
+		{
+			hash ^= static_cast<std::size_t>(value) + 0x9e3779b9u + (hash << 6) + (hash >> 2);
+		}
+		return hash;
+	}
+};
+
+[[nodiscard]] SharedVertexKey MakeSharedVertexKey(const BasicVertex& vertex)
+{
+	SharedVertexKey key{};
+	std::memcpy(key.bits, vertex.position, sizeof(float) * 3);
+	std::memcpy(key.bits + 3, vertex.normal, sizeof(float) * 3);
+	std::memcpy(key.bits + 6, vertex.uv, sizeof(float) * 2);
+	return key;
+}
+
+class SharedVertexMap
+{
+public:
+	[[nodiscard]] uint32_t GetOrAdd(std::vector<BasicVertex>& vertices, const BasicVertex& vertex)
+	{
+		const SharedVertexKey key = MakeSharedVertexKey(vertex);
+		const auto found = m_lookup.find(key);
+		if (found != m_lookup.end())
+		{
+			return found->second;
+		}
+
+		const uint32_t index = static_cast<uint32_t>(vertices.size());
+		vertices.push_back(vertex);
+		m_lookup.emplace(key, index);
+		return index;
+	}
+
+private:
+	std::unordered_map<SharedVertexKey, uint32_t, SharedVertexKeyHash> m_lookup{};
+};
+
 [[nodiscard]] Result<ModelMeshData> ExtractMeshFromNode(
 	FbxNode* node,
 	const std::filesystem::path& fbxDirectory,
@@ -351,6 +493,8 @@ private:
 	meshData.vertices.reserve(static_cast<std::size_t>(polygonCount) * 3U);
 	meshData.indices.reserve(static_cast<std::size_t>(polygonCount) * 3U);
 
+	const GeometricTransform geometric = MakeGeometricTransform(node);
+	SharedVertexMap sharedVertices;
 	int32_t activeSubMeshIndex = -1;
 	uint32_t activeMaterialSlot = 0;
 
@@ -396,13 +540,14 @@ private:
 					"FBX mesh has invalid control point index: " + meshData.name);
 			}
 
-			const FbxVector4 position = mesh->GetControlPointAt(controlPointIndex);
+			const FbxVector4 controlPoint = mesh->GetControlPointAt(controlPointIndex);
 
 			BasicVertex vertex{};
-			vertex.position[0] = static_cast<float>(position[0]);
-			vertex.position[1] = static_cast<float>(position[1]);
-			vertex.position[2] = static_cast<float>(position[2]);
+			vertex.position[0] = static_cast<float>(controlPoint[0]);
+			vertex.position[1] = static_cast<float>(controlPoint[1]);
+			vertex.position[2] = static_cast<float>(controlPoint[2]);
 			vertex.position[3] = 1.0f;
+			ApplyGeometricPosition(geometric, vertex.position);
 
 			if (!ExtractPolygonVertexNormal(mesh, polygonIndex, cornerIndex, vertex.normal))
 			{
@@ -410,13 +555,13 @@ private:
 				vertex.normal[1] = 1.0f;
 				vertex.normal[2] = 0.0f;
 			}
+			ApplyGeometricNormal(geometric, vertex.normal);
 
 			(void)ExtractPolygonVertexUV(mesh, polygonIndex, cornerIndex, vertex.uv);
 
 			ExpandBounds(meshData.bounds, vertex.position);
 
-			const uint32_t vertexIndex = static_cast<uint32_t>(meshData.vertices.size());
-			meshData.vertices.push_back(vertex);
+			const uint32_t vertexIndex = sharedVertices.GetOrAdd(meshData.vertices, vertex);
 			meshData.indices.push_back(vertexIndex);
 			meshData.submeshes[static_cast<std::size_t>(activeSubMeshIndex)].indexCount += 1;
 		}
@@ -473,7 +618,12 @@ void TraverseNodeHierarchy(
 			assetData.materialSlots);
 		if (!meshResult)
 		{
-			LOG_ERROR(LogCategory::Asset, meshResult.error.message);
+			LOG_ERROR_F(
+				LogCategory::Asset,
+				"FBX node {} '{}' was not imported: {}",
+				nodeIndex,
+				assetData.nodes[nodeIndex].name,
+				meshResult.error.message);
 		}
 		else
 		{

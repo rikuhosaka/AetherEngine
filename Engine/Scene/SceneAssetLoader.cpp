@@ -1,5 +1,7 @@
 #include "Engine/Scene/SceneAssetLoader.h"
 
+#include "Engine/Scene/FbxSceneAssets.h"
+
 #include "Engine/AssetSystem/AssetCache.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
@@ -149,6 +151,7 @@ Result<SceneAssets> SceneAssetLoader::Load(
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
+	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& shaderRoot)
 {
 	if (commandList == nullptr)
@@ -159,17 +162,22 @@ Result<SceneAssets> SceneAssetLoader::Load(
 			"SceneAssetLoader requires a valid command list");
 	}
 
-	if (shaderRoot.empty())
+	if (shaderRoot.empty() || assetsRoot.empty())
 	{
 		return FailInternal<SceneAssets>(
 			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
-			"SceneAssetLoader requires a valid shader root path");
+			"SceneAssetLoader requires valid shader and assets roots");
 	}
 
 	std::vector<std::string> keys{};
 	for (const SceneEntity& entity : document.entities)
 	{
+		if (!entity.model.empty())
+		{
+			continue;
+		}
+
 		if (entity.mesh.empty())
 		{
 			return FailInternal<SceneAssets>(
@@ -211,6 +219,29 @@ Result<SceneAssets> SceneAssetLoader::Load(
 		}
 
 		assets.meshes.push_back(SceneMeshRef{ key, ToWorldMeshId(uploaded.value) });
+	}
+
+	for (const SceneEntity& entity : document.entities)
+	{
+		if (entity.model.empty())
+		{
+			continue;
+		}
+
+		auto model = std::make_unique<FbxSceneAssets>();
+		const Result<void> loaded = model->EnsureInitialized(
+			resources,
+			frameContext,
+			commandList,
+			shaderRoot,
+			assetsRoot,
+			entity.model);
+		if (!loaded)
+		{
+			return MakeFail<SceneAssets>(loaded.error.code, loaded.error.message);
+		}
+
+		assets.models.push_back(SceneModelAsset{ entity.id, std::move(model) });
 	}
 
 	const Result<TextureHandle> texture = UploadWhiteTexture(resources, frameContext, commandList);

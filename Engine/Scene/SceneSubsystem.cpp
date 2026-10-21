@@ -130,6 +130,7 @@ Result<void> SceneSubsystem::LoadContent(
 		*renderServices->resources,
 		frameContext,
 		commandList,
+		assetsRoot,
 		renderServices->shaderRoot);
 	if (!assets)
 	{
@@ -145,11 +146,19 @@ Result<void> SceneSubsystem::LoadContent(
 	m_editor.SetPath(scenePath);
 	m_editor.SetDocument(std::move(document.value));
 
+	std::vector<SceneModelRef> modelRefs{};
+	modelRefs.reserve(assets.value.models.size());
+	for (const SceneModelAsset& model : assets.value.models)
+	{
+		modelRefs.push_back(SceneModelRef{ model.documentId, model.assets.get() });
+	}
+
 	Result<std::vector<WorldDocumentBinding>> bindings = InstantiateScene(
 		m_editor.GetWorld(),
 		m_editor.GetDocument(),
 		assets.value.meshes,
-		assets.value.render);
+		assets.value.render,
+		modelRefs);
 	if (!bindings)
 	{
 		return MakeFail(bindings.error.code, bindings.error.message);

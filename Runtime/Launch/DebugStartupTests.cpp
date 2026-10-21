@@ -3,7 +3,7 @@
 #include "Engine/Application/Test/FixedStepTest.h"
 #include "Engine/AssetSystem/Test/AssetCacheTest.h"
 #include "Engine/Application/Test/SubsystemOrderTest.h"
-#include "Engine/Renderer/Test/FbxModelFileLoaderTest.h"
+#include "Engine/AssetSystem/Test/FbxModelFileLoaderTest.h"
 #include "Engine/Renderer/Test/FrustumCullTest.h"
 #include "Engine/Renderer/Test/PrimitiveMeshTest.h"
 #include "Engine/Renderer/Test/RendererResourceSmokeTest.h"

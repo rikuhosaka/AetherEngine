@@ -1,4 +1,4 @@
-#include "Engine/Renderer/Model/Loader/ModelAssetPath.h"
+#include "Engine/AssetSystem/Model/Loader/ModelAssetPath.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"

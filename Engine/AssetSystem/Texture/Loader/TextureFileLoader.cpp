@@ -1,4 +1,4 @@
-#include "Engine/Renderer/Texture/Loader/TextureFileLoader.h"
+#include "Engine/AssetSystem/Texture/Loader/TextureFileLoader.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
@@ -119,11 +119,11 @@ void EnsureComInitializedForWic()
 		: DXGI_FORMAT_R8G8B8A8_UNORM;
 }
 
-[[nodiscard]] ERHIFormat ToRhiTargetFormat(TextureColorSpace colorSpace)
+[[nodiscard]] TextureImageFormat ToImageFormat(TextureColorSpace colorSpace)
 {
 	return colorSpace == TextureColorSpace::Srgb
-		? ERHIFormat::R8G8B8A8_UNORM_SRGB
-		: ERHIFormat::R8G8B8A8_UNORM;
+		? TextureImageFormat::R8G8B8A8_UNORM_SRGB
+		: TextureImageFormat::R8G8B8A8_UNORM;
 }
 
 [[nodiscard]] Result<void> ValidateLoadedMetadata(const DirectX::TexMetadata& metadata)
@@ -216,10 +216,61 @@ void EnsureComInitializedForWic()
 	return MakeOk(std::move(scratch));
 }
 
-[[nodiscard]] Result<DirectX::ScratchImage> ConvertToTargetFormat(
+[[nodiscard]] bool FormatHasSrgbPair(DXGI_FORMAT format)
+{
+	const DXGI_FORMAT linearFormat = DirectX::MakeLinear(format);
+	return DirectX::MakeSRGB(linearFormat) != linearFormat;
+}
+
+// Keeps the source encoding so DirectX::Convert swaps channels or decompresses without gamma.
+[[nodiscard]] DXGI_FORMAT EncodingMatchedFormat(DXGI_FORMAT sourceFormat, DXGI_FORMAT viewFormat)
+{
+	return DirectX::IsSRGB(sourceFormat)
+		? DirectX::MakeSRGB(viewFormat)
+		: DirectX::MakeLinear(viewFormat);
+}
+
+[[nodiscard]] Result<DirectX::ScratchImage> CopyScratchImage(const DirectX::ScratchImage& source)
+{
+	DirectX::ScratchImage copied{};
+	const HRESULT copyResult = copied.Initialize(source.GetMetadata());
+	if (FAILED(copyResult))
+	{
+		return FailRuntime<DirectX::ScratchImage>(
+			LogCategory::Asset,
+			ErrorCode::ResourceCreationFailed,
+			"Failed to copy texture that is already in the target format");
+	}
+
+	const size_t imageCount = source.GetImageCount();
+	for (size_t imageIndex = 0; imageIndex < imageCount; ++imageIndex)
+	{
+		const DirectX::Image& sourceImage = source.GetImages()[imageIndex];
+		const DirectX::Image& copiedImage = copied.GetImages()[imageIndex];
+		if (sourceImage.pixels == nullptr || copiedImage.pixels == nullptr
+			|| sourceImage.slicePitch != copiedImage.slicePitch)
+		{
+			return FailRuntime<DirectX::ScratchImage>(
+				LogCategory::Asset,
+				ErrorCode::ResourceCreationFailed,
+				"Failed to copy texture that is already in the target format");
+		}
+
+		std::memcpy(copiedImage.pixels, sourceImage.pixels, sourceImage.slicePitch);
+	}
+
+	return MakeOk(std::move(copied));
+}
+
+[[nodiscard]] Result<DirectX::ScratchImage> ConvertScratchImage(
 	const DirectX::ScratchImage& source,
 	DXGI_FORMAT targetFormat)
 {
+	if (source.GetMetadata().format == targetFormat)
+	{
+		return CopyScratchImage(source);
+	}
+
 	DirectX::ScratchImage converted{};
 	const HRESULT hr = DirectX::Convert(
 		source.GetImages(),
@@ -234,10 +285,47 @@ void EnsureComInitializedForWic()
 		return FailRuntime<DirectX::ScratchImage>(
 			LogCategory::Asset,
 			ErrorCode::ResourceCreationFailed,
-			"Failed to convert texture to target format");
+			"Failed to convert texture to target format (HRESULT=0x"
+			+ std::format("{:08X}", static_cast<unsigned long>(hr))
+			+ ", source="
+			+ std::to_string(static_cast<unsigned>(source.GetMetadata().format))
+			+ ", target="
+			+ std::to_string(static_cast<unsigned>(targetFormat))
+			+ ")");
 	}
 
 	return MakeOk(std::move(converted));
+}
+
+[[nodiscard]] Result<DirectX::ScratchImage> ConvertToTargetFormat(
+	const DirectX::ScratchImage& source,
+	DXGI_FORMAT viewFormat)
+{
+	const DXGI_FORMAT sourceFormat = source.GetMetadata().format;
+	const DXGI_FORMAT convertFormat = FormatHasSrgbPair(sourceFormat)
+		? EncodingMatchedFormat(sourceFormat, viewFormat)
+		: viewFormat;
+
+	auto convertedResult = ConvertScratchImage(source, convertFormat);
+	if (!convertedResult)
+	{
+		return MakeFail<DirectX::ScratchImage>(convertedResult.error.code, convertedResult.error.message);
+	}
+
+	if (convertedResult.value.GetMetadata().format == viewFormat)
+	{
+		return MakeOk(std::move(convertedResult.value));
+	}
+
+	if (!convertedResult.value.OverrideFormat(viewFormat))
+	{
+		return FailRuntime<DirectX::ScratchImage>(
+			LogCategory::Asset,
+			ErrorCode::ResourceCreationFailed,
+			"Failed to apply texture color space view");
+	}
+
+	return MakeOk(std::move(convertedResult.value));
 }
 
 [[nodiscard]] Result<DirectX::ScratchImage> GenerateMipChain(
@@ -271,7 +359,7 @@ void EnsureComInitializedForWic()
 [[nodiscard]] Result<TextureImageData> ScratchImageToTextureImageData(
 	DirectX::ScratchImage&& scratch,
 	const std::filesystem::path& sourcePath,
-	ERHIFormat format)
+	TextureImageFormat format)
 {
 	const DirectX::TexMetadata& metadata = scratch.GetMetadata();
 	if (metadata.mipLevels == 0)
@@ -352,7 +440,7 @@ Result<TextureImageData> LoadTextureImageFromFile(
 	const TextureColorSpace resolvedColorSpace =
 		ResolveColorSpace(absolutePath, options.colorSpace);
 	const DXGI_FORMAT targetFormat = ToDxgiTargetFormat(resolvedColorSpace);
-	const ERHIFormat rhiFormat = ToRhiTargetFormat(resolvedColorSpace);
+	const TextureImageFormat imageFormat = ToImageFormat(resolvedColorSpace);
 
 	auto convertedResult = ConvertToTargetFormat(loadedResult.value, targetFormat);
 	if (!convertedResult)
@@ -369,5 +457,5 @@ Result<TextureImageData> LoadTextureImageFromFile(
 	return ScratchImageToTextureImageData(
 		std::move(mipResult.value),
 		absolutePath,
-		rhiFormat);
+		imageFormat);
 }

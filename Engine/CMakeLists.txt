@@ -19,6 +19,9 @@ set_target_properties(Platform PROPERTIES FOLDER "Engine")
 add_subdirectory(RHI)
 set_target_properties(RHI PROPERTIES FOLDER "Engine")
 
+add_subdirectory(AssetSystem)
+set_target_properties(AssetSystem PROPERTIES FOLDER "Engine/AssetSystem")
+
 add_subdirectory(Renderer)
 set_target_properties(Renderer PROPERTIES FOLDER "Engine")
 
@@ -33,9 +36,6 @@ set_target_properties(Physics PROPERTIES FOLDER "Engine/Physics")
 
 add_subdirectory(World)
 set_target_properties(World PROPERTIES FOLDER "Engine/World")
-
-add_subdirectory(AssetSystem)
-set_target_properties(AssetSystem PROPERTIES FOLDER "Engine/AssetSystem")
 
 add_subdirectory(Scene)
 set_target_properties(Scene PROPERTIES FOLDER "Engine/Scene")

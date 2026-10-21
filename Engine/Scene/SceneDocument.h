@@ -16,13 +16,21 @@
 #include <string_view>
 #include <vector>
 
+class FbxSceneAssets;
 class World;
+
+struct SceneModelRef
+{
+	uint32_t documentId = 0;
+	FbxSceneAssets* assets = nullptr;
+};
 
 // Parallel to SceneDocument::world. A missing component means the entity does not have it.
 struct SceneEntity
 {
 	uint32_t id = 0;
 	std::string mesh{};
+	std::string model{};
 	float tint[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
 	std::optional<RigidBody> body{};
 	std::optional<CameraComponent> camera{};
@@ -61,4 +69,5 @@ struct SceneRenderResources
 	World& world,
 	const SceneDocument& document,
 	std::span<const SceneMeshRef> meshes,
-	const SceneRenderResources& render);
+	const SceneRenderResources& render,
+	std::span<const SceneModelRef> models = {});

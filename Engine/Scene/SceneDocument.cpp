@@ -1,8 +1,10 @@
 #include "Engine/Scene/SceneDocument.h"
 
+#include "Engine/Scene/FbxSceneAssets.h"
 #include "Engine/World/World.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
+#include <cctype>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -27,6 +29,30 @@ using Json = nlohmann::json;
 	}
 
 	return &(*field);
+}
+
+[[nodiscard]] bool IsFbxModelPath(const std::filesystem::path& path)
+{
+	if (path.empty() || path.is_absolute())
+	{
+		return false;
+	}
+
+	for (const std::filesystem::path& part : path)
+	{
+		if (part == "..")
+		{
+			return false;
+		}
+	}
+
+	std::string extension = path.extension().string();
+	for (char& character : extension)
+	{
+		character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+	}
+
+	return extension == ".fbx";
 }
 
 [[nodiscard]] bool ReadFloat(const Json& value, float& out)
@@ -260,28 +286,52 @@ using Json = nlohmann::json;
 	}
 
 	const Json* renderable = FindField(value, "renderable");
-	if (renderable == nullptr || !renderable->is_object())
-	{
-		return FailRuntime<SceneEntity>(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"Scene document renderable is missing");
-	}
-
-	const Json* mesh = FindField(*renderable, "mesh");
-	const Json* tint = FindField(*renderable, "tint");
+	const Json* model = FindField(value, "model");
 	SceneEntity entity{};
 	entity.id = worldEntity.id;
-	if (mesh == nullptr || !mesh->is_string() || mesh->get<std::string>().empty() || tint == nullptr
-		|| !ReadFloats(*tint, entity.tint, 4))
+	if (model != nullptr)
 	{
-		return FailRuntime<SceneEntity>(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"Scene document mesh or tint is missing");
-	}
+		if (!model->is_string() || !IsFbxModelPath(model->get<std::string>()) || renderable != nullptr
+			|| worldEntity.hasRenderable)
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document model must be an FBX path without a renderable");
+		}
 
-	entity.mesh = mesh->get<std::string>();
+		entity.model = model->get<std::string>();
+		if (FindField(value, "physics") != nullptr)
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document model cannot have physics");
+		}
+	}
+	else
+	{
+		if (renderable == nullptr || !renderable->is_object())
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document renderable is missing");
+		}
+
+		const Json* mesh = FindField(*renderable, "mesh");
+		const Json* tint = FindField(*renderable, "tint");
+		if (mesh == nullptr || !mesh->is_string() || mesh->get<std::string>().empty() || tint == nullptr
+			|| !ReadFloats(*tint, entity.tint, 4))
+		{
+			return FailRuntime<SceneEntity>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"Scene document mesh or tint is missing");
+		}
+
+		entity.mesh = mesh->get<std::string>();
+	}
 	if (const Json* physics = FindField(value, "physics"))
 	{
 		if (worldEntity.parent != 0)
@@ -517,13 +567,20 @@ using Json = nlohmann::json;
 			worldEntity.transform.scale.y,
 			worldEntity.transform.scale.z }) },
 	});
-	item["renderable"] = Json::object({
-		{ "mesh", entity.mesh },
-		{ "submesh", worldEntity.submeshIndex },
-		{ "layerMask", static_cast<uint32_t>(worldEntity.layerMask) },
-		{ "visible", worldEntity.visible },
-		{ "tint", Json::array({ entity.tint[0], entity.tint[1], entity.tint[2], entity.tint[3] }) },
-	});
+	if (!entity.model.empty())
+	{
+		item["model"] = entity.model;
+	}
+	else
+	{
+		item["renderable"] = Json::object({
+			{ "mesh", entity.mesh },
+			{ "submesh", worldEntity.submeshIndex },
+			{ "layerMask", static_cast<uint32_t>(worldEntity.layerMask) },
+			{ "visible", worldEntity.visible },
+			{ "tint", Json::array({ entity.tint[0], entity.tint[1], entity.tint[2], entity.tint[3] }) },
+		});
+	}
 	if (entity.body.has_value())
 	{
 		item["physics"] = Json::object({
@@ -633,11 +690,25 @@ Result<EntityPhysics> BindRigidBodies(World& world)
 	return physics;
 }
 
+[[nodiscard]] const SceneModelRef* FindModel(std::span<const SceneModelRef> models, uint32_t documentId)
+{
+	for (const SceneModelRef& model : models)
+	{
+		if (model.documentId == documentId)
+		{
+			return &model;
+		}
+	}
+
+	return nullptr;
+}
+
 Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 	World& world,
 	const SceneDocument& document,
 	std::span<const SceneMeshRef> meshes,
-	const SceneRenderResources& render)
+	const SceneRenderResources& render,
+	std::span<const SceneModelRef> models)
 {
 	if (!SameIds(document))
 	{
@@ -657,6 +728,28 @@ Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 	{
 		const SceneEntity& entity = document.entities[index];
 		const WorldDocumentBinding* binding = FindBinding(spawned.value, entity.id);
+		if (!entity.model.empty())
+		{
+			const SceneModelRef* model = FindModel(models, entity.id);
+			if (binding == nullptr || model == nullptr || model->assets == nullptr
+				|| world.Get<Renderable>(binding->entity) != nullptr)
+			{
+				Rollback(world, spawned.value);
+				return FailRuntime<std::vector<WorldDocumentBinding>>(
+					LogCategory::ECS,
+					ErrorCode::InvalidArgument,
+					"Scene document model was not loaded");
+			}
+
+			if (auto spawnedModel = model->assets->SpawnUnder(world, binding->entity); !spawnedModel)
+			{
+				Rollback(world, spawned.value);
+				return MakeFail<std::vector<WorldDocumentBinding>>(spawnedModel.error.code, spawnedModel.error.message);
+			}
+
+			continue;
+		}
+
 		const SceneMeshRef* mesh = FindMesh(meshes, entity.mesh);
 		Renderable* renderable = binding == nullptr ? nullptr : world.Get<Renderable>(binding->entity);
 		if (binding == nullptr || mesh == nullptr || renderable == nullptr)
@@ -709,7 +802,11 @@ Result<std::string> WriteSceneDocument(const SceneDocument& document)
 	for (size_t index = 0; index < document.world.size(); ++index)
 	{
 		const SceneEntity& entity = document.entities[index];
-		if (entity.mesh.empty() || (entity.body.has_value() && document.world[index].parent != 0)
+		const bool hasModel = !entity.model.empty();
+		const bool hasMesh = !entity.mesh.empty();
+		if (hasModel == hasMesh
+			|| (hasModel && (document.world[index].hasRenderable || entity.body.has_value()))
+			|| (entity.body.has_value() && document.world[index].parent != 0)
 			|| (entity.body.has_value() && ShapeName(entity.body->shape.type) == nullptr)
 			|| (entity.body.has_value() && MotionName(entity.body->motion) == nullptr))
 		{

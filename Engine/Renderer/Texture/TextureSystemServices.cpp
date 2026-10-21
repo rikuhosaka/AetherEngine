@@ -2,8 +2,8 @@
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Renderer/Texture/Loader/TextureAssetPath.h"
-#include "Engine/Renderer/Texture/Loader/TextureFileLoader.h"
+#include "Engine/AssetSystem/Texture/Loader/TextureAssetPath.h"
+#include "Engine/AssetSystem/Texture/Loader/TextureFileLoader.h"
 #include "Engine/Renderer/Texture/Loader/TextureImageToUpload.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 
@@ -123,8 +123,11 @@ Result<TextureHandle> TextureSystemServices::GetOrLoadTexture(
 		return MakeFail<TextureHandle>(pathResult.error.code, pathResult.error.message);
 	}
 
-	const std::filesystem::path& absolutePath = pathResult.value;
-	if (TextureHandle cached = m_loadCache.Find(absolutePath); cached.IsValid())
+	TextureLoadCacheKey cacheKey{};
+	cacheKey.path = pathResult.value;
+	cacheKey.colorSpace = desc.colorSpace;
+	cacheKey.generateMips = desc.generateMips;
+	if (TextureHandle cached = m_loadCache.Find(cacheKey); cached.IsValid())
 	{
 		return MakeOk(cached);
 	}
@@ -135,6 +138,6 @@ Result<TextureHandle> TextureSystemServices::GetOrLoadTexture(
 		return loadResult;
 	}
 
-	m_loadCache.Store(absolutePath, loadResult.value);
+	m_loadCache.Store(cacheKey, loadResult.value);
 	return loadResult;
 }

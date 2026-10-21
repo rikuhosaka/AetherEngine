@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/AssetSystem/MeshBounds.h"
 #include "Engine/Core/Handle/Handle.h"
 #include "Engine/RHI/Interface/RHIBuffer.h"
 
@@ -18,16 +19,6 @@ struct SubmeshRange
 	uint32_t indexStart = 0;
 	uint32_t indexCount = 0;
 	uint32_t materialSlot = 0;
-};
-
-struct MeshBounds
-{
-	float minX = 0.0f;
-	float minY = 0.0f;
-	float minZ = 0.0f;
-	float maxX = 0.0f;
-	float maxY = 0.0f;
-	float maxZ = 0.0f;
 };
 
 struct Mesh

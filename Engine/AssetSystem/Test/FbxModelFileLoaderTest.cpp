@@ -1,10 +1,12 @@
-#include "Engine/Renderer/Test/FbxModelFileLoaderTest.h"
+#include "Engine/AssetSystem/Test/FbxModelFileLoaderTest.h"
 
 #include "Engine/Core/Log/LogMacros.h"
-#include "Engine/Renderer/Model/Loader/FbxModelFileLoader.h"
-#include "Engine/Renderer/Model/Loader/FbxSdkContext.h"
-#include "Engine/Renderer/Model/Loader/ModelAssetPath.h"
+#include "Engine/AssetSystem/Model/Loader/FbxModelFileLoader.h"
+#include "Engine/AssetSystem/Model/Loader/FbxSdkContext.h"
+#include "Engine/AssetSystem/Model/Loader/ModelAssetPath.h"
 
+#include <cctype>
+#include <string>
 
 namespace
 {
@@ -131,6 +133,25 @@ namespace
 		}
 	}
 
+	if (meshData.vertices.size() > meshData.indices.size())
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			"Model mesh has more vertices than corners: " + meshData.name);
+	}
+
+	for (const uint32_t index : meshData.indices)
+	{
+		if (index >= meshData.vertices.size())
+		{
+			return FailRuntime(
+				LogCategory::Asset,
+				ErrorCode::InvalidArgument,
+				"Model mesh index is out of range: " + meshData.name);
+		}
+	}
+
 	for (const ModelSubMeshData& subMesh : meshData.submeshes)
 	{
 		if (subMesh.indexCount == 0 ||
@@ -213,6 +234,111 @@ namespace
 
 	return ValidateModelAssetData(loadResult.value);
 }
+
+[[nodiscard]] std::string LowercaseExtension(const std::filesystem::path& path)
+{
+	std::string extension = path.extension().string();
+	for (char& character : extension)
+	{
+		character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+	}
+
+	return extension;
+}
+
+[[nodiscard]] bool IsPaladinFbmPng(const std::filesystem::path& path)
+{
+	if (path.empty() || LowercaseExtension(path) != ".png")
+	{
+		return false;
+	}
+
+	const std::filesystem::path parentName = path.parent_path().filename();
+	return parentName == "Paladin J Nordstrom.fbm";
+}
+
+[[nodiscard]] Result<void> ValidatePaladinMaterials(const ModelAssetData& assetData)
+{
+	bool hasDiffuse = false;
+	bool hasNormal = false;
+	for (const ModelMaterialSlotData& slot : assetData.materialSlots)
+	{
+		if (IsPaladinFbmPng(slot.diffuseTexturePath))
+		{
+			hasDiffuse = true;
+		}
+
+		if (IsPaladinFbmPng(slot.normalTexturePath))
+		{
+			hasNormal = true;
+		}
+	}
+
+	if (!hasDiffuse || !hasNormal)
+	{
+		std::string detail = "Paladin material textures must resolve inside Paladin J Nordstrom.fbm";
+		for (const ModelMaterialSlotData& slot : assetData.materialSlots)
+		{
+			detail += " | slot " + slot.name;
+			detail += " diffuse=" + slot.diffuseTexturePath.string();
+			detail += " normal=" + slot.normalTexturePath.string();
+		}
+
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			detail);
+	}
+
+	return MakeOk();
+}
+
+[[nodiscard]] Result<void> RunPaladinLoaderTest(
+	const std::filesystem::path& assetsRoot,
+	FbxSdkContext& sdkContext)
+{
+	const std::filesystem::path relativePath = "Models/Paladin J Nordstrom.fbx";
+	auto resolveResult = ResolveModelAssetPath(assetsRoot, relativePath);
+	if (!resolveResult)
+	{
+		return MakeFail(resolveResult.error.code, resolveResult.error.message);
+	}
+
+	auto loadResult = LoadModelAssetDataFromFile(resolveResult.value, sdkContext);
+	if (!loadResult)
+	{
+		return MakeFail(loadResult.error.code, loadResult.error.message);
+	}
+
+	const ModelAssetData& assetData = loadResult.value;
+	if (auto modelResult = ValidateModelAssetData(assetData); !modelResult)
+	{
+		return modelResult;
+	}
+
+	if (auto materialResult = ValidatePaladinMaterials(assetData); !materialResult)
+	{
+		return materialResult;
+	}
+
+	LOG_INFO_F(
+		LogCategory::Asset,
+		"Paladin FBX loaded: meshes={} materials={} nodes={}",
+		assetData.meshes.size(),
+		assetData.materialSlots.size(),
+		assetData.nodes.size());
+	for (const ModelMaterialSlotData& slot : assetData.materialSlots)
+	{
+		LOG_INFO_F(
+			LogCategory::Asset,
+			"Paladin material '{}': diffuse='{}' normal='{}'",
+			slot.name,
+			slot.diffuseTexturePath.string(),
+			slot.normalTexturePath.string());
+	}
+
+	return MakeOk();
+}
 } // namespace
 
 Result<void> RunFbxModelFileLoaderTests(const std::filesystem::path& assetsRoot)
@@ -256,6 +382,11 @@ Result<void> RunFbxModelFileLoaderTests(const std::filesystem::path& assetsRoot)
 		return triangleResult;
 	}
 
-	LOG_INFO(LogCategory::Renderer, "FbxModelFileLoaderTests passed");
+	if (auto paladinResult = RunPaladinLoaderTest(assetsRoot, sdkResult.value); !paladinResult)
+	{
+		return paladinResult;
+	}
+
+	LOG_INFO(LogCategory::Asset, "FbxModelFileLoaderTests passed");
 	return MakeOk();
 }

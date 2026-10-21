@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Renderer/Mesh/MeshTypes.h"
+#include "Engine/AssetSystem/MeshBounds.h"
 
 #include <cstdint>
 #include <filesystem>

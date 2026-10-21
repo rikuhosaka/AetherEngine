@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Renderer/Texture/Loader/TextureLoadTypes.h"
+#include "Engine/AssetSystem/Texture/Loader/TextureLoadTypes.h"
 
 #include <filesystem>
 

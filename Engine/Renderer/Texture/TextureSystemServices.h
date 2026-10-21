@@ -3,7 +3,7 @@
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Frame/FrameContext.h"
 #include "Engine/Renderer/Texture/Cache/TextureLoadCache.h"
-#include "Engine/Renderer/Texture/Loader/TextureLoadTypes.h"
+#include "Engine/AssetSystem/Texture/Loader/TextureLoadTypes.h"
 #include "Engine/Renderer/Texture/TexturePool.h"
 #include "Engine/Renderer/Texture/TextureUpload.h"
 

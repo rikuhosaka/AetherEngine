@@ -87,9 +87,10 @@ Result<SceneDocument> CaptureScene(
 				"Scene capture requires a live editor entity");
 		}
 
+		const bool model = !authored.entities[index].model.empty();
 		const Transform* transform = world.GetTransform(binding->entity);
 		const Renderable* renderable = world.Get<Renderable>(binding->entity);
-		if (transform == nullptr || renderable == nullptr)
+		if (transform == nullptr || (!model && renderable == nullptr) || (model && renderable != nullptr))
 		{
 			return FailRuntime<SceneDocument>(
 				LogCategory::ECS,
@@ -100,9 +101,13 @@ Result<SceneDocument> CaptureScene(
 		WorldDocumentEntity capturedWorld = authoredWorld;
 		capturedWorld.name = std::string(world.GetName(binding->entity));
 		capturedWorld.transform = *transform;
-		capturedWorld.submeshIndex = renderable->submeshIndex;
-		capturedWorld.layerMask = renderable->layerMask;
-		capturedWorld.visible = renderable->visible;
+		capturedWorld.hasRenderable = !model;
+		if (!model)
+		{
+			capturedWorld.submeshIndex = renderable->submeshIndex;
+			capturedWorld.layerMask = renderable->layerMask;
+			capturedWorld.visible = renderable->visible;
+		}
 
 		const EntityId parent = world.GetParent(binding->entity);
 		if (!parent.IsValid())

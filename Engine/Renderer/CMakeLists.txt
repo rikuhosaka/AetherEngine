@@ -21,9 +21,6 @@ endif()
 target_include_directories(Renderer
     PUBLIC
         ${CMAKE_SOURCE_DIR}
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/ThirdParty/DirectXTex/sorce/DirectXTex
-        ${CMAKE_SOURCE_DIR}/ThirdParty/Fbxsdk/include
 )
 
 # 依存する内部モジュール・外部ライブラリ
@@ -34,14 +31,12 @@ target_link_libraries(Renderer
         Frame
         RHI
         RHI_Interface
+        AssetSystem
     PRIVATE
         DX12
         dxgi
         d3d12
         dxcompiler
-        DirectXTex
-        Fbxsdk
-        ole32
 )
 
 target_precompile_headers(Renderer PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")

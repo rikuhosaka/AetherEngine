@@ -79,8 +79,9 @@ using Json = nlohmann::json;
 	const Json* parent = FindField(value, "parent");
 	const Json* transform = FindField(value, "transform");
 	const Json* renderable = FindField(value, "renderable");
-	if (id == nullptr || name == nullptr || parent == nullptr || transform == nullptr || renderable == nullptr
-		|| !name->is_string() || !transform->is_object() || !renderable->is_object())
+	if (id == nullptr || name == nullptr || parent == nullptr || transform == nullptr
+		|| !name->is_string() || !transform->is_object()
+		|| (renderable != nullptr && !renderable->is_object()))
 	{
 		return FailRuntime<WorldDocumentEntity>(
 			LogCategory::ECS,
@@ -122,6 +123,12 @@ using Json = nlohmann::json;
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"World document transform is missing a field");
+	}
+
+	if (renderable == nullptr)
+	{
+		entity.hasRenderable = false;
+		return MakeOk(std::move(entity));
 	}
 
 	const Json* submesh = FindField(*renderable, "submesh");
@@ -207,11 +214,14 @@ Result<std::string> WriteWorldDocument(const WorldDocument& document)
 				entity.transform.rotation.w }) },
 			{ "scale", Json::array({ entity.transform.scale.x, entity.transform.scale.y, entity.transform.scale.z }) },
 		});
-		item["renderable"] = Json::object({
-			{ "submesh", entity.submeshIndex },
-			{ "layerMask", static_cast<uint32_t>(entity.layerMask) },
-			{ "visible", entity.visible },
-		});
+		if (entity.hasRenderable)
+		{
+			item["renderable"] = Json::object({
+				{ "submesh", entity.submeshIndex },
+				{ "layerMask", static_cast<uint32_t>(entity.layerMask) },
+				{ "visible", entity.visible },
+			});
+		}
 		entities.push_back(std::move(item));
 	}
 

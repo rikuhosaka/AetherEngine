@@ -10,9 +10,8 @@ namespace
 	return hash * 1099511628211ULL;
 }
 
-[[nodiscard]] std::uint64_t Fnv1a64(std::string_view text)
+[[nodiscard]] std::uint64_t Fnv1a64(std::uint64_t hash, std::string_view text)
 {
-	std::uint64_t hash = 14695981039346656037ULL;
 	for (const char ch : text)
 	{
 		hash = Fnv1a64(hash, static_cast<unsigned char>(ch));
@@ -21,19 +20,23 @@ namespace
 }
 } // namespace
 
-std::uint64_t TextureLoadCache::HashPath(const std::filesystem::path& normalizedAbsolutePath)
+std::size_t TextureLoadCacheKeyHash::operator()(const TextureLoadCacheKey& key) const
 {
-	return Fnv1a64(normalizedAbsolutePath.generic_string());
+	std::uint64_t hash = 14695981039346656037ULL;
+	hash = Fnv1a64(hash, key.path.generic_string());
+	hash = Fnv1a64(hash, static_cast<unsigned char>(key.colorSpace));
+	hash = Fnv1a64(hash, key.generateMips ? 1 : 0);
+	return static_cast<std::size_t>(hash);
 }
 
-TextureHandle TextureLoadCache::Find(const std::filesystem::path& normalizedAbsolutePath) const
+TextureHandle TextureLoadCache::Find(const TextureLoadCacheKey& key) const
 {
-	if (normalizedAbsolutePath.empty())
+	if (key.path.empty())
 	{
 		return {};
 	}
 
-	const auto found = m_lookup.find(HashPath(normalizedAbsolutePath));
+	const auto found = m_lookup.find(key);
 	if (found == m_lookup.end())
 	{
 		return {};
@@ -42,16 +45,14 @@ TextureHandle TextureLoadCache::Find(const std::filesystem::path& normalizedAbso
 	return found->second;
 }
 
-void TextureLoadCache::Store(
-	const std::filesystem::path& normalizedAbsolutePath,
-	TextureHandle handle)
+void TextureLoadCache::Store(const TextureLoadCacheKey& key, TextureHandle handle)
 {
-	if (normalizedAbsolutePath.empty() || !handle.IsValid())
+	if (key.path.empty() || !handle.IsValid())
 	{
 		return;
 	}
 
-	m_lookup[HashPath(normalizedAbsolutePath)] = handle;
+	m_lookup[key] = handle;
 }
 
 void TextureLoadCache::Clear()

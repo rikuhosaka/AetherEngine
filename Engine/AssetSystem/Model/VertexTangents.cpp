@@ -1,4 +1,4 @@
-#include "Engine/Renderer/Mesh/VertexTangents.h"
+#include "Engine/AssetSystem/Model/VertexTangents.h"
 
 #include <cmath>
 #include <vector>

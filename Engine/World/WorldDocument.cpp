@@ -142,6 +142,11 @@ Result<std::vector<WorldDocumentBinding>> Instantiate(World& world, const WorldD
 		spawned.push_back(spawnedId);
 		bindings.push_back(WorldDocumentBinding{ entity.id, spawnedId });
 
+		if (!entity.hasRenderable)
+		{
+			continue;
+		}
+
 		Renderable renderable{};
 		renderable.submeshIndex = entity.submeshIndex;
 		renderable.layerMask = entity.layerMask;

@@ -1,4 +1,4 @@
-#include "Engine/Renderer/Texture/Loader/TextureAssetPath.h"
+#include "Engine/AssetSystem/Texture/Loader/TextureAssetPath.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"

@@ -1,4 +1,4 @@
-#include "Engine/Renderer/Model/Loader/FbxSdkContext.h"
+#include "Engine/AssetSystem/Model/Loader/FbxSdkContext.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"

@@ -178,12 +178,41 @@ namespace
 		&& IsNearlyEqual(hull->transform.rotation.y, 0.0840957165f)
 		&& IsNearlyEqual(hull->transform.rotation.z, 0.292659938f)
 		&& IsNearlyEqual(hull->transform.rotation.w, 0.91502887f);
-	if (!document || document.value.entities.size() != 5 || !shapesMatch || !placed)
+	const SceneEntity* paladinEntity = document ? FindNamedEntity(document.value, "Paladin") : nullptr;
+	const WorldDocumentEntity* paladin = document ? FindNamedWorld(document.value, "Paladin") : nullptr;
+	const bool paladinKept = paladinEntity != nullptr && paladin != nullptr
+		&& paladinEntity->model == "Models/Paladin J Nordstrom.fbx" && paladinEntity->mesh.empty()
+		&& !paladinEntity->body.has_value() && !paladin->hasRenderable
+		&& IsNearlyEqual(paladin->transform.position.x, 2.4992654f)
+		&& IsNearlyEqual(paladin->transform.position.y, 1.7999816f)
+		&& IsNearlyEqual(paladin->transform.position.z, 2.49905f)
+		&& IsNearlyEqual(paladin->transform.scale.x, 1.0432115f);
+	const Result<std::string> written = document ? WriteSceneDocument(document.value) : MakeFail<std::string>(ErrorCode::InvalidArgument, "Scene did not load");
+	const Result<SceneDocument> readBack = written
+		? ReadSceneDocument(written.value)
+		: MakeFail<SceneDocument>(written.error.code, written.error.message);
+	const SceneEntity* writtenPaladin = readBack ? FindNamedEntity(readBack.value, "Paladin") : nullptr;
+	const bool modelRoundTrip = written && readBack && paladinEntity != nullptr && readBack.value.entities.size() == 6
+		&& writtenPaladin != nullptr && writtenPaladin->model == paladinEntity->model
+		&& written.value.find("Paladin J Nordstrom.fbx") != std::string::npos;
+	if (!document || document.value.entities.size() != 6 || !shapesMatch || !placed || !paladinKept || !modelRoundTrip)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Physics drop scene document should keep the five shapes and positions");
+	}
+
+	for (size_t index = 0; index < document.value.entities.size(); ++index)
+	{
+		if (document.value.entities[index].model.empty())
+		{
+			continue;
+		}
+
+		document.value.entities.erase(document.value.entities.begin() + index);
+		document.value.world.erase(document.value.world.begin() + index);
+		break;
 	}
 
 	AssetCache cache{};

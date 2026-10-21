@@ -20,6 +20,7 @@ struct WorldDocumentEntity
 	uint32_t submeshIndex = 0;
 	uint8_t layerMask = WorldLayer::Opaque;
 	bool visible = true;
+	bool hasRenderable = true;
 };
 
 using WorldDocument = std::vector<WorldDocumentEntity>;

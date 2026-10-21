@@ -6,7 +6,7 @@
 #include "Engine/Renderer/Material/MaterialTypes.h"
 #include "Engine/Renderer/Mesh/MeshSystemServices.h"
 #include "Engine/Renderer/Mesh/MeshUpload.h"
-#include "Engine/Renderer/Model/Loader/ModelLoadTypes.h"
+#include "Engine/AssetSystem/Model/Loader/ModelLoadTypes.h"
 #include "Engine/Renderer/Resource/RenderResourceServices.h"
 #include "Engine/Renderer/Scene/RenderConstantsBuild.h"
 #include "Engine/Renderer/Scene/RenderConstantsLayout.h"
