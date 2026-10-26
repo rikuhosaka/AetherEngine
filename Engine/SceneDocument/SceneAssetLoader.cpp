@@ -1,6 +1,6 @@
-#include "Engine/Scene/SceneAssetLoader.h"
+#include "Engine/SceneDocument/SceneAssetLoader.h"
 
-#include "Engine/Scene/FbxSceneAssets.h"
+#include "Engine/SceneDocument/FbxSceneAssets.h"
 
 #include "Engine/AssetSystem/AssetCache.h"
 #include "Engine/Renderer/Material/MaterialSystemServices.h"
@@ -10,7 +10,7 @@
 #include "Engine/Renderer/Scene/RenderConstantsLayout.h"
 #include "Engine/Renderer/Texture/TextureSystemServices.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
-#include "Engine/Scene/WorldRenderBridge.h"
+#include "Engine/World/WorldRenderBridge.h"
 
 #include <array>
 #include <string>

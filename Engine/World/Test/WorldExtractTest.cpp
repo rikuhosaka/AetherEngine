@@ -1,4 +1,4 @@
-#include "Engine/Scene/WorldExtractTest.h"
+#include "Engine/World/Test/WorldExtractTest.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Math/Matrix.h"
@@ -6,8 +6,8 @@
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/World/Renderable.h"
 #include "Engine/World/World.h"
-#include "Engine/Scene/WorldExtract.h"
-#include "Engine/Scene/WorldRenderBridge.h"
+#include "Engine/World/WorldExtract.h"
+#include "Engine/World/WorldRenderBridge.h"
 
 #include <DirectXMath.h>
 

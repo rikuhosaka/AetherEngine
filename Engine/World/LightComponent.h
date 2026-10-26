@@ -1,6 +1,6 @@
 #pragma once
 
-// Directional light. Direction is the entity world matrix forward. Ambient stays on the scene.
+// Directional light. Direction is the entity world matrix forward. Ambient stays on the world.
 struct LightComponent
 {
 	float color[3]{ 1.0f, 0.97f, 0.92f };

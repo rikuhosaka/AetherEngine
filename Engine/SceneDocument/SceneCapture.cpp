@@ -1,10 +1,10 @@
-#include "Engine/Scene/SceneCapture.h"
+#include "Engine/SceneDocument/SceneCapture.h"
 
+#include "Engine/World/DocumentEntityId.h"
 #include "Engine/World/World.h"
 
 #include <string>
 #include <utility>
-#include <vector>
 
 namespace
 {
@@ -26,41 +26,20 @@ namespace
 	return true;
 }
 
-[[nodiscard]] const WorldDocumentBinding* FindBinding(
-	const std::vector<WorldDocumentBinding>& bindings,
-	uint32_t id)
+[[nodiscard]] EntityId FindDocumentEntity(const World& world, uint32_t id)
 {
-	for (const WorldDocumentBinding& binding : bindings)
-	{
-		if (binding.id == id)
+	EntityId found{};
+	world.ForEach<DocumentEntityId>([&found, id](EntityId entity, const DocumentEntityId& component) {
+		if (!found.IsValid() && component.id == id)
 		{
-			return &binding;
+			found = entity;
 		}
-	}
-
-	return nullptr;
-}
-
-[[nodiscard]] const WorldDocumentBinding* FindBindingByEntity(
-	const std::vector<WorldDocumentBinding>& bindings,
-	EntityId entity)
-{
-	for (const WorldDocumentBinding& binding : bindings)
-	{
-		if (binding.entity == entity)
-		{
-			return &binding;
-		}
-	}
-
-	return nullptr;
+	});
+	return found;
 }
 } // namespace
 
-Result<SceneDocument> CaptureScene(
-	const World& world,
-	const SceneDocument& authored,
-	std::span<const WorldDocumentBinding> bindings)
+Result<SceneDocument> CaptureScene(const World& world, const SceneDocument& authored)
 {
 	if (!SameIds(authored))
 	{
@@ -70,7 +49,6 @@ Result<SceneDocument> CaptureScene(
 			"Scene document entities must match the world document");
 	}
 
-	const std::vector<WorldDocumentBinding> bindingList(bindings.begin(), bindings.end());
 	SceneDocument captured{};
 	captured.world.reserve(authored.world.size());
 	captured.entities.reserve(authored.entities.size());
@@ -78,8 +56,8 @@ Result<SceneDocument> CaptureScene(
 	for (size_t index = 0; index < authored.world.size(); ++index)
 	{
 		const WorldDocumentEntity& authoredWorld = authored.world[index];
-		const WorldDocumentBinding* binding = FindBinding(bindingList, authoredWorld.id);
-		if (binding == nullptr || !world.IsAlive(binding->entity))
+		const EntityId entity = FindDocumentEntity(world, authoredWorld.id);
+		if (!world.IsAlive(entity))
 		{
 			return FailRuntime<SceneDocument>(
 				LogCategory::ECS,
@@ -88,8 +66,8 @@ Result<SceneDocument> CaptureScene(
 		}
 
 		const bool model = !authored.entities[index].model.empty();
-		const Transform* transform = world.GetTransform(binding->entity);
-		const Renderable* renderable = world.Get<Renderable>(binding->entity);
+		const Transform* transform = world.GetTransform(entity);
+		const Renderable* renderable = world.Get<Renderable>(entity);
 		if (transform == nullptr || (!model && renderable == nullptr) || (model && renderable != nullptr))
 		{
 			return FailRuntime<SceneDocument>(
@@ -99,7 +77,7 @@ Result<SceneDocument> CaptureScene(
 		}
 
 		WorldDocumentEntity capturedWorld = authoredWorld;
-		capturedWorld.name = std::string(world.GetName(binding->entity));
+		capturedWorld.name = std::string(world.GetName(entity));
 		capturedWorld.transform = *transform;
 		capturedWorld.hasRenderable = !model;
 		if (!model)
@@ -109,15 +87,15 @@ Result<SceneDocument> CaptureScene(
 			capturedWorld.visible = renderable->visible;
 		}
 
-		const EntityId parent = world.GetParent(binding->entity);
+		const EntityId parent = world.GetParent(entity);
 		if (!parent.IsValid())
 		{
 			capturedWorld.parent = 0;
 		}
 		else
 		{
-			const WorldDocumentBinding* parentBinding = FindBindingByEntity(bindingList, parent);
-			if (parentBinding == nullptr)
+			const DocumentEntityId* parentId = world.Get<DocumentEntityId>(parent);
+			if (parentId == nullptr)
 			{
 				return FailRuntime<SceneDocument>(
 					LogCategory::ECS,
@@ -125,11 +103,11 @@ Result<SceneDocument> CaptureScene(
 					"Scene capture parent is missing from the document");
 			}
 
-			capturedWorld.parent = parentBinding->id;
+			capturedWorld.parent = parentId->id;
 		}
 
 		SceneEntity capturedEntity = authored.entities[index];
-		if (const RigidBody* body = world.Get<RigidBody>(binding->entity))
+		if (const RigidBody* body = world.Get<RigidBody>(entity))
 		{
 			capturedEntity.body = *body;
 		}
@@ -138,7 +116,7 @@ Result<SceneDocument> CaptureScene(
 			capturedEntity.body.reset();
 		}
 
-		if (const CameraComponent* camera = world.Get<CameraComponent>(binding->entity))
+		if (const CameraComponent* camera = world.Get<CameraComponent>(entity))
 		{
 			capturedEntity.camera = *camera;
 		}
@@ -147,7 +125,7 @@ Result<SceneDocument> CaptureScene(
 			capturedEntity.camera.reset();
 		}
 
-		if (const LightComponent* light = world.Get<LightComponent>(binding->entity))
+		if (const LightComponent* light = world.Get<LightComponent>(entity))
 		{
 			capturedEntity.light = *light;
 		}

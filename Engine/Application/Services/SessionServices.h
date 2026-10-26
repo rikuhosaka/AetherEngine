@@ -9,7 +9,7 @@ enum class SessionMode : uint8_t
 	Paused,
 };
 
-// Published by Scene. The UI writes the mode. Playing runs the fixed step.
+// Published by World. The UI writes the mode. Playing runs the fixed step.
 // Paused keeps the play scene and skips that step.
 struct SessionServices
 {

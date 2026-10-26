@@ -1,11 +1,10 @@
-#include "Engine/Scene/GameScene.h"
+#include "Engine/World/GameScene.h"
 
 #include "Engine/Camera/CameraExtract.h"
 #include "Engine/Platform/InputState.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Renderer/Scene/RenderViewTypes.h"
-#include "Engine/Scene/EditorScene.h"
-#include "Engine/Scene/SceneDocument.h"
+#include "Engine/World/SceneLighting.h"
 
 #include <utility>
 
@@ -15,34 +14,25 @@ constexpr DirectX::XMFLOAT3 kPlayCameraFallbackPosition{ 0.0f, 1.6f, -4.0f };
 constexpr DirectX::XMFLOAT3 kPlayCameraFallbackForward{ 0.0f, 0.0f, 1.0f };
 } // namespace
 
-GameScene::GameScene(World world, EntityPhysics physics, SceneLightingSettings lighting)
+GameScene::GameScene(World world, EntityPhysics physics)
 	: m_world(std::move(world))
 	, m_physics(std::move(physics))
-	, m_lighting(lighting)
 {
 }
 
 Result<GameScene> GameScene::Begin(
-	const EditorScene& editor,
+	const World& editor,
 	const DirectX::XMFLOAT3* cameraPosition,
 	const DirectX::XMFLOAT3* cameraForward)
 {
-	if (!editor.HasDocument())
-	{
-		return FailInternal<GameScene>(
-			LogCategory::Physics,
-			ErrorCode::InvalidArgument,
-			"GameScene::Begin requires a scene document");
-	}
-
-	World world = editor.GetWorld().Clone();
+	World world = editor.Clone();
 	Result<EntityPhysics> physics = BindRigidBodies(world);
 	if (!physics)
 	{
 		return MakeFail<GameScene>(physics.error.code, physics.error.message);
 	}
 
-	GameScene scene(std::move(world), std::move(physics.value), editor.GetLighting());
+	GameScene scene(std::move(world), std::move(physics.value));
 	scene.ResetCamera(cameraPosition, cameraForward);
 	return MakeOk(std::move(scene));
 }
@@ -73,7 +63,7 @@ void GameScene::ExtractView(uint32_t viewportWidth, uint32_t viewportHeight, Ext
 
 void GameScene::ExtractLighting(ExtractedLighting& outLighting) const
 {
-	BuildExtractedLighting(m_lighting, m_world, outLighting);
+	BuildExtractedLighting(m_world, outLighting);
 }
 
 void GameScene::ResetCamera(const DirectX::XMFLOAT3* cameraPosition, const DirectX::XMFLOAT3* cameraForward)

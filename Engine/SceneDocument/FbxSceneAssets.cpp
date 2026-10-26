@@ -1,4 +1,4 @@
-#include "Engine/Scene/FbxSceneAssets.h"
+#include "Engine/SceneDocument/FbxSceneAssets.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
@@ -18,7 +18,7 @@
 #include "Engine/Renderer/Texture/TextureUpload.h"
 #include "Engine/RHI/Common/RHIInput.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
-#include "Engine/Scene/WorldRenderBridge.h"
+#include "Engine/World/WorldRenderBridge.h"
 #include "Engine/World/Renderable.h"
 #include "Engine/World/World.h"
 

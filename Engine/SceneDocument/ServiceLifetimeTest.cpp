@@ -1,9 +1,12 @@
-#include "Engine/Scene/ServiceLifetimeTest.h"
+#include "Engine/SceneDocument/ServiceLifetimeTest.h"
 
+#include "Engine/Application/Services/EditorSceneServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Core/Log/LogMacros.h"
-#include "Engine/Scene/EditorScene.h"
+#include "Engine/SceneDocument/SceneDocumentSubsystem.h"
 #include "Engine/World/World.h"
+
+#include <filesystem>
 
 Result<void> RunServiceLifetimeTests()
 {
@@ -38,23 +41,20 @@ Result<void> RunServiceLifetimeTests()
 			"Publishing a different world should advance the generation");
 	}
 
-	EditorScene scene{};
+	SceneDocumentSubsystem scene{};
 	scene.SetDocument(SceneDocument{});
-	WorldDocumentBinding binding{};
-	binding.id = 7;
-	binding.entity = EntityId{ 3, 1 };
-	scene.SetBindings({ binding });
+	scene.SetPath("Scenes/PhysicsDrop.json");
 
 	EditorSceneServices published{};
 	scene.Publish(published);
-	scene.SetBindings({});
-	if (published.bindings.size() != 1 || published.bindings[0].id != binding.id
-		|| published.bindings[0].entity != binding.entity)
+	scene.SetPath("Scenes/Other.json");
+	if (published.document != &scene.GetDocument()
+		|| published.path != std::filesystem::path("Scenes/PhysicsDrop.json"))
 	{
 		return FailRuntime(
 			LogCategory::Core,
 			ErrorCode::InvalidArgument,
-			"Published bindings should outlive the editor scene's binding list");
+			"Published scene path should outlive a later path change");
 	}
 
 	LOG_INFO(LogCategory::Core, "ServiceLifetimeTests passed");

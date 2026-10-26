@@ -4,7 +4,7 @@
 
 class World;
 
-// Published by Scene. The editor world, or the play clone while a session is open.
+// Published by World. The editor world, or the play clone while a session is open.
 // generation changes only when world starts pointing at a different object.
 struct WorldServices
 {

@@ -1,22 +1,21 @@
 #pragma once
 
-#include "Engine/AssetSystem/AssetCache.h"
 #include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/EditorSceneServices.h"
+#include "Engine/Application/Services/SceneContentServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
-#include "Engine/Scene/EditorScene.h"
-#include "Engine/Scene/GameScene.h"
+#include "Engine/World/GameScene.h"
+#include "Engine/World/World.h"
 
 #include <memory>
 #include <optional>
 
-class SceneSubsystem final : public ISubsystem, public ISceneExtractor
+class WorldSubsystem final : public ISubsystem, public ISceneExtractor
 {
 public:
-	[[nodiscard]] const char* GetName() const override { return "Scene"; }
+	[[nodiscard]] const char* GetName() const override { return "World"; }
 
 	[[nodiscard]] std::span<const char* const> GetDependencies() const override;
 
@@ -43,14 +42,13 @@ private:
 	[[nodiscard]] Result<void> Step(float fixedDeltaSeconds);
 
 	SubsystemContext* m_context = nullptr;
-	AssetCache m_assetCache{};
-	EditorScene m_editor{};
+	World m_editor{};
 	std::optional<GameScene> m_game{};
 	DebugStatsServices m_debugStats{};
 	WorldServices m_worldServices{};
 	SessionServices m_session{};
 	SessionMode m_appliedMode = SessionMode::Editor;
-	EditorSceneServices m_editorServices{};
+	SceneContentServices m_content{};
 };
 
-std::unique_ptr<ISubsystem> CreateSceneSubsystem();
+std::unique_ptr<ISubsystem> CreateWorldSubsystem();

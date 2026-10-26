@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/World/EntityId.h"
+#include "Engine/World/Lighting.h"
 #include "Engine/World/Transform.h"
 
 #include <DirectXMath.h>
@@ -137,7 +138,10 @@ public:
 		}
 	}
 
-	// Copies slots, generations, parents, names, transforms, free indices, and components.
+	[[nodiscard]] LightingSettings& GetLighting() { return m_lighting; }
+	[[nodiscard]] const LightingSettings& GetLighting() const { return m_lighting; }
+
+	// Copies slots, generations, parents, names, transforms, free indices, components, and lighting.
 	// Dead slots stay dead, so entity ids match. A missing component stays missing.
 	[[nodiscard]] World Clone() const
 	{
@@ -281,4 +285,5 @@ private:
 	std::vector<Slot> m_slots{};
 	std::vector<uint32_t> m_freeIndices{};
 	std::unordered_map<std::type_index, std::unique_ptr<ComponentPool>> m_pools{};
+	LightingSettings m_lighting{};
 };

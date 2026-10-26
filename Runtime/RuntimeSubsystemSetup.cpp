@@ -7,7 +7,8 @@
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Editor/Scene/SceneLoaderSubsystem.h"
 #include "Editor/UI/EditorUiSubsystem.h"
-#include "Engine/Scene/SceneSubsystem.h"
+#include "Engine/SceneDocument/SceneDocumentSubsystem.h"
+#include "Engine/World/WorldSubsystem.h"
 #include "Runtime/Subsystems/DisplaySubsystem.h"
 #include "Runtime/Subsystems/InputSubsystem.h"
 #include "Runtime/Subsystems/RenderSubsystem.h"
@@ -28,7 +29,8 @@ void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConf
 	registry.Register(CreateEditorUiSubsystem());
 	registry.Register(CreateRenderSubsystem(config));
 	registry.Register(CreateInputSubsystem());
-	registry.Register(CreateSceneSubsystem());
+	registry.Register(CreateWorldSubsystem());
+	registry.Register(CreateSceneDocumentSubsystem());
 	registry.Register(CreateEditorSubsystem());
 }
 

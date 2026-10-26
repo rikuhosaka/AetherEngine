@@ -51,3 +51,6 @@ private:
 	PhysicsWorld m_world{};
 	std::vector<Binding> m_bindings{};
 };
+
+// Binds RigidBody components. A failure unbinds bodies from this call.
+[[nodiscard]] Result<EntityPhysics> BindRigidBodies(World& world);

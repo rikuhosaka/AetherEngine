@@ -1,13 +1,13 @@
-#include "Engine/Scene/SceneDocumentTest.h"
+#include "Engine/SceneDocument/SceneDocumentTest.h"
 
 #include "Engine/AssetSystem/AssetCache.h"
-#include "Engine/Scene/SceneAssetLoader.h"
-#include "Engine/Scene/SceneDocument.h"
+#include "Engine/SceneDocument/SceneAssetLoader.h"
+#include "Engine/SceneDocument/SceneDocument.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Physics/PhysicsLibrary.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
-#include "Engine/Scene/SceneLighting.h"
-#include "Engine/Scene/EntityPhysics.h"
+#include "Engine/World/SceneLighting.h"
+#include "Engine/World/EntityPhysics.h"
 #include "Engine/World/World.h"
 
 #include <cmath>
@@ -339,10 +339,10 @@ namespace
 
 [[nodiscard]] Result<void> TestLightExtract()
 {
-	SceneLightingSettings settings{};
 	World empty{};
+	const LightingSettings& settings = empty.GetLighting();
 	ExtractedLighting fallback{};
-	BuildExtractedLighting(settings, empty, fallback);
+	BuildExtractedLighting(empty, fallback);
 	if (!IsNearlyEqual(fallback.mainLightDirection[0], settings.mainLightDirection[0])
 		|| !IsNearlyEqual(fallback.mainLightDirection[1], settings.mainLightDirection[1])
 		|| !IsNearlyEqual(fallback.mainLightIntensity, settings.mainLightIntensity)
@@ -351,7 +351,7 @@ namespace
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"Lighting without a light component should keep the scene light");
+			"Lighting without a light component should keep the world lighting");
 	}
 
 	World world{};
@@ -370,10 +370,11 @@ namespace
 	}
 
 	ExtractedLighting extracted{};
-	BuildExtractedLighting(settings, world, extracted);
+	BuildExtractedLighting(world, extracted);
 	if (!IsNearlyEqual(extracted.mainLightColor[0], 0.2f) || !IsNearlyEqual(extracted.mainLightColor[1], 0.4f)
 		|| !IsNearlyEqual(extracted.mainLightColor[2], 0.6f) || !IsNearlyEqual(extracted.mainLightIntensity, 3.5f)
-		|| !IsNearlyEqual(extracted.mainLightDirection[2], 1.0f) || !IsNearlyEqual(extracted.ambientIntensity, settings.ambientIntensity))
+		|| !IsNearlyEqual(extracted.mainLightDirection[2], 1.0f)
+		|| !IsNearlyEqual(extracted.ambientIntensity, world.GetLighting().ambientIntensity))
 	{
 		return FailRuntime(
 			LogCategory::ECS,

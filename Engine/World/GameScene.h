@@ -3,19 +3,17 @@
 #include "Engine/Camera/CameraState.h"
 #include "Engine/Camera/FreeFlyCameraController.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Scene/SceneLighting.h"
-#include "Engine/Scene/EntityPhysics.h"
+#include "Engine/World/EntityPhysics.h"
 #include "Engine/World/World.h"
 
 #include <cstdint>
 #include <DirectXMath.h>
 
-class EditorScene;
 class InputState;
 struct ExtractedLighting;
 struct ExtractedView;
 
-// Play clone of an EditorScene. Created when play starts and destroyed when it stops.
+// Play clone of an editor world. Created when play starts and destroyed when it stops.
 class GameScene
 {
 public:
@@ -23,7 +21,7 @@ public:
 
 	// A null position or forward uses the play fallback pose.
 	[[nodiscard]] static Result<GameScene> Begin(
-		const EditorScene& editor,
+		const World& editor,
 		const DirectX::XMFLOAT3* cameraPosition,
 		const DirectX::XMFLOAT3* cameraForward);
 
@@ -42,7 +40,7 @@ public:
 	void ExtractLighting(ExtractedLighting& outLighting) const;
 
 private:
-	GameScene(World world, EntityPhysics physics, SceneLightingSettings lighting);
+	GameScene(World world, EntityPhysics physics);
 
 	void ResetCamera(const DirectX::XMFLOAT3* cameraPosition, const DirectX::XMFLOAT3* cameraForward);
 	[[nodiscard]] bool UpdateCamera(
@@ -55,5 +53,4 @@ private:
 	EntityPhysics m_physics{};
 	CameraState m_camera{};
 	FreeFlyCameraController m_cameraController{};
-	SceneLightingSettings m_lighting{};
 };

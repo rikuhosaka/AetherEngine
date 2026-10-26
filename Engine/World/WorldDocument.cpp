@@ -1,5 +1,6 @@
 #include "Engine/World/WorldDocument.h"
 
+#include "Engine/World/DocumentEntityId.h"
 #include "Engine/World/World.h"
 
 #include <utility>
@@ -141,6 +142,14 @@ Result<std::vector<WorldDocumentBinding>> Instantiate(World& world, const WorldD
 		const EntityId spawnedId = world.Spawn(std::move(desc));
 		spawned.push_back(spawnedId);
 		bindings.push_back(WorldDocumentBinding{ entity.id, spawnedId });
+		if (!world.Add<DocumentEntityId>(spawnedId, DocumentEntityId{ entity.id }))
+		{
+			DestroySpawned(world, spawned);
+			return FailRuntime<std::vector<WorldDocumentBinding>>(
+				LogCategory::ECS,
+				ErrorCode::InvalidArgument,
+				"World document id was rejected");
+		}
 
 		if (!entity.hasRenderable)
 		{

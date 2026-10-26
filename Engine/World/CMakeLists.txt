@@ -19,8 +19,11 @@ target_include_directories(World
 
 target_link_libraries(World
     PUBLIC
+        Application
+        Camera
         Core
         Math
+        Physics
 )
 
 # pch が windows.h を先に取り込む。NOMINMAX はコンパイル定義として先に渡す。

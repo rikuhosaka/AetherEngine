@@ -36,7 +36,8 @@ struct WorldDocumentBinding
 class World;
 
 // Spawns every entity without a parent, then links parents from the document ids.
-// Mesh, material, and texture handles stay invalid. A rejected document adds nothing.
+// Each entity stores its document id. Mesh, material, and texture handles stay invalid.
+// A rejected document adds nothing.
 [[nodiscard]] Result<std::vector<WorldDocumentBinding>> Instantiate(
 	World& world,
 	const WorldDocument& document);

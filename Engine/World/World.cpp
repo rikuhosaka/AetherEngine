@@ -20,6 +20,7 @@ namespace
 World::World(const World& other)
 	: m_slots(other.m_slots)
 	, m_freeIndices(other.m_freeIndices)
+	, m_lighting(other.m_lighting)
 {
 	for (const auto& entry : other.m_pools)
 	{

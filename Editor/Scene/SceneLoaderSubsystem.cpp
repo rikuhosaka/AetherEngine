@@ -1,23 +1,23 @@
 #include "Editor/Scene/SceneLoaderSubsystem.h"
 
-#include "Engine/Scene/SceneCapture.h"
-#include "Engine/Scene/SceneDocument.h"
+#include "Engine/SceneDocument/SceneCapture.h"
+#include "Engine/SceneDocument/SceneDocument.h"
 
 #include "Engine/Application/Services/EditorSceneServices.h"
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WindowServices.h"
+#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Platform/InputState.h"
 
 #include <fstream>
-#include <span>
 
 namespace
 {
-constexpr const char* kDependencies[] = { "Window", "Input", "Scene" };
+constexpr const char* kDependencies[] = { "Window", "Input", "World", "SceneDocument" };
 } // namespace
 
 std::unique_ptr<ISubsystem> CreateEditorSubsystem()
@@ -89,7 +89,9 @@ void SceneLoaderSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
 Result<void> SceneLoaderSubsystem::SaveEditorScene(SubsystemContext& ctx)
 {
 	const EditorSceneServices* scene = ctx.GetService<EditorSceneServices>();
-	if (scene == nullptr || scene->world == nullptr || scene->document == nullptr || scene->path.empty())
+	const WorldServices* world = ctx.GetService<WorldServices>();
+	if (scene == nullptr || scene->document == nullptr || scene->path.empty()
+		|| world == nullptr || world->world == nullptr)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -97,10 +99,7 @@ Result<void> SceneLoaderSubsystem::SaveEditorScene(SubsystemContext& ctx)
 			"Saving the editor scene requires a published editor scene");
 	}
 
-	const Result<SceneDocument> captured = CaptureScene(
-		*scene->world,
-		*scene->document,
-		std::span<const WorldDocumentBinding>(scene->bindings));
+	const Result<SceneDocument> captured = CaptureScene(*world->world, *scene->document);
 	if (!captured)
 	{
 		return MakeFail(captured.error.code, captured.error.message);

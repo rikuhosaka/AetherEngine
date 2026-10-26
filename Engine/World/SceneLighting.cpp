@@ -1,16 +1,14 @@
-#include "Engine/Scene/SceneLighting.h"
+#include "Engine/World/SceneLighting.h"
 
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
-#include "Engine/Scene/LightComponent.h"
+#include "Engine/World/LightComponent.h"
 #include "Engine/World/World.h"
 
 #include <DirectXMath.h>
 
-void BuildExtractedLighting(
-	const SceneLightingSettings& settings,
-	const World& world,
-	ExtractedLighting& outLighting)
+void BuildExtractedLighting(const World& world, ExtractedLighting& outLighting)
 {
+	const LightingSettings& settings = world.GetLighting();
 	outLighting = ExtractedLighting{};
 	outLighting.ambientColor[0] = settings.ambientColor[0];
 	outLighting.ambientColor[1] = settings.ambientColor[1];

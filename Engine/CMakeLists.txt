@@ -37,8 +37,8 @@ set_target_properties(Physics PROPERTIES FOLDER "Engine/Physics")
 add_subdirectory(World)
 set_target_properties(World PROPERTIES FOLDER "Engine/World")
 
-add_subdirectory(Scene)
-set_target_properties(Scene PROPERTIES FOLDER "Engine/Scene")
+add_subdirectory(SceneDocument)
+set_target_properties(SceneDocument PROPERTIES FOLDER "Engine/SceneDocument")
 
 target_link_libraries(Engine INTERFACE
     Core
@@ -55,7 +55,7 @@ target_link_libraries(Engine INTERFACE
     World
     Physics
     AssetSystem
-    Scene
+    SceneDocument
 )
 
 target_include_directories(Engine INTERFACE

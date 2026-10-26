@@ -1,6 +1,26 @@
-#include "Engine/Scene/EntityPhysics.h"
+#include "Engine/World/EntityPhysics.h"
 
 #include "Engine/Core/Log/Result.h"
+#include "Engine/World/RigidBody.h"
+
+namespace
+{
+[[nodiscard]] PhysicsBodyDesc MakeBodyDesc(const RigidBody& body)
+{
+	PhysicsBodyDesc desc{};
+	desc.motion = body.motion;
+	desc.friction = body.friction;
+	desc.restitution = body.restitution;
+	desc.mass = body.mass;
+	desc.shape.type = body.shape.type;
+	desc.shape.halfExtent = body.shape.halfExtent;
+	desc.shape.radius = body.shape.radius;
+	desc.shape.halfHeight = body.shape.halfHeight;
+	desc.shape.points = body.shape.points;
+	desc.shape.indices = body.shape.indices;
+	return desc;
+}
+} // namespace
 
 EntityPhysics::EntityPhysics(PhysicsWorld world)
 	: m_world(std::move(world))
@@ -159,4 +179,43 @@ void EntityPhysics::EraseAt(size_t index)
 {
 	m_bindings[index] = m_bindings.back();
 	m_bindings.pop_back();
+}
+
+Result<EntityPhysics> BindRigidBodies(World& world)
+{
+	Result<EntityPhysics> physics = EntityPhysics::Create();
+	if (!physics)
+	{
+		return FailInternal<EntityPhysics>(LogCategory::Physics, physics.error.code, physics.error.message);
+	}
+
+	std::vector<EntityId> bodies{};
+	world.ForEach<RigidBody>([&bodies](EntityId id, const RigidBody&) {
+		bodies.push_back(id);
+	});
+
+	std::vector<EntityId> bound{};
+	for (const EntityId id : bodies)
+	{
+		const RigidBody* body = world.Get<RigidBody>(id);
+		if (body == nullptr)
+		{
+			continue;
+		}
+
+		const Result<PhysicsBodyId> created = physics.value.Bind(world, id, MakeBodyDesc(*body));
+		if (!created)
+		{
+			for (const EntityId boundId : bound)
+			{
+				(void)physics.value.Unbind(boundId);
+			}
+
+			return FailInternal<EntityPhysics>(LogCategory::Physics, created.error.code, created.error.message);
+		}
+
+		bound.push_back(id);
+	}
+
+	return physics;
 }

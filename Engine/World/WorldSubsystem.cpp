@@ -1,4 +1,4 @@
-#include "Engine/Scene/SceneSubsystem.h"
+#include "Engine/World/WorldSubsystem.h"
 
 #include "Engine/Application/Services/EditorCameraServices.h"
 #include "Engine/Application/Services/InputServices.h"
@@ -8,10 +8,8 @@
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
-#include "Engine/Scene/SceneAssetLoader.h"
-#include "Engine/Scene/SceneDocument.h"
-#include "Engine/Scene/SceneLighting.h"
-#include "Engine/Scene/WorldExtract.h"
+#include "Engine/World/SceneLighting.h"
+#include "Engine/World/WorldExtract.h"
 
 #include <memory>
 #include <utility>
@@ -22,37 +20,36 @@ namespace
 constexpr const char* kDependencies[] = { "Render", "Input" };
 } // namespace
 
-std::unique_ptr<ISubsystem> CreateSceneSubsystem()
+std::unique_ptr<ISubsystem> CreateWorldSubsystem()
 {
-	return std::make_unique<SceneSubsystem>();
+	return std::make_unique<WorldSubsystem>();
 }
 
-std::span<const char* const> SceneSubsystem::GetDependencies() const
+std::span<const char* const> WorldSubsystem::GetDependencies() const
 {
 	return kDependencies;
 }
 
-Result<void> SceneSubsystem::Initialize(SubsystemContext& ctx)
+Result<void> WorldSubsystem::Initialize(SubsystemContext& ctx)
 {
 	if (ctx.GetService<RenderServices>() == nullptr || ctx.GetService<InputServices>() == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"SceneSubsystem requires RenderServices and InputServices");
+			"WorldSubsystem requires RenderServices and InputServices");
 	}
 
 	m_context = &ctx;
 	m_session.mode = SessionMode::Editor;
 	m_appliedMode = SessionMode::Editor;
 	PublishWorld();
-	m_editor.Publish(m_editorServices);
 	ctx.RegisterService(&m_debugStats);
 	ctx.RegisterService(&m_worldServices);
 	ctx.RegisterService(&m_session);
-	ctx.RegisterService(&m_editorServices);
+	ctx.RegisterService(&m_content);
 	return MakeOk();
 }
 
-Result<void> SceneSubsystem::PostInitialize(SubsystemContext& ctx)
+Result<void> WorldSubsystem::PostInitialize(SubsystemContext& ctx)
 {
 	if (auto* registry = ctx.GetService<SubsystemRegistry>())
 	{
@@ -62,9 +59,8 @@ Result<void> SceneSubsystem::PostInitialize(SubsystemContext& ctx)
 	return MakeOk();
 }
 
-void SceneSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
+void WorldSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
 {
-	m_editor.Publish(m_editorServices);
 	ApplySession();
 	PublishWorld();
 
@@ -84,7 +80,7 @@ void SceneSubsystem::Tick(SubsystemContext& ctx, float deltaSeconds)
 	}
 }
 
-void SceneSubsystem::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
+void WorldSubsystem::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
 {
 	if (m_session.mode != SessionMode::Playing)
 	{
@@ -97,88 +93,34 @@ void SceneSubsystem::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSecond
 	}
 }
 
-Result<void> SceneSubsystem::LoadContent(
+Result<void> WorldSubsystem::LoadContent(
 	SubsystemContext& ctx,
 	FrameContext& frameContext,
 	RHICommandList* commandList)
 {
-	RenderServices* renderServices = ctx.GetService<RenderServices>();
-	if (renderServices == nullptr || renderServices->resources == nullptr)
+	if (m_content.loader == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"SceneSubsystem requires RenderServices");
+			"WorldSubsystem requires scene content");
 	}
 
-	const std::filesystem::path assetsRoot = renderServices->shaderRoot.parent_path();
-	const std::filesystem::path scenePath = assetsRoot / "Scenes" / "PhysicsDrop.json";
-	Result<SceneDocument> document = LoadSceneDocument(scenePath);
-	if (!document)
+	if (auto loaded = m_content.loader->Load(m_editor, ctx, frameContext, commandList); !loaded)
 	{
-		return MakeFail(document.error.code, document.error.message);
+		return loaded;
 	}
 
-	Result<void> assetsLoaded = m_assetCache.LoadDirectory(assetsRoot);
-	if (!assetsLoaded)
-	{
-		return MakeFail(assetsLoaded.error.code, assetsLoaded.error.message);
-	}
-
-	SceneAssetLoader loader{};
-	Result<SceneAssets> assets = loader.Load(
-		document.value,
-		m_assetCache,
-		*renderServices->resources,
-		frameContext,
-		commandList,
-		assetsRoot,
-		renderServices->shaderRoot);
-	if (!assets)
-	{
-		return MakeFail(assets.error.code, assets.error.message);
-	}
-
-	Result<void> collision = ApplyMeshCollision(document.value, m_assetCache);
-	if (!collision)
-	{
-		return MakeFail(collision.error.code, collision.error.message);
-	}
-
-	m_editor.SetPath(scenePath);
-	m_editor.SetDocument(std::move(document.value));
-
-	std::vector<SceneModelRef> modelRefs{};
-	modelRefs.reserve(assets.value.models.size());
-	for (const SceneModelAsset& model : assets.value.models)
-	{
-		modelRefs.push_back(SceneModelRef{ model.documentId, model.assets.get() });
-	}
-
-	Result<std::vector<WorldDocumentBinding>> bindings = InstantiateScene(
-		m_editor.GetWorld(),
-		m_editor.GetDocument(),
-		assets.value.meshes,
-		assets.value.render,
-		modelRefs);
-	if (!bindings)
-	{
-		return MakeFail(bindings.error.code, bindings.error.message);
-	}
-
-	m_editor.SetBindings(std::move(bindings.value));
-
-	m_editor.Publish(m_editorServices);
 	PublishWorld();
 	return MakeOk();
 }
 
-void SceneSubsystem::Extract(std::vector<ExtractedObject>& outObjects)
+void WorldSubsystem::Extract(std::vector<ExtractedObject>& outObjects)
 {
 	if (m_context == nullptr)
 	{
 		return;
 	}
 
-	World* world = m_game.has_value() ? &m_game->GetWorld() : &m_editor.GetWorld();
+	World* world = m_game.has_value() ? &m_game->GetWorld() : &m_editor;
 	float alpha = m_context->GetInterpolationAlpha();
 	if (m_session.mode == SessionMode::Paused)
 	{
@@ -194,7 +136,7 @@ void SceneSubsystem::Extract(std::vector<ExtractedObject>& outObjects)
 	m_debugStats.extractedObjectCount = static_cast<uint32_t>(outObjects.size());
 }
 
-void SceneSubsystem::ExtractView(ExtractedView& outView)
+void WorldSubsystem::ExtractView(ExtractedView& outView)
 {
 	if (m_context == nullptr)
 	{
@@ -217,7 +159,7 @@ void SceneSubsystem::ExtractView(ExtractedView& outView)
 	}
 }
 
-void SceneSubsystem::ExtractLighting(ExtractedLighting& outLighting)
+void WorldSubsystem::ExtractLighting(ExtractedLighting& outLighting)
 {
 	if (m_game.has_value())
 	{
@@ -225,10 +167,10 @@ void SceneSubsystem::ExtractLighting(ExtractedLighting& outLighting)
 		return;
 	}
 
-	BuildExtractedLighting(m_editor.GetLighting(), m_editor.GetWorld(), outLighting);
+	BuildExtractedLighting(m_editor, outLighting);
 }
 
-void SceneSubsystem::Shutdown(SubsystemContext& ctx)
+void WorldSubsystem::Shutdown(SubsystemContext& ctx)
 {
 	EndPlay();
 	m_appliedMode = SessionMode::Editor;
@@ -241,8 +183,8 @@ void SceneSubsystem::Shutdown(SubsystemContext& ctx)
 		}
 	}
 
-	ctx.UnregisterService(&m_editorServices);
-	m_editorServices = {};
+	ctx.UnregisterService(&m_content);
+	m_content = {};
 	ctx.UnregisterService(&m_session);
 	m_session = {};
 	ctx.UnregisterService(&m_worldServices);
@@ -252,7 +194,7 @@ void SceneSubsystem::Shutdown(SubsystemContext& ctx)
 	m_context = nullptr;
 }
 
-void SceneSubsystem::ApplySession()
+void WorldSubsystem::ApplySession()
 {
 	const bool sessionOpen = m_appliedMode == SessionMode::Playing;
 	const bool wantSession = m_session.mode == SessionMode::Playing || m_session.mode == SessionMode::Paused;
@@ -279,16 +221,22 @@ void SceneSubsystem::ApplySession()
 	}
 }
 
-void SceneSubsystem::PublishWorld()
+void WorldSubsystem::PublishWorld()
 {
-	m_worldServices.Publish(m_game.has_value() ? &m_game->GetWorld() : &m_editor.GetWorld());
+	m_worldServices.Publish(m_game.has_value() ? &m_game->GetWorld() : &m_editor);
 }
 
-Result<void> SceneSubsystem::BeginPlay()
+Result<void> WorldSubsystem::BeginPlay()
 {
 	if (m_game.has_value())
 	{
 		return MakeOk();
+	}
+
+	if (!m_content.loaded)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"Play requires loaded scene content");
 	}
 
 	const EditorCameraServices* camera = m_context != nullptr ? m_context->GetService<EditorCameraServices>() : nullptr;
@@ -306,12 +254,12 @@ Result<void> SceneSubsystem::BeginPlay()
 	return MakeOk();
 }
 
-void SceneSubsystem::EndPlay()
+void WorldSubsystem::EndPlay()
 {
 	m_game.reset();
 }
 
-Result<void> SceneSubsystem::Step(float fixedDeltaSeconds)
+Result<void> WorldSubsystem::Step(float fixedDeltaSeconds)
 {
 	if (!m_game.has_value())
 	{

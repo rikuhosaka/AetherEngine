@@ -1,8 +1,9 @@
-#include "Engine/Scene/SceneCaptureTest.h"
+#include "Engine/SceneDocument/SceneCaptureTest.h"
 
-#include "Engine/Scene/SceneCapture.h"
+#include "Engine/SceneDocument/SceneCapture.h"
 
 #include "Engine/Core/Log/LogMacros.h"
+#include "Engine/World/DocumentEntityId.h"
 #include "Engine/World/World.h"
 
 #include <cmath>
@@ -135,6 +136,9 @@ namespace
 	markerRenderable.visible = false;
 	if (!world.Add<Renderable>(sphere, Renderable{}) || !world.Add<Renderable>(hull, Renderable{})
 		|| !world.Add<Renderable>(marker, std::move(markerRenderable))
+		|| !world.Add<DocumentEntityId>(sphere, DocumentEntityId{ 1 })
+		|| !world.Add<DocumentEntityId>(hull, DocumentEntityId{ 2 })
+		|| !world.Add<DocumentEntityId>(marker, DocumentEntityId{ 3 })
 		|| !source.entities[0].body.has_value() || !world.Add<RigidBody>(sphere, *source.entities[0].body)
 		|| !source.entities[1].body.has_value() || !world.Add<RigidBody>(hull, *source.entities[1].body))
 	{
@@ -154,12 +158,7 @@ namespace
 	}
 
 	sphereTransform->position = { 9.0f, 8.0f, 7.0f };
-	const WorldDocumentBinding bindings[] = {
-		{ 1, sphere },
-		{ 2, hull },
-		{ 3, marker },
-	};
-	const Result<SceneDocument> captured = CaptureScene(world, source, bindings);
+	const Result<SceneDocument> captured = CaptureScene(world, source);
 	const WorldDocumentEntity* capturedSphere = captured ? FindNamedWorld(captured.value, "Sphere") : nullptr;
 	const WorldDocumentEntity* capturedMarker = captured ? FindNamedWorld(captured.value, "Marker") : nullptr;
 	const SceneEntity* capturedHull = captured ? FindNamedEntity(captured.value, "Hull") : nullptr;
@@ -179,7 +178,7 @@ namespace
 	}
 
 	world.Destroy(sphere);
-	if (CaptureScene(world, source, bindings))
+	if (CaptureScene(world, source))
 	{
 		return FailRuntime(
 			LogCategory::ECS,

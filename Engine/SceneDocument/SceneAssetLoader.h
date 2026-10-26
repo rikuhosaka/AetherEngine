@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Scene/FbxSceneAssets.h"
-#include "Engine/Scene/SceneDocument.h"
+#include "Engine/SceneDocument/FbxSceneAssets.h"
+#include "Engine/SceneDocument/SceneDocument.h"
 
 #include <filesystem>
 #include <memory>

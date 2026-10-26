@@ -10,15 +10,15 @@
 #include "Engine/Renderer/Test/ShaderBytecodeLoaderTest.h"
 #include "Engine/Renderer/Test/ShadowMapTest.h"
 #include "Engine/Renderer/Test/TextureFileLoaderTest.h"
-#include "Engine/Scene/SceneDocument.h"
-#include "Engine/Scene/SceneDocumentTest.h"
-#include "Engine/Scene/EntityPhysicsTest.h"
+#include "Engine/SceneDocument/SceneDocument.h"
+#include "Engine/SceneDocument/SceneDocumentTest.h"
+#include "Engine/World/Test/EntityPhysicsTest.h"
 #include "Engine/Physics/Test/PhysicsLibraryTest.h"
 #include "Engine/Physics/Test/PhysicsWorldTest.h"
 #include "Engine/World/Test/WorldTest.h"
-#include "Engine/Scene/SceneCaptureTest.h"
-#include "Engine/Scene/ServiceLifetimeTest.h"
-#include "Engine/Scene/WorldExtractTest.h"
+#include "Engine/SceneDocument/SceneCaptureTest.h"
+#include "Engine/SceneDocument/ServiceLifetimeTest.h"
+#include "Engine/World/Test/WorldExtractTest.h"
 
 #include <cmath>
 #include <string>
