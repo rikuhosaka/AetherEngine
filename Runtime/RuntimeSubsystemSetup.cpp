@@ -9,12 +9,12 @@
 #include "Editor/UI/EditorUiSubsystem.h"
 #include "Engine/SceneDocument/SceneDocumentSubsystem.h"
 #include "Engine/World/World.h"
-#include "Runtime/Subsystems/DisplaySubsystem.h"
-#include "Runtime/Subsystems/InputSubsystem.h"
-#include "Runtime/Subsystems/RenderSubsystem.h"
-#include "Runtime/Subsystems/RHISubsystem.h"
-#include "Runtime/Subsystems/UiSubsystem.h"
-#include "Runtime/Subsystems/WindowSubsystem.h"
+#include "Engine/Graphics/DisplaySubsystem.h"
+#include "Engine/Platform/InputSubsystem.h"
+#include "Engine/Platform/WindowSubsystem.h"
+#include "Engine/Renderer/RenderSubsystem.h"
+#include "Engine/Renderer/UiSubsystem.h"
+#include "Engine/RHI/DX12/RHISubsystem.h"
 
 #include <cstring>
 #include <memory>

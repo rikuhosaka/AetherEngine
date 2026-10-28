@@ -36,6 +36,7 @@ target_include_directories(DX12
 target_link_libraries(DX12
     PUBLIC
         RHI
+        Application
     PRIVATE
         dxgi
         d3d12

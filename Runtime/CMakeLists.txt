@@ -45,10 +45,6 @@ endif()
 
 target_precompile_headers(Runtime PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
 
-if(AETHER_PRECOMPILED_SHADERS_ONLY)
-    target_compile_definitions(Runtime PRIVATE AETHER_PRECOMPILED_SHADERS_ONLY)
-endif()
-
 add_dependencies(Runtime CompileShaders)
 
 if(AETHER_COMPILED_SHADERS)

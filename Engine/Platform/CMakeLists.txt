@@ -22,6 +22,11 @@ target_include_directories(Platform
         ${CMAKE_SOURCE_DIR}
 )
 
+target_link_libraries(Platform
+    PUBLIC
+        Application
+)
+
 
 # Visual Studio 等での仮想フォルダ分け（任意）
 set_target_properties(Platform PROPERTIES FOLDER "Engine/Platform")

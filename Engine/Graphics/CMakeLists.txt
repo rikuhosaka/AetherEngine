@@ -19,6 +19,7 @@ target_link_libraries(Graphics
         Frame
         RHI
         RHI_Interface
+        Application
     PRIVATE
         DX12
 )

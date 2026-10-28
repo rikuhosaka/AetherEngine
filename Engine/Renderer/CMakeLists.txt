@@ -32,12 +32,18 @@ target_link_libraries(Renderer
         RHI
         RHI_Interface
         AssetSystem
+        Application
     PRIVATE
         DX12
+        ImGui
         dxgi
         d3d12
         dxcompiler
 )
+
+if(AETHER_PRECOMPILED_SHADERS_ONLY)
+    target_compile_definitions(Renderer PRIVATE AETHER_PRECOMPILED_SHADERS_ONLY)
+endif()
 
 target_precompile_headers(Renderer PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
 
