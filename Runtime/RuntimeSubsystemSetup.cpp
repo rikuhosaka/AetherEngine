@@ -8,7 +8,7 @@
 #include "Editor/Scene/SceneLoaderSubsystem.h"
 #include "Editor/UI/EditorUiSubsystem.h"
 #include "Engine/SceneDocument/SceneDocumentSubsystem.h"
-#include "Engine/World/WorldSubsystem.h"
+#include "Engine/World/World.h"
 #include "Runtime/Subsystems/DisplaySubsystem.h"
 #include "Runtime/Subsystems/InputSubsystem.h"
 #include "Runtime/Subsystems/RenderSubsystem.h"
@@ -29,7 +29,7 @@ void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConf
 	registry.Register(CreateEditorUiSubsystem());
 	registry.Register(CreateRenderSubsystem(config));
 	registry.Register(CreateInputSubsystem());
-	registry.Register(CreateWorldSubsystem());
+	registry.Register(std::make_unique<World>());
 	registry.Register(CreateSceneDocumentSubsystem());
 	registry.Register(CreateEditorSubsystem());
 }

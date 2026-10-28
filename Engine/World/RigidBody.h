@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Physics/PhysicsTypes.h"
+#include "Engine/World/Component.h"
 
 #include <DirectXMath.h>
 
@@ -21,7 +22,7 @@ struct RigidBodyShape
 };
 
 // Authored rigid body. The simulated PhysicsBodyId lives in EntityPhysics.
-struct RigidBody
+struct RigidBody : Component
 {
 	PhysicsMotion motion = PhysicsMotion::Dynamic;
 	float friction = 0.2f;

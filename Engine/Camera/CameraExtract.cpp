@@ -42,3 +42,25 @@ void BuildExtractedView(
 	outView.cameraPosition[1] = cameraPosition.y;
 	outView.cameraPosition[2] = cameraPosition.z;
 }
+
+void BuildExtractedView(
+	DirectX::FXMMATRIX worldMatrix,
+	const CameraComponent& camera,
+	uint32_t viewportWidth,
+	uint32_t viewportHeight,
+	ExtractedView& outView)
+{
+	using namespace DirectX;
+
+	XMFLOAT4X4 stored{};
+	XMStoreFloat4x4(&stored, worldMatrix);
+
+	CameraState state{};
+	state.position = { stored._41, stored._42, stored._43 };
+	state.forward = { stored._31, stored._32, stored._33 };
+	state.up = { stored._21, stored._22, stored._23 };
+	state.lens.fovYDegrees = camera.fovYDegrees;
+	state.lens.nearPlane = camera.nearPlane;
+	state.lens.farPlane = camera.farPlane;
+	BuildExtractedView(state, viewportWidth, viewportHeight, outView);
+}

@@ -4,7 +4,7 @@
 
 struct SceneDocument;
 
-// Published by SceneDocument. Points at the open document, never the play clone.
+// Published by SceneDocument. Points at the open document.
 struct EditorSceneServices
 {
 	const SceneDocument* document = nullptr;

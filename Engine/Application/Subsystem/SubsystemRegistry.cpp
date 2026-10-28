@@ -223,16 +223,6 @@ void SubsystemRegistry::ShutdownAll(SubsystemContext& ctx)
 	}
 }
 
-void SubsystemRegistry::SetSceneExtractor(ISceneExtractor* extractor)
-{
-	m_sceneExtractor = extractor;
-}
-
-ISceneExtractor* SubsystemRegistry::GetSceneExtractor() const
-{
-	return m_sceneExtractor;
-}
-
 std::span<ISubsystem* const> SubsystemRegistry::GetInitOrder() const
 {
 	return m_initOrder;

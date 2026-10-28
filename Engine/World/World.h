@@ -1,5 +1,12 @@
 #pragma once
 
+#include "Engine/Application/Services/DebugStatsServices.h"
+#include "Engine/Application/Services/SceneContentServices.h"
+#include "Engine/Application/Services/SessionServices.h"
+#include "Engine/Application/Services/WorldServices.h"
+#include "Engine/Application/Subsystem/ISubsystem.h"
+#include "Engine/Camera/FreeFlyCameraController.h"
+#include "Engine/World/Actor.h"
 #include "Engine/World/EntityId.h"
 #include "Engine/World/Lighting.h"
 #include "Engine/World/Transform.h"
@@ -11,8 +18,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <typeindex>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -23,14 +28,25 @@ struct WorldSpawnDesc
 	EntityId parent{};
 };
 
-class World
+class EntityPhysics;
+class InputState;
+class RHICommandList;
+class SubsystemContext;
+struct EditorCameraServices;
+struct ExtractedLighting;
+struct ExtractedObject;
+struct ExtractedView;
+struct FrameContext;
+
+class World final : public ISubsystem
 {
 public:
-	World() = default;
+	World();
 	World(const World& other);
 	World& operator=(const World& other);
-	World(World&& other) noexcept = default;
-	World& operator=(World&& other) noexcept = default;
+	World(World&&) noexcept;
+	World& operator=(World&&) noexcept;
+	~World() override;
 
 	EntityId Spawn(WorldSpawnDesc desc);
 	void Destroy(EntityId id);
@@ -50,29 +66,18 @@ public:
 	[[nodiscard]] Transform* GetTransform(EntityId id);
 	[[nodiscard]] const Transform* GetTransform(EntityId id) const;
 
-	// Fails when the entity is dead or already has this component. T must be copyable.
+	// Fails when the entity is dead or already has this component.
+	// T must derive from Component and be copyable.
 	template<typename T>
 	[[nodiscard]] bool Add(EntityId id, T value)
 	{
-		if (FindSlot(id) == nullptr)
+		Slot* slot = FindSlot(id);
+		if (slot == nullptr)
 		{
 			return false;
 		}
 
-		TypedPool<T>& pool = EnsurePool<T>();
-		if (pool.items.size() <= id.Index)
-		{
-			pool.items.resize(static_cast<size_t>(id.Index) + 1);
-		}
-
-		std::optional<T>& slot = pool.items[id.Index];
-		if (slot.has_value())
-		{
-			return false;
-		}
-
-		slot = std::move(value);
-		return true;
+		return slot->actor.Add(std::move(value));
 	}
 
 	template<typename T>
@@ -84,83 +89,151 @@ public:
 	template<typename T>
 	[[nodiscard]] const T* Get(EntityId id) const
 	{
-		if (FindSlot(id) == nullptr)
+		const Slot* slot = FindSlot(id);
+		if (slot == nullptr)
 		{
 			return nullptr;
 		}
 
-		const TypedPool<T>* pool = FindPool<T>();
-		if (pool == nullptr || id.Index >= pool->items.size() || !pool->items[id.Index].has_value())
-		{
-			return nullptr;
-		}
-
-		return &(*pool->items[id.Index]);
+		return slot->actor.Get<T>();
 	}
 
 	template<typename T>
 	[[nodiscard]] bool Remove(EntityId id)
 	{
-		if (FindSlot(id) == nullptr)
+		Slot* slot = FindSlot(id);
+		if (slot == nullptr)
 		{
 			return false;
 		}
 
-		TypedPool<T>* pool = FindPool<T>();
-		if (pool == nullptr || id.Index >= pool->items.size() || !pool->items[id.Index].has_value())
-		{
-			return false;
-		}
-
-		pool->items[id.Index].reset();
-		return true;
+		return slot->actor.Remove<T>();
 	}
 
 	// Alive entities that have T, in slot order.
 	template<typename T, typename Fn>
 	void ForEach(Fn&& fn) const
 	{
-		const TypedPool<T>* pool = FindPool<T>();
-		if (pool == nullptr)
+		for (uint32_t index = 0; index < m_document.slots.size(); ++index)
 		{
-			return;
-		}
-
-		const uint32_t count = static_cast<uint32_t>(m_slots.size() < pool->items.size() ? m_slots.size() : pool->items.size());
-		for (uint32_t index = 0; index < count; ++index)
-		{
-			if (!m_slots[index].alive || !pool->items[index].has_value())
+			const Slot& slot = m_document.slots[index];
+			if (!slot.alive)
 			{
 				continue;
 			}
 
-			fn(EntityId{ index, m_slots[index].generation }, *pool->items[index]);
+			const T* component = slot.actor.Get<T>();
+			if (component == nullptr)
+			{
+				continue;
+			}
+
+			fn(EntityId{ index, slot.generation }, *component);
 		}
 	}
 
-	[[nodiscard]] LightingSettings& GetLighting() { return m_lighting; }
-	[[nodiscard]] const LightingSettings& GetLighting() const { return m_lighting; }
+	[[nodiscard]] LightingSettings& GetLighting() { return m_document.lighting; }
+	[[nodiscard]] const LightingSettings& GetLighting() const { return m_document.lighting; }
 
-	// Copies slots, generations, parents, names, transforms, free indices, components, and lighting.
+	// Copies the document: slots, generations, parents, names, transforms, free indices, components, and lighting.
 	// Dead slots stay dead, so entity ids match. A missing component stays missing.
 	[[nodiscard]] World Clone() const
 	{
-		return *this;
+		return World(*this);
 	}
+
+	// First alive entity with a camera, in slot order. Invalid when none exist.
+	[[nodiscard]] EntityId FindCamera() const;
+
+	// Root camera. A null position or forward uses the play fallback pose.
+	[[nodiscard]] EntityId SpawnCamera(
+		const DirectX::XMFLOAT3* position,
+		const DirectX::XMFLOAT3* forward);
+
+	// Writes free-fly movement into the camera entity's local transform.
+	// Returns whether that camera wants relative mouse movement.
+	[[nodiscard]] bool UpdateCamera(
+		EntityId camera,
+		const InputState* input,
+		float deltaSeconds,
+		bool mouseCaptured,
+		bool keyboardCaptured);
+
+	// View from the camera entity's world matrix and lens. Clears the output when the entity has no camera.
+	void ExtractCameraView(
+		EntityId camera,
+		uint32_t viewportWidth,
+		uint32_t viewportHeight,
+		ExtractedView& outView) const;
+
+	[[nodiscard]] bool IsPlaying() const { return m_appliedMode == SessionMode::Playing; }
+
+	// Snapshots the document, binds rigid bodies, and keeps the first camera entity.
+	// A missing camera is spawned. A null position or forward uses the play fallback pose.
+	[[nodiscard]] Result<void> BeginPlay(
+		bool contentLoaded,
+		const DirectX::XMFLOAT3* cameraPosition,
+		const DirectX::XMFLOAT3* cameraForward);
+	void EndPlay();
+
+	// Applies the requested session, publishes this world, and updates the play camera.
+	// Returns whether that camera wants relative mouse movement.
+	[[nodiscard]] bool Tick(
+		float deltaSeconds,
+		SessionServices& session,
+		WorldServices& published,
+		const SceneContentServices& content,
+		const InputState* input,
+		bool mouseCaptured,
+		bool keyboardCaptured,
+		const DirectX::XMFLOAT3* cameraPosition,
+		const DirectX::XMFLOAT3* cameraForward);
+
+	void FixedTick(const SessionServices& session, float fixedDeltaSeconds);
+
+	[[nodiscard]] Result<void> LoadContent(
+		SceneContentServices& content,
+		WorldServices& published,
+		SubsystemContext& ctx,
+		FrameContext& frameContext,
+		RHICommandList* commandList);
+
+	void Extract(
+		std::vector<ExtractedObject>& outObjects,
+		float alpha,
+		const SessionServices& session,
+		DebugStatsServices& stats);
+	void ExtractView(
+		ExtractedView& outView,
+		uint32_t viewportWidth,
+		uint32_t viewportHeight,
+		const EditorCameraServices* editorCamera) const;
+	void ExtractLighting(ExtractedLighting& outLighting) const;
+
+	[[nodiscard]] const char* GetName() const override { return "World"; }
+
+	[[nodiscard]] std::span<const char* const> GetDependencies() const override;
+
+	[[nodiscard]] bool WantsTick() const override { return true; }
+
+	Result<void> Initialize(SubsystemContext& ctx) override;
+	void Tick(SubsystemContext& ctx, float deltaSeconds) override;
+	void FixedTick(SubsystemContext& ctx, float fixedDeltaSeconds) override;
+	void Shutdown(SubsystemContext& ctx) override;
 
 	template<typename Fn>
 	void ForEachAlive(Fn&& fn) const
 	{
-		for (uint32_t index = 0; index < m_slots.size(); ++index)
+		for (uint32_t index = 0; index < m_document.slots.size(); ++index)
 		{
-			const Slot& slot = m_slots[index];
+			const Slot& slot = m_document.slots[index];
 			if (!slot.alive)
 			{
 				continue;
 			}
 
 			const EntityId id{ index, slot.generation };
-			fn(id, slot.transform);
+			fn(id, slot.actor.transform);
 		}
 	}
 
@@ -168,10 +241,10 @@ public:
 	template<typename Fn>
 	void ForEachRoot(Fn&& fn) const
 	{
-		for (uint32_t index = 0; index < m_slots.size(); ++index)
+		for (uint32_t index = 0; index < m_document.slots.size(); ++index)
 		{
-			const Slot& slot = m_slots[index];
-			if (!slot.alive || FindSlot(slot.parent) != nullptr)
+			const Slot& slot = m_document.slots[index];
+			if (!slot.alive || FindSlot(slot.actor.parent) != nullptr)
 			{
 				continue;
 			}
@@ -189,10 +262,10 @@ public:
 			return;
 		}
 
-		for (uint32_t index = 0; index < m_slots.size(); ++index)
+		for (uint32_t index = 0; index < m_document.slots.size(); ++index)
 		{
-			const Slot& slot = m_slots[index];
-			if (!slot.alive || slot.parent != parent)
+			const Slot& slot = m_document.slots[index];
+			if (!slot.alive || slot.actor.parent != parent)
 			{
 				continue;
 			}
@@ -206,35 +279,7 @@ private:
 	{
 		bool alive = false;
 		uint32_t generation = 0;
-		EntityId parent{};
-		std::string name{};
-		Transform transform{};
-	};
-
-	struct ComponentPool
-	{
-		virtual ~ComponentPool() = default;
-		virtual void Clear(uint32_t index) = 0;
-		[[nodiscard]] virtual std::unique_ptr<ComponentPool> Clone() const = 0;
-	};
-
-	template<typename T>
-	struct TypedPool final : ComponentPool
-	{
-		std::vector<std::optional<T>> items{};
-
-		void Clear(uint32_t index) override
-		{
-			if (index < items.size())
-			{
-				items[index].reset();
-			}
-		}
-
-		[[nodiscard]] std::unique_ptr<ComponentPool> Clone() const override
-		{
-			return std::make_unique<TypedPool<T>>(*this);
-		}
+		Actor actor{};
 	};
 
 	static constexpr int kMaxParentDepth = 64;
@@ -244,46 +289,35 @@ private:
 	[[nodiscard]] bool IsUnder(EntityId entity, EntityId ancestor) const;
 	void ReleaseSlot(EntityId id);
 
-	template<typename T>
-	[[nodiscard]] TypedPool<T>* FindPool()
+	// Copied by copy construction, copy assignment, and Clone. Later runtime state stays outside this.
+	struct Document
 	{
-		const auto it = m_pools.find(std::type_index(typeid(T)));
-		if (it == m_pools.end())
-		{
-			return nullptr;
-		}
+		std::vector<Slot> slots{};
+		std::vector<uint32_t> freeIndices{};
+		LightingSettings lighting{};
+	};
 
-		return static_cast<TypedPool<T>*>(it->second.get());
-	}
+	Document m_document{};
 
-	template<typename T>
-	[[nodiscard]] const TypedPool<T>* FindPool() const
-	{
-		const auto it = m_pools.find(std::type_index(typeid(T)));
-		if (it == m_pools.end())
-		{
-			return nullptr;
-		}
+	// Play session. Copy and Clone leave this behind.
+	std::optional<Document> m_editSnapshot{};
+	std::unique_ptr<EntityPhysics> m_physics{};
+	SessionMode m_appliedMode = SessionMode::Editor;
 
-		return static_cast<const TypedPool<T>*>(it->second.get());
-	}
+	// Free-fly state for one camera entity. Copy and Clone leave this behind.
+	FreeFlyCameraController m_cameraController{};
+	CameraState m_cameraPose{};
+	EntityId m_cameraEntity{};
 
-	template<typename T>
-	[[nodiscard]] TypedPool<T>& EnsurePool()
-	{
-		if (TypedPool<T>* existing = FindPool<T>())
-		{
-			return *existing;
-		}
+	// Subsystem services. Copy and Clone leave these behind.
+	DebugStatsServices m_debugStats{};
+	WorldServices m_worldServices{};
+	SessionServices m_session{};
+	SceneContentServices m_content{};
 
-		auto created = std::make_unique<TypedPool<T>>();
-		TypedPool<T>* raw = created.get();
-		m_pools.emplace(std::type_index(typeid(T)), std::move(created));
-		return *raw;
-	}
-
-	std::vector<Slot> m_slots{};
-	std::vector<uint32_t> m_freeIndices{};
-	std::unordered_map<std::type_index, std::unique_ptr<ComponentPool>> m_pools{};
-	LightingSettings m_lighting{};
+	[[nodiscard]] bool ApplySession(
+		SessionServices& session,
+		bool contentLoaded,
+		const DirectX::XMFLOAT3* cameraPosition,
+		const DirectX::XMFLOAT3* cameraForward);
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Handle/Handle.h"
+#include "Engine/World/Component.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -42,7 +43,7 @@ struct WorldMaterialOverrides
 	std::vector<WorldMaterialParameterBlock> parameters{};
 };
 
-struct Renderable
+struct Renderable : Component
 {
 	WorldMeshId mesh{};
 	WorldMaterialId material{};

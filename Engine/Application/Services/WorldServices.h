@@ -4,8 +4,8 @@
 
 class World;
 
-// Published by World. The editor world, or the play clone while a session is open.
-// generation changes only when world starts pointing at a different object.
+// Published by World. The same world is published while editing and while playing.
+// generation advances when the pointer changes, and when a play session starts or stops.
 struct WorldServices
 {
 	World* world = nullptr;
@@ -19,6 +19,11 @@ struct WorldServices
 		}
 
 		world = next;
+		++generation;
+	}
+
+	void Advance()
+	{
 		++generation;
 	}
 };

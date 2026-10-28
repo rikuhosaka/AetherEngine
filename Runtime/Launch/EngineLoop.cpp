@@ -1,12 +1,16 @@
-#include "Engine/Application/Subsystem/EngineLoop.h"
+#include "Runtime/Launch/EngineLoop.h"
 
+#include "Engine/Application/Services/DebugStatsServices.h"
 #include "Engine/Application/Services/DisplayServices.h"
+#include "Engine/Application/Services/EditorCameraServices.h"
 #include "Engine/Application/Services/GpuQueueRetirement.h"
 #include "Engine/Application/Services/RHIServices.h"
+#include "Engine/Application/Services/SceneContentServices.h"
+#include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WindowServices.h"
+#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
 #include "Engine/Application/Subsystem/IEngineLoopRender.h"
-#include "Engine/Application/Subsystem/ISceneExtractor.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Graphics/DisplayContext.h"
@@ -17,6 +21,7 @@
 #include "Engine/RHI/Interface/RHIFence.h"
 #include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
 #include "Engine/RHI/Interface/RHIUploadBuffer.h"
+#include "Engine/World/World.h"
 
 #include <vector>
 
@@ -48,6 +53,31 @@ void DiscardRecording(RHIServices* rhiServices, RHICommandList* commandList)
 
 	commandList->Close();
 	return !commandList->IsRecording();
+}
+
+struct PublishedWorld
+{
+	World* world = nullptr;
+	WorldServices* services = nullptr;
+	SceneContentServices* content = nullptr;
+	SessionServices* session = nullptr;
+	DebugStatsServices* stats = nullptr;
+};
+
+[[nodiscard]] PublishedWorld FindPublishedWorld(SubsystemContext& context)
+{
+	PublishedWorld published{};
+	published.services = context.GetService<WorldServices>();
+	if (published.services == nullptr || published.services->world == nullptr)
+	{
+		return {};
+	}
+
+	published.world = published.services->world;
+	published.content = context.GetService<SceneContentServices>();
+	published.session = context.GetService<SessionServices>();
+	published.stats = context.GetService<DebugStatsServices>();
+	return published;
 }
 } // namespace
 
@@ -275,10 +305,16 @@ Result<void> EngineLoop::LoadInitialContent()
 			"EngineLoop::LoadInitialContent missing required services");
 	}
 
-	ISceneExtractor* sceneExtractor = m_registry.GetSceneExtractor();
-	if (sceneExtractor == nullptr)
+	const PublishedWorld published = FindPublishedWorld(m_context);
+	if (published.world == nullptr)
 	{
 		return MakeOk();
+	}
+
+	if (published.content == nullptr || published.services == nullptr)
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"EngineLoop::LoadInitialContent missing world services");
 	}
 
 	const uint32_t slot = rhiServices->currentFrameSlot;
@@ -301,7 +337,9 @@ Result<void> EngineLoop::LoadInitialContent()
 	}
 
 	RHICommandList* commandList = frameContext.graphicsCommandList;
-	if (auto loadResult = sceneExtractor->LoadContent(m_context, frameContext, commandList); !loadResult)
+	if (auto loadResult = published.world->LoadContent(
+			*published.content, *published.services, m_context, frameContext, commandList);
+		!loadResult)
 	{
 		DiscardRecording(rhiServices, commandList);
 		return loadResult;
@@ -378,18 +416,23 @@ Result<void> EngineLoop::RenderFrame()
 	std::vector<ExtractedObject> extractedObjects;
 	ExtractedView extractedView{};
 	ExtractedLighting extractedLighting{};
-	if (ISceneExtractor* sceneExtractor = m_registry.GetSceneExtractor())
+	const PublishedWorld published = FindPublishedWorld(m_context);
+	if (published.world != nullptr)
 	{
-		if (auto prepareResult = sceneExtractor->PrepareRender(m_context, frameContext, commandList);
-			!prepareResult)
+		if (published.session == nullptr || published.stats == nullptr)
 		{
 			DiscardRecording(rhiServices, commandList);
-			return prepareResult;
+			return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+				"EngineLoop::RenderFrame missing world services");
 		}
 
-		sceneExtractor->ExtractView(extractedView);
-		sceneExtractor->ExtractLighting(extractedLighting);
-		sceneExtractor->Extract(extractedObjects);
+		const uint32_t width = windowServices != nullptr ? windowServices->clientWidth : 0;
+		const uint32_t height = windowServices != nullptr ? windowServices->clientHeight : 0;
+		published.world->ExtractView(
+			extractedView, width, height, m_context.GetService<EditorCameraServices>());
+		published.world->ExtractLighting(extractedLighting);
+		published.world->Extract(
+			extractedObjects, m_context.GetInterpolationAlpha(), *published.session, *published.stats);
 	}
 
 	if (auto drawResult = m_render->DrawFrame(
