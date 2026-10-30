@@ -15,6 +15,7 @@ class SubsystemRegistry
 public:
 	void Register(std::unique_ptr<ISubsystem> subsystem);
 
+	Result<void> BuildOrders();
 	Result<void> InitializeAll(SubsystemContext& ctx);
 	Result<void> PostInitializeAll(SubsystemContext& ctx);
 	void ShutdownAll(SubsystemContext& ctx);
@@ -23,8 +24,6 @@ public:
 	[[nodiscard]] std::span<ISubsystem* const> GetTickOrder() const;
 
 private:
-	Result<void> BuildOrders();
-
 	[[nodiscard]] ISubsystem* FindByName(std::string_view name) const;
 
 	std::vector<std::unique_ptr<ISubsystem>> m_subsystems{};

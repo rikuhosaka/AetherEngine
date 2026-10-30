@@ -34,6 +34,7 @@ target_link_libraries(Renderer
         AssetSystem
         Application
     PRIVATE
+        Graphics
         DX12
         ImGui
         dxgi

@@ -1,17 +1,9 @@
 #pragma once
 
-class DisplayServices;
-struct EngineLoopConfig;
-class RenderServices;
-class RHIServices;
-class SubsystemContext;
+struct EngineConfig;
 class SubsystemRegistry;
 class WindowSubsystem;
-class RenderSubsystem;
 
-void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConfig& config);
+void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineConfig& config);
 
 [[nodiscard]] WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry);
-[[nodiscard]] RenderSubsystem* FindRenderSubsystem(const SubsystemRegistry& registry);
-[[nodiscard]] RHIServices* FindRHIServices(const SubsystemContext& context);
-[[nodiscard]] DisplayServices* FindDisplayServices(const SubsystemContext& context);

@@ -1,22 +1,13 @@
 #include "Engine/World/World.h"
 
-#include "Engine/Application/Services/EditorCameraServices.h"
-#include "Engine/Application/Services/InputServices.h"
-#include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Camera/CameraComponent.h"
-#include "Engine/Camera/CameraExtract.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Math/Transform.h"
 #include "Engine/Platform/InputState.h"
-#include "Engine/Renderer/Scene/RenderLightingTypes.h"
-#include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/World/EntityPhysics.h"
-#include "Engine/World/SceneLighting.h"
-#include "Engine/World/WorldExtract.h"
 
 #include <array>
-#include <span>
 #include <utility>
 #include <vector>
 
@@ -45,22 +36,9 @@ World::World(World&& other) noexcept
 	, m_cameraController(std::move(other.m_cameraController))
 	, m_cameraPose(std::move(other.m_cameraPose))
 	, m_cameraEntity(other.m_cameraEntity)
-	, m_debugStats(std::move(other.m_debugStats))
-	, m_worldServices(std::move(other.m_worldServices))
-	, m_session(std::move(other.m_session))
-	, m_content(std::move(other.m_content))
 {
-	if (m_worldServices.world == &other)
-	{
-		m_worldServices.world = this;
-	}
-
 	other.m_appliedMode = SessionMode::Editor;
 	other.m_cameraEntity = {};
-	other.m_debugStats = {};
-	other.m_worldServices = {};
-	other.m_session = {};
-	other.m_content = {};
 }
 
 World& World::operator=(World&& other) noexcept
@@ -74,21 +52,9 @@ World& World::operator=(World&& other) noexcept
 		m_cameraController = std::move(other.m_cameraController);
 		m_cameraPose = std::move(other.m_cameraPose);
 		m_cameraEntity = other.m_cameraEntity;
-		m_debugStats = std::move(other.m_debugStats);
-		m_worldServices = std::move(other.m_worldServices);
-		m_session = std::move(other.m_session);
-		m_content = std::move(other.m_content);
-		if (m_worldServices.world == &other)
-		{
-			m_worldServices.world = this;
-		}
 
 		other.m_appliedMode = SessionMode::Editor;
 		other.m_cameraEntity = {};
-		other.m_debugStats = {};
-		other.m_worldServices = {};
-		other.m_session = {};
-		other.m_content = {};
 	}
 
 	return *this;
@@ -98,7 +64,6 @@ World::~World() = default;
 
 namespace
 {
-constexpr const char* kDependencies[] = { "Render", "Input" };
 constexpr DirectX::XMFLOAT3 kPlayCameraFallbackPosition{ 0.0f, 1.6f, -4.0f };
 constexpr DirectX::XMFLOAT3 kPlayCameraFallbackForward{ 0.0f, 0.0f, 1.0f };
 
@@ -434,22 +399,6 @@ bool World::UpdateCamera(
 	return useMouse && input->IsDown(Key::MouseRight);
 }
 
-void World::ExtractCameraView(
-	EntityId camera,
-	uint32_t viewportWidth,
-	uint32_t viewportHeight,
-	ExtractedView& outView) const
-{
-	const CameraComponent* component = Get<CameraComponent>(camera);
-	if (component == nullptr)
-	{
-		outView = {};
-		return;
-	}
-
-	BuildExtractedView(GetWorldMatrix(camera), *component, viewportWidth, viewportHeight, outView);
-}
-
 Result<void> World::BeginPlay(
 	bool contentLoaded,
 	const DirectX::XMFLOAT3* cameraPosition,
@@ -514,57 +463,14 @@ void World::EndPlay()
 	m_appliedMode = SessionMode::Editor;
 }
 
-bool World::ApplySession(
-	SessionServices& session,
-	bool contentLoaded,
-	const DirectX::XMFLOAT3* cameraPosition,
-	const DirectX::XMFLOAT3* cameraForward)
-{
-	const bool sessionOpen = m_appliedMode == SessionMode::Playing;
-	const bool wantSession = session.mode == SessionMode::Playing || session.mode == SessionMode::Paused;
-	if (wantSession && !sessionOpen)
-	{
-		if (session.mode == SessionMode::Paused)
-		{
-			session.mode = SessionMode::Editor;
-			return false;
-		}
-
-		if (auto begun = BeginPlay(contentLoaded, cameraPosition, cameraForward); !begun)
-		{
-			LogResult(begun, LogCategory::Core);
-			session.mode = SessionMode::Editor;
-			return false;
-		}
-
-		return true;
-	}
-
-	if (!wantSession && sessionOpen)
-	{
-		EndPlay();
-		return true;
-	}
-
-	return false;
-}
-
 bool World::Tick(
 	float deltaSeconds,
-	SessionServices& session,
+	const SessionServices& session,
 	WorldServices& published,
-	const SceneContentServices& content,
 	const InputState* input,
 	bool mouseCaptured,
-	bool keyboardCaptured,
-	const DirectX::XMFLOAT3* cameraPosition,
-	const DirectX::XMFLOAT3* cameraForward)
+	bool keyboardCaptured)
 {
-	if (ApplySession(session, content.loaded, cameraPosition, cameraForward))
-	{
-		published.Advance();
-	}
-
 	published.Publish(this);
 
 	const bool wantCamera = session.mode == SessionMode::Playing || session.mode == SessionMode::Paused;
@@ -630,111 +536,10 @@ Result<void> World::LoadContent(
 	return MakeOk();
 }
 
-void World::Extract(
-	std::vector<ExtractedObject>& outObjects,
-	float alpha,
-	const SessionServices& session,
-	DebugStatsServices& stats)
+void World::WriteInterpolatedTransforms(float alpha)
 {
-	if (session.mode == SessionMode::Paused)
-	{
-		alpha = 1.0f;
-	}
-
 	if (m_physics != nullptr)
 	{
 		m_physics->WriteTransforms(*this, alpha);
 	}
-
-	ExtractWorld(*this, outObjects);
-	stats.extractedObjectCount = static_cast<uint32_t>(outObjects.size());
-}
-
-void World::ExtractView(
-	ExtractedView& outView,
-	uint32_t viewportWidth,
-	uint32_t viewportHeight,
-	const EditorCameraServices* editorCamera) const
-{
-	if (m_appliedMode == SessionMode::Playing)
-	{
-		const EntityId camera = FindCamera();
-		if (camera.IsValid())
-		{
-			ExtractCameraView(camera, viewportWidth, viewportHeight, outView);
-		}
-		return;
-	}
-
-	if (editorCamera != nullptr && editorCamera->valid)
-	{
-		outView = editorCamera->view;
-	}
-}
-
-void World::ExtractLighting(ExtractedLighting& outLighting) const
-{
-	BuildExtractedLighting(*this, outLighting);
-}
-
-std::span<const char* const> World::GetDependencies() const
-{
-	return kDependencies;
-}
-
-Result<void> World::Initialize(SubsystemContext& ctx)
-{
-	if (ctx.GetService<RenderServices>() == nullptr || ctx.GetService<InputServices>() == nullptr)
-	{
-		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"World requires RenderServices and InputServices");
-	}
-
-	m_session.mode = SessionMode::Editor;
-	m_worldServices.Publish(this);
-	ctx.RegisterService(&m_debugStats);
-	ctx.RegisterService(&m_worldServices);
-	ctx.RegisterService(&m_session);
-	ctx.RegisterService(&m_content);
-	return MakeOk();
-}
-
-void World::Tick(SubsystemContext& ctx, float deltaSeconds)
-{
-	InputServices* inputServices = ctx.GetService<InputServices>();
-	const EditorCameraServices* camera = ctx.GetService<EditorCameraServices>();
-	const bool cameraValid = camera != nullptr && camera->valid;
-	const bool relativeMouse = Tick(
-		deltaSeconds,
-		m_session,
-		m_worldServices,
-		m_content,
-		inputServices != nullptr ? inputServices->state : nullptr,
-		inputServices != nullptr && inputServices->mouseCaptured,
-		inputServices != nullptr && inputServices->keyboardCaptured,
-		cameraValid ? &camera->position : nullptr,
-		cameraValid ? &camera->forward : nullptr);
-	if (IsPlaying() && inputServices != nullptr)
-	{
-		inputServices->relativeMouse = relativeMouse;
-	}
-}
-
-void World::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
-{
-	FixedTick(m_session, fixedDeltaSeconds);
-}
-
-void World::Shutdown(SubsystemContext& ctx)
-{
-	EndPlay();
-
-	ctx.UnregisterService(&m_content);
-	m_content = {};
-	ctx.UnregisterService(&m_session);
-	m_session = {};
-	ctx.UnregisterService(&m_worldServices);
-	m_worldServices = {};
-	ctx.UnregisterService(&m_debugStats);
-	m_debugStats = {};
 }

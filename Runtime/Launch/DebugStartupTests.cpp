@@ -15,6 +15,7 @@
 #include "Engine/World/Test/EntityPhysicsTest.h"
 #include "Engine/Physics/Test/PhysicsLibraryTest.h"
 #include "Engine/Physics/Test/PhysicsWorldTest.h"
+#include "Engine/Engine/Test/EngineSessionTest.h"
 #include "Engine/World/Test/WorldTest.h"
 #include "Engine/SceneDocument/SceneCaptureTest.h"
 #include "Engine/SceneDocument/ServiceLifetimeTest.h"
@@ -155,6 +156,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunWorldTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunEngineSessionTests(); !result)
 	{
 		return result;
 	}

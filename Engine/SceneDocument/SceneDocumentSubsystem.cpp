@@ -9,7 +9,7 @@
 
 namespace
 {
-constexpr const char* kDependencies[] = { "World", "Render" };
+constexpr const char* kDependencies[] = { "Engine" };
 } // namespace
 
 std::unique_ptr<ISubsystem> CreateSceneDocumentSubsystem()

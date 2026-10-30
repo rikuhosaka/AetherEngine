@@ -19,6 +19,7 @@
 #include "Engine/Renderer/Scene/RenderViewTypes.h"
 #include "Engine/World/RigidBody.h"
 #include "Engine/World/World.h"
+#include "Engine/World/WorldExtract.h"
 #include "Engine/World/WorldDocument.h"
 
 #include <DirectXMath.h>
@@ -905,9 +906,9 @@ Result<void> RunWorldTests()
 	ExtractedView expectedView{};
 	BuildExtractedView(expectedPose, 640, 480, expectedView);
 	ExtractedView extractedView{};
-	cameraWorld.ExtractCameraView(spawnedCamera, 640, 480, extractedView);
+	ExtractCameraView(cameraWorld, spawnedCamera, 640, 480, extractedView);
 	ExtractedView clearedView = expectedView;
-	cameraWorld.ExtractCameraView(plainEntity, 640, 480, clearedView);
+	ExtractCameraView(cameraWorld, plainEntity, 640, 480, clearedView);
 	if (!SameExtractedView(extractedView, expectedView) || clearedView.viewportWidth != 0
 		|| clearedView.viewportHeight != 0)
 	{
@@ -938,7 +939,7 @@ Result<void> RunWorldTests()
 	expectedPose.lens.farPlane = 100.0f;
 	ExtractedView defaultLensView = expectedView;
 	BuildExtractedView(expectedPose, 640, 480, expectedView);
-	cameraWorld.ExtractCameraView(spawnedCamera, 640, 480, extractedView);
+	ExtractCameraView(cameraWorld, spawnedCamera, 640, 480, extractedView);
 	if (!SameExtractedView(extractedView, expectedView) || SameExtractedView(extractedView, defaultLensView))
 	{
 		return FailRuntime(
@@ -1022,7 +1023,7 @@ Result<void> RunWorldTests()
 
 	DebugStatsServices stats{};
 	std::vector<ExtractedObject> extracted{};
-	sessionWorld.Extract(extracted, 1.0f, playingSession, stats);
+	Extract(sessionWorld, extracted, 1.0f, playingSession, stats);
 	const Transform* fallen = sessionWorld.GetTransform(sessionBody);
 	if (fallen == nullptr || !(fallen->position.y < 3.5f) || !IsNearlyEqual(fallen->scale.x, 2.0f)
 		|| !IsNearlyEqual(fallen->scale.y, 3.0f) || !IsNearlyEqual(fallen->scale.z, 4.0f)
@@ -1039,19 +1040,17 @@ Result<void> RunWorldTests()
 	playingSession.mode = SessionMode::Paused;
 	sessionWorld.FixedTick(playingSession, kFixedDeltaSeconds);
 	extracted.clear();
-	sessionWorld.Extract(extracted, 0.0f, playingSession, stats);
+	Extract(sessionWorld, extracted, 0.0f, playingSession, stats);
 	EditorCameraServices pausedEditorCamera{};
 	pausedEditorCamera.valid = true;
 	pausedEditorCamera.view.viewportWidth = 7;
 	ExtractedView pausedView{};
-	sessionWorld.ExtractView(pausedView, 640, 480, &pausedEditorCamera);
-	SceneContentServices heldContent{};
-	heldContent.loaded = true;
+	ExtractView(sessionWorld, pausedView, 640, 480, &pausedEditorCamera);
 	SessionServices heldSession{};
 	heldSession.mode = SessionMode::Paused;
 	WorldServices heldServices{};
 	const bool heldRelative = sessionWorld.Tick(
-		0.016f, heldSession, heldServices, heldContent, nullptr, false, false, nullptr, nullptr);
+		0.016f, heldSession, heldServices, nullptr, false, false);
 	if (!sessionWorld.IsPlaying() || heldRelative || heldServices.generation != 1
 		|| !IsNearlyEqual(sessionWorld.GetTransform(sessionBody)->position.y, pausedHeight)
 		|| extracted.size() != 1 || !IsNearlyEqual(ExtractedTranslationY(extracted[0]), pausedHeight)
@@ -1097,10 +1096,10 @@ Result<void> RunWorldTests()
 	editorCamera.valid = true;
 	editorCamera.view.viewportWidth = 7;
 	ExtractedView sessionView{};
-	sessionWorld.ExtractView(sessionView, 640, 480, &editorCamera);
+	ExtractView(sessionWorld, sessionView, 640, 480, &editorCamera);
 	ExtractedLighting sessionLighting{};
 	sessionWorld.GetLighting().ambientIntensity = 0.35f;
-	sessionWorld.ExtractLighting(sessionLighting);
+	ExtractLighting(sessionWorld, sessionLighting);
 	if (sessionView.viewportWidth != 640 || !IsNearlyEqual(sessionLighting.ambientIntensity, 0.35f))
 	{
 		return FailRuntime(
@@ -1112,10 +1111,10 @@ Result<void> RunWorldTests()
 	sessionWorld.EndPlay();
 	const Transform* restored = sessionWorld.GetTransform(sessionBody);
 	ExtractedView editorView{};
-	sessionWorld.ExtractView(editorView, 640, 480, &editorCamera);
+	ExtractView(sessionWorld, editorView, 640, 480, &editorCamera);
 	extracted.clear();
 	SessionServices editorSession{};
-	sessionWorld.Extract(extracted, 1.0f, editorSession, stats);
+	Extract(sessionWorld, extracted, 1.0f, editorSession, stats);
 	if (sessionWorld.IsPlaying() || sessionWorld.FindCamera().IsValid() || restored == nullptr
 		|| !IsNearlyEqual(restored->position.y, 4.0f) || !IsNearlyEqual(restored->scale.y, 3.0f)
 		|| !HasNamedEntity(sessionWorld, "Loaded") || editorView.viewportWidth != 7
@@ -1129,37 +1128,20 @@ Result<void> RunWorldTests()
 	}
 
 	SessionServices session{};
-	session.mode = SessionMode::Paused;
+	session.mode = SessionMode::Playing;
 	WorldServices tickServices{};
-	const bool pausedRelative = sessionWorld.Tick(
-		0.016f, session, tickServices, content, nullptr, false, false, nullptr, nullptr);
-	if (pausedRelative || session.mode != SessionMode::Editor || sessionWorld.IsPlaying()
-		|| tickServices.world != &sessionWorld || tickServices.generation != 1)
+	const bool playingRelative = sessionWorld.Tick(
+		0.016f, session, tickServices, nullptr, false, false);
+	if (playingRelative || sessionWorld.IsPlaying() || session.mode != SessionMode::Playing
+		|| tickServices.world != &sessionWorld || tickServices.generation != 1
+		|| !IsNearlyEqual(sessionWorld.GetTransform(sessionBody)->position.y, 4.0f))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"A paused request should not open a session");
+			"Tick should publish the world without opening a play session");
 	}
 
-	session.mode = SessionMode::Playing;
-	const bool playingRelative = sessionWorld.Tick(
-		0.016f, session, tickServices, content, nullptr, false, false, &playCameraPosition, &playCameraForward);
-	const uint32_t playingGeneration = tickServices.generation;
-	session.mode = SessionMode::Editor;
-	const bool editorRelative = sessionWorld.Tick(
-		0.016f, session, tickServices, content, nullptr, false, false, nullptr, nullptr);
-	if (!playingRelative && !editorRelative && !sessionWorld.IsPlaying() && playingGeneration == 2
-		&& tickServices.generation == 3
-		&& IsNearlyEqual(sessionWorld.GetTransform(sessionBody)->position.y, 4.0f))
-	{
-		LOG_INFO(LogCategory::ECS, "WorldTests passed");
-		return MakeOk();
-	}
-
-	sessionWorld.EndPlay();
-	return FailRuntime(
-		LogCategory::ECS,
-		ErrorCode::InvalidArgument,
-		"Tick should advance generation when a session starts and stops");
+	LOG_INFO(LogCategory::ECS, "WorldTests passed");
+	return MakeOk();
 }

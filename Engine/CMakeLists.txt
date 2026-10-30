@@ -40,6 +40,10 @@ set_target_properties(World PROPERTIES FOLDER "Engine/World")
 add_subdirectory(SceneDocument)
 set_target_properties(SceneDocument PROPERTIES FOLDER "Engine/SceneDocument")
 
+# EngineModule links Editor later. Keep it out of this interface so Editor can keep linking Engine.
+add_subdirectory(Engine)
+set_target_properties(EngineModule PROPERTIES FOLDER "Engine/Engine")
+
 target_link_libraries(Engine INTERFACE
     Core
     Math

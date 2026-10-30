@@ -15,7 +15,7 @@
 
 namespace
 {
-constexpr const char* kDependencies[] = { "Window", "RHI", "Display" };
+constexpr const char* kDependencies[] = { "Window" };
 constexpr const char* kPresentDependencies[] = { "UI" };
 } // namespace
 

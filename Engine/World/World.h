@@ -1,11 +1,10 @@
 #pragma once
 
-#include "Engine/Application/Services/DebugStatsServices.h"
 #include "Engine/Application/Services/SceneContentServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WorldServices.h"
-#include "Engine/Application/Subsystem/ISubsystem.h"
 #include "Engine/Camera/FreeFlyCameraController.h"
+#include "Engine/Core/Log/Result.h"
 #include "Engine/World/Actor.h"
 #include "Engine/World/EntityId.h"
 #include "Engine/World/Lighting.h"
@@ -32,13 +31,9 @@ class EntityPhysics;
 class InputState;
 class RHICommandList;
 class SubsystemContext;
-struct EditorCameraServices;
-struct ExtractedLighting;
-struct ExtractedObject;
-struct ExtractedView;
 struct FrameContext;
 
-class World final : public ISubsystem
+class World final
 {
 public:
 	World();
@@ -46,7 +41,7 @@ public:
 	World& operator=(const World& other);
 	World(World&&) noexcept;
 	World& operator=(World&&) noexcept;
-	~World() override;
+	~World();
 
 	EntityId Spawn(WorldSpawnDesc desc);
 	void Destroy(EntityId id);
@@ -159,13 +154,6 @@ public:
 		bool mouseCaptured,
 		bool keyboardCaptured);
 
-	// View from the camera entity's world matrix and lens. Clears the output when the entity has no camera.
-	void ExtractCameraView(
-		EntityId camera,
-		uint32_t viewportWidth,
-		uint32_t viewportHeight,
-		ExtractedView& outView) const;
-
 	[[nodiscard]] bool IsPlaying() const { return m_appliedMode == SessionMode::Playing; }
 
 	// Snapshots the document, binds rigid bodies, and keeps the first camera entity.
@@ -176,20 +164,20 @@ public:
 		const DirectX::XMFLOAT3* cameraForward);
 	void EndPlay();
 
-	// Applies the requested session, publishes this world, and updates the play camera.
+	// Publishes this world and updates the play camera.
 	// Returns whether that camera wants relative mouse movement.
 	[[nodiscard]] bool Tick(
 		float deltaSeconds,
-		SessionServices& session,
+		const SessionServices& session,
 		WorldServices& published,
-		const SceneContentServices& content,
 		const InputState* input,
 		bool mouseCaptured,
-		bool keyboardCaptured,
-		const DirectX::XMFLOAT3* cameraPosition,
-		const DirectX::XMFLOAT3* cameraForward);
+		bool keyboardCaptured);
 
 	void FixedTick(const SessionServices& session, float fixedDeltaSeconds);
+
+	// Writes interpolated position and rotation when a play simulation is bound. Scale stays unchanged.
+	void WriteInterpolatedTransforms(float alpha);
 
 	[[nodiscard]] Result<void> LoadContent(
 		SceneContentServices& content,
@@ -197,29 +185,6 @@ public:
 		SubsystemContext& ctx,
 		FrameContext& frameContext,
 		RHICommandList* commandList);
-
-	void Extract(
-		std::vector<ExtractedObject>& outObjects,
-		float alpha,
-		const SessionServices& session,
-		DebugStatsServices& stats);
-	void ExtractView(
-		ExtractedView& outView,
-		uint32_t viewportWidth,
-		uint32_t viewportHeight,
-		const EditorCameraServices* editorCamera) const;
-	void ExtractLighting(ExtractedLighting& outLighting) const;
-
-	[[nodiscard]] const char* GetName() const override { return "World"; }
-
-	[[nodiscard]] std::span<const char* const> GetDependencies() const override;
-
-	[[nodiscard]] bool WantsTick() const override { return true; }
-
-	Result<void> Initialize(SubsystemContext& ctx) override;
-	void Tick(SubsystemContext& ctx, float deltaSeconds) override;
-	void FixedTick(SubsystemContext& ctx, float fixedDeltaSeconds) override;
-	void Shutdown(SubsystemContext& ctx) override;
 
 	template<typename Fn>
 	void ForEachAlive(Fn&& fn) const
@@ -308,16 +273,4 @@ private:
 	FreeFlyCameraController m_cameraController{};
 	CameraState m_cameraPose{};
 	EntityId m_cameraEntity{};
-
-	// Subsystem services. Copy and Clone leave these behind.
-	DebugStatsServices m_debugStats{};
-	WorldServices m_worldServices{};
-	SessionServices m_session{};
-	SceneContentServices m_content{};
-
-	[[nodiscard]] bool ApplySession(
-		SessionServices& session,
-		bool contentLoaded,
-		const DirectX::XMFLOAT3* cameraPosition,
-		const DirectX::XMFLOAT3* cameraForward);
 };

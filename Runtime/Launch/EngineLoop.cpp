@@ -1,60 +1,27 @@
 #include "Runtime/Launch/EngineLoop.h"
 
 #include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/DisplayServices.h"
 #include "Engine/Application/Services/EditorCameraServices.h"
-#include "Engine/Application/Services/GpuQueueRetirement.h"
-#include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Services/SceneContentServices.h"
 #include "Engine/Application/Services/SessionServices.h"
+#include "Engine/Application/Services/UiServices.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
-#include "Engine/Application/Subsystem/IEngineLoopRender.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
-#include "Engine/Graphics/DisplayContext.h"
+#include "Engine/Frame/FrameContext.h"
+#include "Engine/Platform/WindowSubsystem.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
-#include "Engine/RHI/Interface/RHIBarrierDebug.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
-#include "Engine/RHI/Interface/RHICommandQueue.h"
-#include "Engine/RHI/Interface/RHIFence.h"
-#include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
-#include "Engine/RHI/Interface/RHIUploadBuffer.h"
 #include "Engine/World/World.h"
+#include "Engine/World/WorldExtract.h"
 
+#include <cstring>
 #include <vector>
 
 namespace
 {
-void EndBarrierFrame(RHIServices* rhiServices)
-{
-	if (rhiServices != nullptr && rhiServices->barrierDebug != nullptr)
-	{
-		rhiServices->barrierDebug->EndFrame();
-	}
-}
-
-void DiscardRecording(RHIServices* rhiServices, RHICommandList* commandList)
-{
-	if (commandList != nullptr && commandList->IsRecording())
-	{
-		commandList->Close();
-	}
-	EndBarrierFrame(rhiServices);
-}
-
-[[nodiscard]] bool CloseRecordedCommandList(RHICommandList* commandList)
-{
-	if (commandList == nullptr || !commandList->IsRecording())
-	{
-		return false;
-	}
-
-	commandList->Close();
-	return !commandList->IsRecording();
-}
-
 struct PublishedWorld
 {
 	World* world = nullptr;
@@ -91,22 +58,53 @@ Result<void> EngineLoop::Initialize()
 {
 	m_context.RegisterService(&m_registry);
 
-	if (auto initResult = m_registry.InitializeAll(m_context); !initResult)
+	if (auto built = m_registry.BuildOrders(); !built)
 	{
-		return initResult;
+		return built;
+	}
+
+	for (ISubsystem* subsystem : m_registry.GetInitOrder())
+	{
+		if (subsystem == nullptr)
+		{
+			continue;
+		}
+
+		if (auto initResult = subsystem->Initialize(m_context); !initResult)
+		{
+			LOG_ERROR(LogCategory::Core, std::string("Subsystem '") + std::string(subsystem->GetName()) + "' failed to initialize");
+			LogResult(initResult, LogCategory::Core);
+			ShutdownSession();
+			return initResult;
+		}
+
+		if (std::strcmp(subsystem->GetName(), "Window") == 0)
+		{
+			const WindowServices& windowServices = static_cast<WindowSubsystem*>(subsystem)->GetServices();
+			if (auto renderResult = m_render.Initialize(
+					windowServices.hwnd,
+					windowServices.clientWidth,
+					windowServices.clientHeight,
+					m_config,
+					m_context);
+				!renderResult)
+			{
+				LogResult(renderResult, LogCategory::Core);
+				ShutdownSession();
+				return renderResult;
+			}
+		}
 	}
 
 	if (auto postInitResult = m_registry.PostInitializeAll(m_context); !postInitResult)
 	{
-		RetireGraphicsQueue(m_context.GetService<RHIServices>());
-		m_registry.ShutdownAll(m_context);
+		ShutdownSession();
 		return postInitResult;
 	}
 
 	if (auto resolveResult = ResolveHosts(); !resolveResult)
 	{
-		RetireGraphicsQueue(m_context.GetService<RHIServices>());
-		m_registry.ShutdownAll(m_context);
+		ShutdownSession();
 		return resolveResult;
 	}
 
@@ -122,17 +120,12 @@ Result<void> EngineLoop::ResolveHosts()
 		{
 			m_platform = dynamic_cast<IEngineLoopPlatform*>(subsystem);
 		}
-
-		if (m_render == nullptr)
-		{
-			m_render = dynamic_cast<IEngineLoopRender*>(subsystem);
-		}
 	}
 
-	if (m_platform == nullptr || m_render == nullptr)
+	if (m_platform == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"EngineLoop requires platform and render subsystems");
+			"EngineLoop requires a platform subsystem");
 	}
 
 	return MakeOk();
@@ -217,8 +210,7 @@ void EngineLoop::UpdateClock()
 Result<void> EngineLoop::ApplyPendingResize()
 {
 	auto* windowServices = m_context.GetService<WindowServices>();
-	auto* rhiServices = m_context.GetService<RHIServices>();
-	if (windowServices == nullptr || rhiServices == nullptr || rhiServices->frameFence == nullptr)
+	if (windowServices == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"EngineLoop::ApplyPendingResize missing required services");
@@ -230,14 +222,18 @@ Result<void> EngineLoop::ApplyPendingResize()
 		return MakeOk();
 	}
 
-	RetireGraphicsQueue(rhiServices);
+	if (auto resizeResult = m_render.Resize(m_pendingWidth, m_pendingHeight); !resizeResult)
+	{
+		LogResult(resizeResult, LogCategory::Core);
+		return resizeResult;
+	}
 
 	for (ISubsystem* subsystem : m_registry.GetInitOrder())
 	{
-		if (auto resizeResult = subsystem->OnResize(m_context, m_pendingWidth, m_pendingHeight); !resizeResult)
+		if (auto subsystemResize = subsystem->OnResize(m_context, m_pendingWidth, m_pendingHeight); !subsystemResize)
 		{
-			LogResult(resizeResult, LogCategory::Core);
-			return resizeResult;
+			LogResult(subsystemResize, LogCategory::Core);
+			return subsystemResize;
 		}
 	}
 
@@ -274,37 +270,8 @@ void EngineLoop::TickFixedSubsystems()
 	}
 }
 
-Result<void> EngineLoop::ResetFrameSlotResources(FrameContext& frameContext)
-{
-	RHICommandList* commandList = frameContext.graphicsCommandList;
-	if (commandList == nullptr)
-	{
-		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"EngineLoop requires a command list");
-	}
-
-	commandList->Reset();
-	if (frameContext.uploadBuffer != nullptr)
-	{
-		frameContext.uploadBuffer->Reset();
-	}
-	if (frameContext.transientDescriptors != nullptr)
-	{
-		frameContext.transientDescriptors->Reset();
-	}
-
-	return MakeOk();
-}
-
 Result<void> EngineLoop::LoadInitialContent()
 {
-	auto* rhiServices = m_context.GetService<RHIServices>();
-	if (rhiServices == nullptr || rhiServices->frameFence == nullptr || rhiServices->graphicsQueue == nullptr)
-	{
-		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"EngineLoop::LoadInitialContent missing required services");
-	}
-
 	const PublishedWorld published = FindPublishedWorld(m_context);
 	if (published.world == nullptr)
 	{
@@ -317,101 +284,38 @@ Result<void> EngineLoop::LoadInitialContent()
 			"EngineLoop::LoadInitialContent missing world services");
 	}
 
-	const uint32_t slot = rhiServices->currentFrameSlot;
-	FrameContext& frameContext = rhiServices->frameContexts[slot];
-	frameContext.frameIndex = slot;
-	m_context.SetFrameSlot(slot);
-
-	if (rhiServices->barrierDebug != nullptr)
+	auto recording = m_render.BeginRecording();
+	if (!recording)
 	{
-		rhiServices->barrierDebug->BeginFrame();
+		return MakeFail(recording.error.code, recording.error.message);
 	}
 
-	if (auto resetResult = ResetFrameSlotResources(frameContext); !resetResult)
-	{
-		if (rhiServices->barrierDebug != nullptr)
-		{
-			rhiServices->barrierDebug->EndFrame();
-		}
-		return resetResult;
-	}
+	FrameContext* frameContext = recording.value;
+	m_context.SetFrameSlot(frameContext->frameIndex);
 
-	RHICommandList* commandList = frameContext.graphicsCommandList;
 	if (auto loadResult = published.world->LoadContent(
-			*published.content, *published.services, m_context, frameContext, commandList);
+			*published.content, *published.services, m_context, *frameContext, frameContext->graphicsCommandList);
 		!loadResult)
 	{
-		DiscardRecording(rhiServices, commandList);
+		m_render.AbortRecording();
 		return loadResult;
 	}
 
-	if (!CloseRecordedCommandList(commandList))
-	{
-		EndBarrierFrame(rhiServices);
-		return FailRuntime(LogCategory::Core, ErrorCode::RuntimeError,
-			"EngineLoop::LoadInitialContent failed to close the command list");
-	}
-
-	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });
-	const uint64_t fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
-	rhiServices->frameFence->WaitCPU(fenceValue);
-	frameContext.fenceValue = 0;
-
-	if (rhiServices->barrierDebug != nullptr)
-	{
-		rhiServices->barrierDebug->EndFrame();
-	}
-
-	return MakeOk();
+	return m_render.SubmitAndWait();
 }
 
 Result<void> EngineLoop::RenderFrame()
 {
-	auto* rhiServices = m_context.GetService<RHIServices>();
-	auto* displayServices = m_context.GetService<DisplayServices>();
 	auto* windowServices = m_context.GetService<WindowServices>();
-	if (m_render == nullptr || rhiServices == nullptr || rhiServices->frameFence == nullptr
-		|| rhiServices->graphicsQueue == nullptr || displayServices == nullptr
-		|| displayServices->display == nullptr)
-	{
-		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"EngineLoop::RenderFrame missing required services");
-	}
-
 	if (windowServices != nullptr
 		&& (windowServices->isMinimized || windowServices->clientWidth == 0 || windowServices->clientHeight == 0))
 	{
 		return MakeOk();
 	}
 
-	const uint32_t slot = rhiServices->currentFrameSlot;
-	FrameContext& frameContext = rhiServices->frameContexts[slot];
-	frameContext.frameIndex = slot;
-
-	if (frameContext.fenceValue != 0)
-	{
-		rhiServices->frameFence->WaitCPU(frameContext.fenceValue);
-	}
-
-	m_context.SetFrameSlot(slot);
-
-	if (rhiServices->barrierDebug != nullptr)
-	{
-		rhiServices->barrierDebug->BeginFrame();
-	}
-
-	displayServices->display->BeginFrame(frameContext);
-
-	if (auto resetResult = ResetFrameSlotResources(frameContext); !resetResult)
-	{
-		if (rhiServices->barrierDebug != nullptr)
-		{
-			rhiServices->barrierDebug->EndFrame();
-		}
-		return resetResult;
-	}
-
-	RHICommandList* commandList = frameContext.graphicsCommandList;
+	const uint32_t width = windowServices != nullptr ? windowServices->clientWidth : 0;
+	const uint32_t height = windowServices != nullptr ? windowServices->clientHeight : 0;
+	m_context.SetFrameSlot(m_render.GetRHI().currentFrameSlot);
 
 	std::vector<ExtractedObject> extractedObjects;
 	ExtractedView extractedView{};
@@ -421,64 +325,79 @@ Result<void> EngineLoop::RenderFrame()
 	{
 		if (published.session == nullptr || published.stats == nullptr)
 		{
-			DiscardRecording(rhiServices, commandList);
 			return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 				"EngineLoop::RenderFrame missing world services");
 		}
 
-		const uint32_t width = windowServices != nullptr ? windowServices->clientWidth : 0;
-		const uint32_t height = windowServices != nullptr ? windowServices->clientHeight : 0;
-		published.world->ExtractView(
-			extractedView, width, height, m_context.GetService<EditorCameraServices>());
-		published.world->ExtractLighting(extractedLighting);
-		published.world->Extract(
-			extractedObjects, m_context.GetInterpolationAlpha(), *published.session, *published.stats);
+		ExtractView(
+			*published.world, extractedView, width, height, m_context.GetService<EditorCameraServices>());
+		ExtractLighting(*published.world, extractedLighting);
+		Extract(
+			*published.world,
+			extractedObjects,
+			m_context.GetInterpolationAlpha(),
+			*published.session,
+			*published.stats);
 	}
 
-	if (auto drawResult = m_render->DrawFrame(
-			m_context,
-			frameContext,
-			commandList,
+	RHIImGui* imgui = nullptr;
+	if (auto* uiServices = m_context.GetService<UiServices>())
+	{
+		imgui = uiServices->imgui;
+	}
+
+	if (auto renderResult = m_render.Render(
+			width,
+			height,
 			extractedView,
 			extractedLighting,
-			extractedObjects);
-		!drawResult)
+			extractedObjects,
+			imgui);
+		!renderResult)
 	{
-		DiscardRecording(rhiServices, commandList);
-		return drawResult;
+		return renderResult;
 	}
 
-	if (!CloseRecordedCommandList(commandList))
-	{
-		EndBarrierFrame(rhiServices);
-		return FailRuntime(LogCategory::Core, ErrorCode::RuntimeError,
-			"EngineLoop::RenderFrame failed to close the command list");
-	}
-
-	rhiServices->graphicsQueue->ExecuteCommandLists({ commandList });
-	frameContext.fenceValue = rhiServices->graphicsQueue->Signal(rhiServices->frameFence);
-
-	displayServices->display->Present(m_config.vsync ? 1u : 0u, 0u);
-	if (rhiServices->barrierDebug != nullptr)
-	{
-		rhiServices->barrierDebug->EndFrame();
-	}
-
-	rhiServices->currentFrameSlot = (slot + 1) % RHIServices::kFrameCount;
-	m_context.SetFrameSlot(rhiServices->currentFrameSlot);
+	m_context.SetFrameSlot(m_render.GetRHI().currentFrameSlot);
 	return MakeOk();
 }
 
-void EngineLoop::Shutdown()
+void EngineLoop::ShutdownSession()
 {
-	if (m_running)
+	const std::span<ISubsystem* const> order = m_registry.GetInitOrder();
+	for (size_t index = order.size(); index > 0; --index)
 	{
-		RetireGraphicsQueue(m_context.GetService<RHIServices>());
-		m_registry.ShutdownAll(m_context);
-		m_running = false;
+		ISubsystem* subsystem = order[index - 1];
+		if (subsystem == nullptr || std::strcmp(subsystem->GetName(), "Window") == 0)
+		{
+			continue;
+		}
+
+		subsystem->Shutdown(m_context);
+	}
+
+	m_render.Shutdown(m_context);
+
+	for (ISubsystem* subsystem : order)
+	{
+		if (subsystem != nullptr && std::strcmp(subsystem->GetName(), "Window") == 0)
+		{
+			subsystem->Shutdown(m_context);
+			break;
+		}
 	}
 
 	m_context.UnregisterService(&m_registry);
 	m_platform = nullptr;
-	m_render = nullptr;
+}
+
+void EngineLoop::Shutdown()
+{
+	if (!m_running)
+	{
+		return;
+	}
+
+	m_running = false;
+	ShutdownSession();
 }

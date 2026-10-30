@@ -1,20 +1,12 @@
 #include "Runtime/RuntimeSubsystemSetup.h"
 
-#include "Engine/Application/Services/DisplayServices.h"
-#include "Engine/Application/Services/RHIServices.h"
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
-#include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
-#include "Editor/Scene/SceneLoaderSubsystem.h"
-#include "Editor/UI/EditorUiSubsystem.h"
+#include "Engine/Engine/Engine.h"
 #include "Engine/SceneDocument/SceneDocumentSubsystem.h"
-#include "Engine/World/World.h"
-#include "Engine/Graphics/DisplaySubsystem.h"
 #include "Engine/Platform/InputSubsystem.h"
 #include "Engine/Platform/WindowSubsystem.h"
-#include "Engine/Renderer/RenderSubsystem.h"
 #include "Engine/Renderer/UiSubsystem.h"
-#include "Engine/RHI/DX12/RHISubsystem.h"
 
 #include <cstring>
 #include <memory>
@@ -22,16 +14,11 @@
 void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConfig& config)
 {
 	registry.Register(std::make_unique<WindowSubsystem>(config));
-	registry.Register(CreateRHISubsystem(config));
-	registry.Register(CreateDisplaySubsystem(config));
 	registry.Register(CreateUiSubsystem());
 	registry.Register(CreateUiPresentSubsystem());
-	registry.Register(CreateEditorUiSubsystem());
-	registry.Register(CreateRenderSubsystem(config));
 	registry.Register(CreateInputSubsystem());
-	registry.Register(std::make_unique<World>());
+	Engine(config).RegisterSubsystems(registry);
 	registry.Register(CreateSceneDocumentSubsystem());
-	registry.Register(CreateEditorSubsystem());
 }
 
 WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)
@@ -45,27 +32,4 @@ WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)
 	}
 
 	return nullptr;
-}
-
-RenderSubsystem* FindRenderSubsystem(const SubsystemRegistry& registry)
-{
-	for (ISubsystem* subsystem : registry.GetInitOrder())
-	{
-		if (subsystem != nullptr && std::strcmp(subsystem->GetName(), "Render") == 0)
-		{
-			return static_cast<RenderSubsystem*>(subsystem);
-		}
-	}
-
-	return nullptr;
-}
-
-RHIServices* FindRHIServices(const SubsystemContext& context)
-{
-	return context.GetService<RHIServices>();
-}
-
-DisplayServices* FindDisplayServices(const SubsystemContext& context)
-{
-	return context.GetService<DisplayServices>();
 }

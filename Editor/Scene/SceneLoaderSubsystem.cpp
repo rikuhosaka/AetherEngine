@@ -17,7 +17,7 @@
 
 namespace
 {
-constexpr const char* kDependencies[] = { "Window", "Input", "World", "SceneDocument" };
+constexpr const char* kDependencies[] = { "Window", "Input", "Engine", "SceneDocument" };
 } // namespace
 
 std::unique_ptr<ISubsystem> CreateEditorSubsystem()

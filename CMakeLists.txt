@@ -148,5 +148,8 @@ set(AETHER_COMPILED_SHADERS ${COMPILED_SHADERS})
 add_subdirectory(Editor)
 set_target_properties(Editor PROPERTIES FOLDER "Editor")
 
+# Engine is configured before Editor exists. Link here, and keep EngineModule out of the Engine interface.
+target_link_libraries(EngineModule PUBLIC Editor)
+
 add_subdirectory(Runtime)
 set_target_properties(Runtime PROPERTIES FOLDER "Runtime")
