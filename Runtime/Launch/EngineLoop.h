@@ -10,6 +10,10 @@
 class IEngineLoopPlatform;
 struct FrameContext;
 
+// 責任: 起動から終了までのフレーム進行を行う。
+// 役割: サブシステムの初期化、可変 Tick、固定 Tick、最初のシーン読み込み、描画を順に呼ぶ。
+// 所有: レジストリ、コンテキスト、描画システム、フレーム時計をメンバとして持つ。
+//       レジストリ経由で各 ISubsystem を所有する。プラットフォームは非所有ポインタ。
 class EngineLoop
 {
 public:

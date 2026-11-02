@@ -5,9 +5,11 @@
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Camera/CameraComponent.h"
 #include "Engine/Camera/CameraExtract.h"
+#include "Engine/Camera/CameraSubsystem.h"
 #include "Engine/Math/Matrix.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/World/GameSubsystem.h"
 #include "Engine/World/Renderable.h"
 #include "Engine/World/SceneLighting.h"
 #include "Engine/World/World.h"
@@ -74,10 +76,14 @@ void Extract(
 {
 	if (session.mode == SessionMode::Paused)
 	{
+		// 一時停止中に補間すると、停止した瞬間の中間姿勢が残る。最新ステップをそのまま出す。
 		alpha = 1.0f;
 	}
 
-	world.WriteInterpolatedTransforms(alpha);
+	if (GameSubsystem* game = static_cast<GameSubsystem*>(world.FindSubsystem("Game")))
+	{
+		game->WriteTransforms(world, alpha);
+	}
 	ExtractWorld(world, outObjects);
 	stats.extractedObjectCount = static_cast<uint32_t>(outObjects.size());
 }
@@ -91,7 +97,9 @@ void ExtractView(
 {
 	if (world.IsPlaying())
 	{
-		const EntityId camera = world.FindCamera();
+		// 編集カメラは再生中は無視する。停止するまで公開されたままだが、視点には使わない。
+		const CameraSubsystem* cameras = static_cast<const CameraSubsystem*>(world.FindSubsystem("Camera"));
+		const EntityId camera = cameras != nullptr ? cameras->FindCamera(world) : EntityId{};
 		if (camera.IsValid())
 		{
 			ExtractCameraView(world, camera, viewportWidth, viewportHeight, outView);

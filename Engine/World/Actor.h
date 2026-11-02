@@ -13,7 +13,9 @@
 
 class World;
 
-// Live scene node stored in a world slot. Identity and lifetime stay on the slot.
+// 責任: 1エンティティの名前、親、変換、コンポーネントを保持する。
+// 役割: World のスロットに入るシーンノード。生存と ID の世代はスロットが持つ。
+// 所有: World のスロットが値で持つ。コンポーネントはこのアクターが所有し、アクターのコピーと一緒に複製される。
 struct Actor
 {
 	Actor() = default;

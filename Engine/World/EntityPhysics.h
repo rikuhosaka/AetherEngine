@@ -6,7 +6,9 @@
 
 #include <vector>
 
-// Binds root entities to rigid bodies. The binding table lives outside World.
+// 責任: エンティティと剛体の対応を保ち、ステップと姿勢の書き戻しを行う。
+// 役割: 親の無いアクターを PhysicsWorld のボディへ束縛する。ステップは変換を書かず、書き戻しは別呼び出し。
+// 所有: GameSubsystem が再生中だけ持つ。PhysicsWorld と束縛表を所有する。エンティティは World の所有のまま。コピー不可。
 class EntityPhysics
 {
 public:

@@ -10,6 +10,10 @@
 #include <filesystem>
 #include <memory>
 
+// 責任: 開いているシーン文書と、そのアセット読み込みを持つ。
+// 役割: 文書を編集用に公開し、ISceneContent として World へエンティティを生成する。登録名は "SceneDocument"。
+// 所有: SubsystemRegistry が unique_ptr で持つ。SceneDocument、パス、AssetCache、EditorSceneServices をメンバとして所有する。
+//       SceneContentServices は Engine の所有で、ここは非所有ポインタを借り、loader に自分を登録する。
 class SceneDocumentSubsystem final : public ISubsystem, public ISceneContent
 {
 public:
@@ -38,7 +42,9 @@ private:
 	SceneDocument m_document{};
 	std::filesystem::path m_path{};
 	bool m_hasDocument = false;
+	// Engine が所有するサービス。このサブシステムは借りて loader を書き込む。
 	SceneContentServices* m_content = nullptr;
+	// このサブシステムが所有する公開データ。Context に載るのはこのアドレスだけ。
 	EditorSceneServices m_editorServices{};
 };
 

@@ -7,6 +7,7 @@
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Camera/CameraSubsystem.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Engine/Engine.h"
 #include "Engine/World/World.h"
@@ -73,7 +74,8 @@ Result<void> RunEngineSessionTests()
 
 	session->mode = SessionMode::Playing;
 	engine.Tick(context, 0.016f);
-	const EntityId camera = engine.GetWorld().FindCamera();
+	const CameraSubsystem* cameras = static_cast<const CameraSubsystem*>(engine.GetWorld().FindSubsystem("Camera"));
+	const EntityId camera = cameras != nullptr ? cameras->FindCamera(engine.GetWorld()) : EntityId{};
 	const Transform* cameraTransform = engine.GetWorld().GetTransform(camera);
 	if (!engine.GetWorld().IsPlaying() || published->generation != 2 || camera == body || cameraTransform == nullptr
 		|| !IsNearlyEqual(cameraTransform->position.x, 2.0f)

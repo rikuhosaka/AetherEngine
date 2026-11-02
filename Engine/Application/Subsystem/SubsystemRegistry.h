@@ -10,6 +10,9 @@
 
 class SubsystemContext;
 
+// 責任: エンジンサブシステムの登録、初期化順、Tick 順、終了を管理する。
+// 役割: 依存名から順を作り、EngineLoop がその順で初期化と Tick を呼ぶ。
+// 所有: EngineLoop のメンバ。ISubsystem を unique_ptr で所有する。順序配列は登録済みインスタンスを指すだけで所有しない。
 class SubsystemRegistry
 {
 public:

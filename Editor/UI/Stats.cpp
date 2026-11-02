@@ -1,7 +1,6 @@
 #include "Editor/UI/Stats.h"
 
 #include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/EditorSaveServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Services/WorldServices.h"
@@ -49,6 +48,8 @@ void DrawStats(SubsystemContext& ctx)
 			modeName = "Paused";
 		}
 		ImGui::Text("Mode %s", modeName);
+		// モードを書くだけ。BeginPlay / EndPlay は後続の Engine::Tick が行う。
+		// Pause は再生中だけ受け付ける。停止中に一時停止へ入れるとセッションを開かずに捨てられる。
 		if (ImGui::Button("Play"))
 		{
 			session->mode = SessionMode::Playing;
@@ -62,16 +63,6 @@ void DrawStats(SubsystemContext& ctx)
 		if (ImGui::Button("Stop"))
 		{
 			session->mode = SessionMode::Editor;
-		}
-		if (auto* editorSave = ctx.GetService<EditorSaveServices>())
-		{
-			ImGui::SameLine();
-			ImGui::BeginDisabled(session->mode != SessionMode::Editor);
-			if (ImGui::Button("Save"))
-			{
-				editorSave->requested = true;
-			}
-			ImGui::EndDisabled();
 		}
 	}
 	ImGui::End();

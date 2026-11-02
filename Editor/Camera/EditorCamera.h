@@ -8,6 +8,9 @@
 class InputState;
 struct EditorCameraServices;
 
+// 責任: 編集ビューポート用の自由飛行カメラを更新する。
+// 役割: 入力から姿勢を進め、渡された EditorCameraServices へ書き出す。
+// 所有: SceneLoaderSubsystem のメンバ。姿勢とコントローラを値で持つ。公開先のサービスは所有しない。
 class EditorCamera
 {
 public:

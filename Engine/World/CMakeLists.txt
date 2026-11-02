@@ -8,6 +8,11 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${World_SRC})
 
 add_library(World STATIC ${World_SRC})
 
+# 型の宣言は Camera にあるが、実装は World を使うためこちらでコンパイルする。
+# Camera 側の GLOB からは外してある。片方だけ戻すと未定義か二重定義になる。
+target_sources(World PRIVATE
+    "${CMAKE_SOURCE_DIR}/Engine/Camera/CameraSubsystem.cpp")
+
 if (MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()

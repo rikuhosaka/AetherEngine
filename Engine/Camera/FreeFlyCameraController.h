@@ -13,6 +13,9 @@ struct FreeFlyCameraSettings
 	float maxPitchRadians = DirectX::XM_PIDIV2 - 0.01f;
 };
 
+// 責任: 自由飛行のヨーとピッチを入力から更新する。
+// 役割: 渡された CameraState の位置と前方を書き換える。エンティティやデバイスは知らない。
+// 所有: EditorCamera か CameraSubsystem が値で持つ。CameraState は呼び出し側の所有。
 class FreeFlyCameraController
 {
 public:

@@ -62,8 +62,10 @@ struct PhysicsBodyDesc
 	float mass = 0.0f;
 };
 
-// One Jolt physics system. InitializePhysicsLibrary must succeed before Create.
-// Poses are in the engine's left-handed Y-up space.
+// 責任: Jolt の物理空間を1つ動かす。
+// 役割: ボディの生成、破棄、ステップ、姿勢のサンプルを行う。エンティティとの対応は知らない。
+// 所有: EntityPhysics のメンバ。Create の前に InitializePhysicsLibrary が成功している必要がある。
+//       姿勢はエンジンの左手系、Y-up。コピー不可で、ムーブで所有が移る。
 class PhysicsWorld
 {
 public:

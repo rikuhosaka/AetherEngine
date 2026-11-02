@@ -8,6 +8,9 @@
 
 class SubsystemContext;
 
+// 責任: プロセスに1つあるエンジン機能の初期化、Tick、終了を定義する。
+// 役割: ウィンドウ、入力、エンジン、編集カメラのように、特定の World に属さない処理の口。
+// 所有: SubsystemRegistry が unique_ptr で持つ。再生中の物理やプレイカメラは World 配下の IWorldSubsystem が持つ。
 class ISubsystem
 {
 public:

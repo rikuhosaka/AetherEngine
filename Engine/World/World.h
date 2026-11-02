@@ -3,7 +3,6 @@
 #include "Engine/Application/Services/SceneContentServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WorldServices.h"
-#include "Engine/Camera/FreeFlyCameraController.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/World/Actor.h"
 #include "Engine/World/EntityId.h"
@@ -27,12 +26,16 @@ struct WorldSpawnDesc
 	EntityId parent{};
 };
 
-class EntityPhysics;
 class InputState;
+class IWorldSubsystem;
 class RHICommandList;
 class SubsystemContext;
 struct FrameContext;
 
+// 責任: シーン文書と、その文書に紐づく再生用サブシステムの寿命を持つ。
+// 役割: エンティティの生成、破棄、親子と、プレイセッションの開始、終了、Tick を行う。
+// 所有: Engine のメンバ。アクター、コンポーネント、IWorldSubsystem を所有する。
+//       セッションと入力は参照で受け取り、所有しない。サブシステムの実行時状態はコピーに含めず、ムーブで一緒に移る。
 class World final
 {
 public:
@@ -130,42 +133,39 @@ public:
 	[[nodiscard]] LightingSettings& GetLighting() { return m_document.lighting; }
 	[[nodiscard]] const LightingSettings& GetLighting() const { return m_document.lighting; }
 
-	// Copies the document: slots, generations, parents, names, transforms, free indices, components, and lighting.
-	// Dead slots stay dead, so entity ids match. A missing component stays missing.
+	// 文書だけを写す。スロット、世代、親子、名前、変換、空き番号、コンポーネント、ライティング。
+	// 死んだスロットは死んだままなのでエンティティ ID は一致する。欠けているコンポーネントも欠けたまま。
+	// プレイセッションとサブシステムは写さない。複製先のサブシステムは空。
 	[[nodiscard]] World Clone() const
 	{
 		return World(*this);
 	}
 
-	// First alive entity with a camera, in slot order. Invalid when none exist.
-	[[nodiscard]] EntityId FindCamera() const;
+	// ワールド所有のサブシステムを足す。null、または同名が既にあるときは足さない。
+	[[nodiscard]] bool AddSubsystem(std::unique_ptr<IWorldSubsystem> subsystem);
 
-	// Root camera. A null position or forward uses the play fallback pose.
-	[[nodiscard]] EntityId SpawnCamera(
-		const DirectX::XMFLOAT3* position,
-		const DirectX::XMFLOAT3* forward);
+	// この名前のワールドサブシステム。未登録なら nullptr。同名は先に登録された方。
+	[[nodiscard]] IWorldSubsystem* FindSubsystem(std::string_view name);
+	[[nodiscard]] const IWorldSubsystem* FindSubsystem(std::string_view name) const;
 
-	// Writes free-fly movement into the camera entity's local transform.
-	// Returns whether that camera wants relative mouse movement.
-	[[nodiscard]] bool UpdateCamera(
-		EntityId camera,
-		const InputState* input,
-		float deltaSeconds,
-		bool mouseCaptured,
-		bool keyboardCaptured);
-
+	// プレイセッションが開いている。一時停止中も true。Editor へ戻して EndPlay したときだけ false。
 	[[nodiscard]] bool IsPlaying() const { return m_appliedMode == SessionMode::Playing; }
 
-	// Snapshots the document, binds rigid bodies, and keeps the first camera entity.
-	// A missing camera is spawned. A null position or forward uses the play fallback pose.
+	// 文書をスナップショットしてから、サブシステムを Tick グループ順に OnBeginPlay する。
+	// すでにセッション中なら何もしない。コンテンツ未ロード、またはいずれかの開始失敗で失敗する。
+	// 失敗時は開始済みだけ OnEndPlay し、文書をスナップショットへ戻してセッションを開かない。
+	// カメラ位置と前方は両方非 null のときだけ使う。片方でも null なら代替姿勢でカメラを足す。
 	[[nodiscard]] Result<void> BeginPlay(
 		bool contentLoaded,
 		const DirectX::XMFLOAT3* cameraPosition,
 		const DirectX::XMFLOAT3* cameraForward);
+	// セッションを閉じ、文書をスナップショットへ戻してから各 OnEndPlay を呼ぶ。
+	// OnEndPlay から見えるのは編集時の文書で、再生中に生成したエンティティは既に無い。
+	// IsPlaying は OnEndPlay の間も true。セッションが閉じていなければ何もしない。一時停止では呼ばない。
 	void EndPlay();
 
-	// Publishes this world and updates the play camera.
-	// Returns whether that camera wants relative mouse movement.
+	// このワールドを公開し、編集中も含めてサブシステムを Tick する。
+	// 戻り値は、いずれかのサブシステムが相対マウスを要求したか。
 	[[nodiscard]] bool Tick(
 		float deltaSeconds,
 		const SessionServices& session,
@@ -174,11 +174,11 @@ public:
 		bool mouseCaptured,
 		bool keyboardCaptured);
 
+	// 固定ステップ。積分するかは各サブシステムが session.mode を見て決める。
+	// 一時停止中も届くが、GameSubsystem は Playing のときだけ進める。
 	void FixedTick(const SessionServices& session, float fixedDeltaSeconds);
 
-	// Writes interpolated position and rotation when a play simulation is bound. Scale stays unchanged.
-	void WriteInterpolatedTransforms(float alpha);
-
+	// シーンを文書へ読む。再生中はライブの文書を触らず、EndPlay で戻すスナップショットだけ差し替える。
 	[[nodiscard]] Result<void> LoadContent(
 		SceneContentServices& content,
 		WorldServices& published,
@@ -254,7 +254,9 @@ private:
 	[[nodiscard]] bool IsUnder(EntityId entity, EntityId ancestor) const;
 	void ReleaseSlot(EntityId id);
 
-	// Copied by copy construction, copy assignment, and Clone. Later runtime state stays outside this.
+	[[nodiscard]] std::vector<IWorldSubsystem*> SubsystemOrder() const;
+
+	// コピー構築、コピー代入、Clone が写すもの。プレイ中の実行時状態は外に置く。
 	struct Document
 	{
 		std::vector<Slot> slots{};
@@ -264,13 +266,12 @@ private:
 
 	Document m_document{};
 
-	// Play session. Copy and Clone leave this behind.
+	// プレイセッション。コピーと Clone には含めない。コピー代入もここを消さない。
+	// 再生中の World へコピー代入すると、文書だけ替わってセッションと物理が残る。
 	std::optional<Document> m_editSnapshot{};
-	std::unique_ptr<EntityPhysics> m_physics{};
 	SessionMode m_appliedMode = SessionMode::Editor;
 
-	// Free-fly state for one camera entity. Copy and Clone leave this behind.
-	FreeFlyCameraController m_cameraController{};
-	CameraState m_cameraPose{};
-	EntityId m_cameraEntity{};
+	// ワールド所有のサブシステム。生成後に AddSubsystem で足す。コピーと Clone は空のまま。
+	// ムーブは実行時状態ごと移す。移した側のサブシステムは空。
+	std::vector<std::unique_ptr<IWorldSubsystem>> m_subsystems{};
 };

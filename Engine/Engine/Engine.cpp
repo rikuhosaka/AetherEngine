@@ -7,7 +7,9 @@
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Engine/Camera/CameraSubsystem.h"
 #include "Engine/Core/Log/LogMacros.h"
+#include "Engine/World/GameSubsystem.h"
 
 #include <memory>
 #include <utility>
@@ -16,8 +18,11 @@ namespace
 {
 constexpr const char* kDependencies[] = { "Input" };
 
-// Starts or stops play from the session the editor UI wrote.
-// A paused request does not open a session. Returns whether the session changed.
+// UI が書いた SessionMode を、World のプレイセッションへ反映する。
+// ボタンはモードを書くだけで BeginPlay / EndPlay は呼ばない。反映はこの関数だけが行う。
+// セッションを開くのは Playing への遷移だけ。最初から Paused を書かれてもセッションは開かず Editor に戻す。
+// 開いているセッションの一時停止は EndPlay しない。閉じるのは Editor へ戻ったとき。
+// 戻り値はセッションの開閉が起きたか。開閉したフレームだけ WorldServices の世代を進める。
 [[nodiscard]] bool ApplyPlaySession(
 	World& world,
 	SessionServices& session,
@@ -58,6 +63,13 @@ constexpr const char* kDependencies[] = { "Input" };
 Engine::Engine(EngineConfig config)
 	: m_config(std::move(config))
 {
+	// 物理を先に足す。BeginPlay は登録順なので、カメラ生成より前に剛体を結ぶ。
+	const bool gameAdded = m_world.AddSubsystem(std::make_unique<GameSubsystem>());
+	const bool cameraAdded = m_world.AddSubsystem(std::make_unique<CameraSubsystem>());
+	if (!gameAdded || !cameraAdded)
+	{
+		LOG_ERROR(LogCategory::Core, "Engine failed to register world subsystems");
+	}
 }
 
 void Engine::RegisterSubsystems(SubsystemRegistry& registry) &&

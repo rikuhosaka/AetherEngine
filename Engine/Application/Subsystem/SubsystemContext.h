@@ -4,6 +4,9 @@
 #include <typeindex>
 #include <unordered_map>
 
+// 責任: サブシステム間のサービスと、そのフレームの時刻を受け渡す。
+// 役割: 型をキーにしたサービス検索と、可変刻み、補間係数、フレームスロットの置き場。
+// 所有: EngineLoop のメンバ。登録されたサービスは非所有ポインタで、寿命は登録した側にある。
 class SubsystemContext
 {
 public:

@@ -1,6 +1,8 @@
 #pragma once
 
-// Data owned by one actor. Copied with that actor.
+// 責任: アクターに付くデータ1種類の基底になる。
+// 役割: 型ごとのコンポーネントを Actor が同一の所有口で保持できるようにする。
+// 所有: 付いている Actor が持つ。アクターのコピーとともに複製される。
 class Component
 {
 public:

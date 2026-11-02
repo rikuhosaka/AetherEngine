@@ -4,8 +4,9 @@
 
 class World;
 
-// Published by World. The same world is published while editing and while playing.
-// generation advances when the pointer changes, and when a play session starts or stops.
+// 責任: 現在の World を他サブシステムから参照できるようにする。
+// 役割: ポインタと世代を公開する。世代はポインタの変更と、プレイセッションの開始と終了で進む。一時停止では進まない。
+// 所有: Engine のメンバ。指している World は所有しない。World::Tick が自分自身のアドレスを書き込む。
 struct WorldServices
 {
 	World* world = nullptr;

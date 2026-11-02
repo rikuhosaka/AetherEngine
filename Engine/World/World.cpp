@@ -1,23 +1,24 @@
 #include "Engine/World/World.h"
 
+#include "Engine/Application/Subsystem/IWorldSubsystem.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
-#include "Engine/Camera/CameraComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Math/Transform.h"
-#include "Engine/Platform/InputState.h"
-#include "Engine/World/EntityPhysics.h"
 
+#include <algorithm>
 #include <array>
 #include <utility>
 #include <vector>
 
 World::World() = default;
 
+// 文書だけ写す。スナップショット、モード、サブシステムは持っていかない。
 World::World(const World& other)
 	: m_document(other.m_document)
 {
 }
 
+// 文書だけ置き換える。代入先が再生中でもスナップショット、モード、既存サブシステムの実行時状態は残る。
 World& World::operator=(const World& other)
 {
 	if (this != &other)
@@ -28,33 +29,27 @@ World& World::operator=(const World& other)
 	return *this;
 }
 
+// 文書、セッション、サブシステムをまとめて移す。移した側のモードは Editor に戻し、サブシステム容器は空になる。
 World::World(World&& other) noexcept
 	: m_document(std::move(other.m_document))
 	, m_editSnapshot(std::move(other.m_editSnapshot))
-	, m_physics(std::move(other.m_physics))
 	, m_appliedMode(other.m_appliedMode)
-	, m_cameraController(std::move(other.m_cameraController))
-	, m_cameraPose(std::move(other.m_cameraPose))
-	, m_cameraEntity(other.m_cameraEntity)
+	, m_subsystems(std::move(other.m_subsystems))
 {
 	other.m_appliedMode = SessionMode::Editor;
-	other.m_cameraEntity = {};
 }
 
+// ムーブ構築と同じ。代入先が持っていたセッションとサブシステムは捨て、移した側は Editor でサブシステム無しになる。
 World& World::operator=(World&& other) noexcept
 {
 	if (this != &other)
 	{
 		m_document = std::move(other.m_document);
 		m_editSnapshot = std::move(other.m_editSnapshot);
-		m_physics = std::move(other.m_physics);
 		m_appliedMode = other.m_appliedMode;
-		m_cameraController = std::move(other.m_cameraController);
-		m_cameraPose = std::move(other.m_cameraPose);
-		m_cameraEntity = other.m_cameraEntity;
+		m_subsystems = std::move(other.m_subsystems);
 
 		other.m_appliedMode = SessionMode::Editor;
-		other.m_cameraEntity = {};
 	}
 
 	return *this;
@@ -64,47 +59,6 @@ World::~World() = default;
 
 namespace
 {
-constexpr DirectX::XMFLOAT3 kPlayCameraFallbackPosition{ 0.0f, 1.6f, -4.0f };
-constexpr DirectX::XMFLOAT3 kPlayCameraFallbackForward{ 0.0f, 0.0f, 1.0f };
-
-[[nodiscard]] DirectX::XMFLOAT3 ForwardFromRotation(const DirectX::XMFLOAT4& rotation)
-{
-	using namespace DirectX;
-
-	const XMVECTOR forward = XMVector3Rotate(
-		XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f),
-		XMLoadFloat4(&rotation));
-	XMFLOAT3 stored{};
-	XMStoreFloat3(&stored, forward);
-	return stored;
-}
-
-[[nodiscard]] DirectX::XMFLOAT4 RotationFromPose(const CameraState& pose)
-{
-	using namespace DirectX;
-
-	const XMVECTOR forward = XMVector3Normalize(XMLoadFloat3(&pose.forward));
-	const XMVECTOR upHint = XMVector3Normalize(XMLoadFloat3(&pose.up));
-	const XMVECTOR right = XMVector3Normalize(XMVector3Cross(upHint, forward));
-	const XMVECTOR up = XMVector3Normalize(XMVector3Cross(forward, right));
-
-	XMMATRIX rotation = XMMatrixIdentity();
-	rotation.r[0] = XMVectorSetW(right, 0.0f);
-	rotation.r[1] = XMVectorSetW(up, 0.0f);
-	rotation.r[2] = XMVectorSetW(forward, 0.0f);
-	rotation.r[3] = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
-
-	XMFLOAT4 stored{};
-	XMStoreFloat4(&stored, XMQuaternionRotationMatrix(rotation));
-	return stored;
-}
-
-void WriteCameraPose(Transform& transform, const CameraState& pose)
-{
-	transform.position = pose.position;
-	transform.rotation = RotationFromPose(pose);
-}
-
 [[nodiscard]] DirectX::XMMATRIX ToLocalMatrix(const Transform& transform)
 {
 	return Aether::Math::TRS(
@@ -331,72 +285,51 @@ const Transform* World::GetTransform(EntityId id) const
 	return slot == nullptr ? nullptr : &slot->actor.transform;
 }
 
-EntityId World::FindCamera() const
+bool World::AddSubsystem(std::unique_ptr<IWorldSubsystem> subsystem)
 {
-	EntityId found{};
-	ForEach<CameraComponent>([&found](EntityId id, const CameraComponent&) {
-		if (!found.IsValid())
-		{
-			found = id;
-		}
-	});
-	return found;
-}
-
-EntityId World::SpawnCamera(const DirectX::XMFLOAT3* position, const DirectX::XMFLOAT3* forward)
-{
-	const DirectX::XMFLOAT3& posePosition = position != nullptr && forward != nullptr
-		? *position
-		: kPlayCameraFallbackPosition;
-	const DirectX::XMFLOAT3& poseForward = position != nullptr && forward != nullptr
-		? *forward
-		: kPlayCameraFallbackForward;
-
-	FreeFlyCameraController controller = m_cameraController;
-	CameraState pose{};
-	controller.Reset(pose, posePosition, poseForward);
-
-	WorldSpawnDesc desc{};
-	desc.name = "Camera";
-	WriteCameraPose(desc.transform, pose);
-	const EntityId camera = Spawn(std::move(desc));
-	if (!Add<CameraComponent>(camera, CameraComponent{}))
-	{
-		Destroy(camera);
-		return {};
-	}
-
-	m_cameraController = controller;
-	m_cameraPose = pose;
-	m_cameraEntity = camera;
-	return camera;
-}
-
-bool World::UpdateCamera(
-	EntityId camera,
-	const InputState* input,
-	float deltaSeconds,
-	bool mouseCaptured,
-	bool keyboardCaptured)
-{
-	Transform* transform = GetTransform(camera);
-	if (input == nullptr || transform == nullptr || Get<CameraComponent>(camera) == nullptr)
+	if (subsystem == nullptr || FindSubsystem(subsystem->GetName()) != nullptr)
 	{
 		return false;
 	}
 
-	if (m_cameraEntity != camera)
+	m_subsystems.push_back(std::move(subsystem));
+	return true;
+}
+
+IWorldSubsystem* World::FindSubsystem(std::string_view name)
+{
+	return const_cast<IWorldSubsystem*>(std::as_const(*this).FindSubsystem(name));
+}
+
+const IWorldSubsystem* World::FindSubsystem(std::string_view name) const
+{
+	for (const std::unique_ptr<IWorldSubsystem>& subsystem : m_subsystems)
 	{
-		const DirectX::XMFLOAT3 forward = ForwardFromRotation(transform->rotation);
-		m_cameraController.Reset(m_cameraPose, transform->position, forward);
-		m_cameraEntity = camera;
+		if (subsystem != nullptr && name == subsystem->GetName())
+		{
+			return subsystem.get();
+		}
 	}
 
-	const bool useMouse = !mouseCaptured;
-	const bool useKeyboard = !keyboardCaptured;
-	m_cameraController.Update(m_cameraPose, *input, deltaSeconds, useMouse, useKeyboard);
-	WriteCameraPose(*transform, m_cameraPose);
-	return useMouse && input->IsDown(Key::MouseRight);
+	return nullptr;
+}
+
+std::vector<IWorldSubsystem*> World::SubsystemOrder() const
+{
+	std::vector<IWorldSubsystem*> order{};
+	order.reserve(m_subsystems.size());
+	for (const std::unique_ptr<IWorldSubsystem>& subsystem : m_subsystems)
+	{
+		if (subsystem != nullptr)
+		{
+			order.push_back(subsystem.get());
+		}
+	}
+
+	std::stable_sort(order.begin(), order.end(), [](const IWorldSubsystem* lhs, const IWorldSubsystem* rhs) {
+		return static_cast<int32_t>(lhs->GetTickGroup()) < static_cast<int32_t>(rhs->GetTickGroup());
+	});
+	return order;
 }
 
 Result<void> World::BeginPlay(
@@ -415,30 +348,25 @@ Result<void> World::BeginPlay(
 	}
 
 	m_editSnapshot = m_document;
-	Result<EntityPhysics> physics = BindRigidBodies(*this);
-	if (!physics)
-	{
-		m_document = std::move(*m_editSnapshot);
-		m_editSnapshot.reset();
-		return MakeFail(physics.error.code, physics.error.message);
-	}
 
-	m_physics = std::make_unique<EntityPhysics>(std::move(physics.value));
-	if (!FindCamera().IsValid())
+	// 失敗したサブシステム自身は OnEndPlay しない。開始済みを登録順に戻し、文書をスナップショットへ戻す。
+	// 逆順ではない。後続が先行の後始末に依存する書き方はできない。
+	std::vector<IWorldSubsystem*> started{};
+	for (IWorldSubsystem* subsystem : SubsystemOrder())
 	{
-		const EntityId camera = SpawnCamera(cameraPosition, cameraForward);
-		if (!camera.IsValid())
+		if (auto begun = subsystem->OnBeginPlay(*this, cameraPosition, cameraForward); !begun)
 		{
-			m_physics.reset();
+			for (IWorldSubsystem* startedSubsystem : started)
+			{
+				startedSubsystem->OnEndPlay(*this);
+			}
+
 			m_document = std::move(*m_editSnapshot);
 			m_editSnapshot.reset();
-			m_cameraEntity = {};
-			return MakeFail(ErrorCode::InvalidArgument, "Play requires a camera entity");
+			return begun;
 		}
-	}
-	else
-	{
-		m_cameraEntity = {};
+
+		started.push_back(subsystem);
 	}
 
 	m_appliedMode = SessionMode::Playing;
@@ -452,14 +380,18 @@ void World::EndPlay()
 		return;
 	}
 
-	m_physics.reset();
 	if (m_editSnapshot.has_value())
 	{
 		m_document = std::move(*m_editSnapshot);
 		m_editSnapshot.reset();
 	}
 
-	m_cameraEntity = {};
+	// 文書を戻したあと。OnEndPlay はプレイ中に足したカメラや剛体を文書上では見られない。
+	for (IWorldSubsystem* subsystem : SubsystemOrder())
+	{
+		subsystem->OnEndPlay(*this);
+	}
+
 	m_appliedMode = SessionMode::Editor;
 }
 
@@ -473,31 +405,22 @@ bool World::Tick(
 {
 	published.Publish(this);
 
-	const bool wantCamera = session.mode == SessionMode::Playing || session.mode == SessionMode::Paused;
-	if (m_appliedMode != SessionMode::Playing || !wantCamera)
+	bool relativeMouse = false;
+	for (IWorldSubsystem* subsystem : SubsystemOrder())
 	{
-		return false;
+		const bool wantsRelativeMouse = subsystem->Tick(
+			*this, session, input, deltaSeconds, mouseCaptured, keyboardCaptured);
+		relativeMouse = relativeMouse || wantsRelativeMouse;
 	}
 
-	const EntityId camera = FindCamera();
-	if (!camera.IsValid())
-	{
-		return false;
-	}
-
-	return UpdateCamera(camera, input, deltaSeconds, mouseCaptured, keyboardCaptured);
+	return relativeMouse;
 }
 
 void World::FixedTick(const SessionServices& session, float fixedDeltaSeconds)
 {
-	if (session.mode != SessionMode::Playing || m_physics == nullptr)
+	for (IWorldSubsystem* subsystem : SubsystemOrder())
 	{
-		return;
-	}
-
-	if (auto step = m_physics->Step(*this, fixedDeltaSeconds); !step)
-	{
-		LogResult(step, LogCategory::Physics);
+		subsystem->FixedTick(*this, session, fixedDeltaSeconds);
 	}
 }
 
@@ -516,6 +439,7 @@ Result<void> World::LoadContent(
 
 	World* target = this;
 	World editorDocument{};
+	// 再生中のロードはシミュレーション中の文書へ書かない。停止時に戻る編集文書だけ更新する。
 	if (m_editSnapshot.has_value())
 	{
 		editorDocument.m_document = *m_editSnapshot;
@@ -534,12 +458,4 @@ Result<void> World::LoadContent(
 
 	published.Publish(this);
 	return MakeOk();
-}
-
-void World::WriteInterpolatedTransforms(float alpha)
-{
-	if (m_physics != nullptr)
-	{
-		m_physics->WriteTransforms(*this, alpha);
-	}
 }

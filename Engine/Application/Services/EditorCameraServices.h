@@ -4,7 +4,9 @@
 
 #include <DirectXMath.h>
 
-// Published by the editor. The game copies this pose when play starts.
+// 責任: 編集カメラの姿勢と、そこから作ったビューを公開する。
+// 役割: プレイ開始時に Engine が位置と前方を読み、編集中の描画が view を使う。
+// 所有: SceneLoaderSubsystem のメンバ。Context へは非所有ポインタで登録する。
 struct EditorCameraServices
 {
 	bool valid = false;
