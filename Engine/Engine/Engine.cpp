@@ -1,13 +1,11 @@
 #include "Engine/Engine/Engine.h"
 
-#include "Editor/Scene/SceneLoaderSubsystem.h"
 #include "Editor/UI/EditorUiSubsystem.h"
-#include "Engine/Application/Services/EditorCameraServices.h"
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
-#include "Engine/Camera/CameraSubsystem.h"
+#include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/World/GameSubsystem.h"
 
@@ -18,57 +16,63 @@ namespace
 {
 constexpr const char* kDependencies[] = { "Input" };
 
-// UI が書いた SessionMode を、World のプレイセッションへ反映する。
+// UI が書いた SessionMode を、編集用 World とゲーム用 World の切り替えへ反映する。
 // ボタンはモードを書くだけで BeginPlay / EndPlay は呼ばない。反映はこの関数だけが行う。
 // セッションを開くのは Playing への遷移だけ。最初から Paused を書かれてもセッションは開かず Editor に戻す。
-// 開いているセッションの一時停止は EndPlay しない。閉じるのは Editor へ戻ったとき。
-// 戻り値はセッションの開閉が起きたか。開閉したフレームだけ WorldServices の世代を進める。
-[[nodiscard]] bool ApplyPlaySession(
-	World& world,
+// 開くときは編集用 World の文書をコピーし、Game を足してから BeginPlay する。
+// カメラアクターは文書に入っているのでコピーが視点になる。無ければ BeginPlay が作る。
+// 開いているセッションの一時停止は World を破棄しない。閉じるのは Editor へ戻ったとき。
+// 公開先のポインタは続く Tick が書き換える。
+void ApplyPlaySession(
+	World& editorWorld,
+	std::unique_ptr<World>& gameWorld,
 	SessionServices& session,
-	bool contentLoaded,
-	const DirectX::XMFLOAT3* cameraPosition,
-	const DirectX::XMFLOAT3* cameraForward)
+	bool contentLoaded)
 {
-	const bool sessionOpen = world.IsPlaying();
+	const bool sessionOpen = gameWorld != nullptr;
 	const bool wantSession = session.mode == SessionMode::Playing || session.mode == SessionMode::Paused;
 	if (wantSession && !sessionOpen)
 	{
 		if (session.mode == SessionMode::Paused)
 		{
 			session.mode = SessionMode::Editor;
-			return false;
+			return;
 		}
 
-		if (auto begun = world.BeginPlay(contentLoaded, cameraPosition, cameraForward); !begun)
+		std::unique_ptr<World> started = std::make_unique<World>(editorWorld.Clone());
+		const bool gameAdded = started->AddSubsystem(std::make_unique<GameSubsystem>());
+		if (!gameAdded)
+		{
+			LOG_ERROR(LogCategory::Core, "Engine failed to register play world subsystems");
+			session.mode = SessionMode::Editor;
+			return;
+		}
+
+		if (auto begun = started->BeginPlay(contentLoaded, nullptr, nullptr); !begun)
 		{
 			LogResult(begun, LogCategory::Core);
 			session.mode = SessionMode::Editor;
-			return false;
+			return;
 		}
 
-		return true;
+		gameWorld = std::move(started);
+		return;
 	}
 
 	if (!wantSession && sessionOpen)
 	{
-		world.EndPlay();
-		return true;
+		gameWorld->EndPlay();
+		gameWorld.reset();
 	}
-
-	return false;
 }
 } // namespace
 
 Engine::Engine(EngineConfig config)
 	: m_config(std::move(config))
 {
-	// 物理を先に足す。BeginPlay は登録順なので、カメラ生成より前に剛体を結ぶ。
-	const bool gameAdded = m_world.AddSubsystem(std::make_unique<GameSubsystem>());
-	const bool cameraAdded = m_world.AddSubsystem(std::make_unique<CameraSubsystem>());
-	if (!gameAdded || !cameraAdded)
+	if (!SpawnCamera(m_editorWorld, nullptr, nullptr).IsValid())
 	{
-		LOG_ERROR(LogCategory::Core, "Engine failed to register world subsystems");
+		LOG_ERROR(LogCategory::Core, "Engine failed to spawn the editor camera");
 	}
 }
 
@@ -76,7 +80,6 @@ void Engine::RegisterSubsystems(SubsystemRegistry& registry) &&
 {
 	registry.Register(std::make_unique<Engine>(std::move(*this)));
 	registry.Register(CreateEditorUiSubsystem());
-	registry.Register(CreateEditorSubsystem());
 }
 
 const EngineConfig& Engine::GetConfig() const
@@ -86,12 +89,12 @@ const EngineConfig& Engine::GetConfig() const
 
 World& Engine::GetWorld()
 {
-	return m_world;
+	return m_gameWorld != nullptr ? *m_gameWorld : m_editorWorld;
 }
 
 const World& Engine::GetWorld() const
 {
-	return m_world;
+	return m_gameWorld != nullptr ? *m_gameWorld : m_editorWorld;
 }
 
 std::span<const char* const> Engine::GetDependencies() const
@@ -108,7 +111,7 @@ Result<void> Engine::Initialize(SubsystemContext& ctx)
 	}
 
 	m_session.mode = SessionMode::Editor;
-	m_worldServices.Publish(&m_world);
+	m_worldServices.Publish(&m_editorWorld);
 	ctx.RegisterService(&m_debugStats);
 	ctx.RegisterService(&m_worldServices);
 	ctx.RegisterService(&m_session);
@@ -119,23 +122,17 @@ Result<void> Engine::Initialize(SubsystemContext& ctx)
 void Engine::Tick(SubsystemContext& ctx, float deltaSeconds)
 {
 	InputServices* inputServices = ctx.GetService<InputServices>();
-	const EditorCameraServices* camera = ctx.GetService<EditorCameraServices>();
-	const bool cameraValid = camera != nullptr && camera->valid;
-	const DirectX::XMFLOAT3* cameraPosition = cameraValid ? &camera->position : nullptr;
-	const DirectX::XMFLOAT3* cameraForward = cameraValid ? &camera->forward : nullptr;
-	if (ApplyPlaySession(m_world, m_session, m_content.loaded, cameraPosition, cameraForward))
-	{
-		m_worldServices.Advance();
-	}
+	ApplyPlaySession(m_editorWorld, m_gameWorld, m_session, m_content.loaded);
 
-	const bool relativeMouse = m_world.Tick(
+	World& world = GetWorld();
+	const bool relativeMouse = world.Tick(
 		deltaSeconds,
 		m_session,
 		m_worldServices,
 		inputServices != nullptr ? inputServices->state : nullptr,
 		inputServices != nullptr && inputServices->mouseCaptured,
 		inputServices != nullptr && inputServices->keyboardCaptured);
-	if (m_world.IsPlaying() && inputServices != nullptr)
+	if (inputServices != nullptr)
 	{
 		inputServices->relativeMouse = relativeMouse;
 	}
@@ -143,12 +140,16 @@ void Engine::Tick(SubsystemContext& ctx, float deltaSeconds)
 
 void Engine::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
 {
-	m_world.FixedTick(m_session, fixedDeltaSeconds);
+	GetWorld().FixedTick(m_session, fixedDeltaSeconds);
 }
 
 void Engine::Shutdown(SubsystemContext& ctx)
 {
-	m_world.EndPlay();
+	if (m_gameWorld != nullptr)
+	{
+		m_gameWorld->EndPlay();
+		m_gameWorld.reset();
+	}
 
 	ctx.UnregisterService(&m_content);
 	m_content = {};

@@ -152,7 +152,8 @@ public:
 	[[nodiscard]] bool IsPlaying() const { return m_appliedMode == SessionMode::Playing; }
 
 	// 文書をスナップショットしてから、サブシステムを Tick グループ順に OnBeginPlay する。
-	// すでにセッション中なら何もしない。コンテンツ未ロード、またはいずれかの開始失敗で失敗する。
+	// 開始が揃ったら、先頭のカメラへ CameraSystemComponent を足す。カメラが無ければ1つ作る。
+	// すでにセッション中なら何もしない。コンテンツ未ロード、開始失敗、カメラを足せないとき失敗する。
 	// 失敗時は開始済みだけ OnEndPlay し、文書をスナップショットへ戻してセッションを開かない。
 	// カメラ位置と前方は両方非 null のときだけ使う。片方でも null なら代替姿勢でカメラを足す。
 	[[nodiscard]] Result<void> BeginPlay(
@@ -164,8 +165,8 @@ public:
 	// IsPlaying は OnEndPlay の間も true。セッションが閉じていなければ何もしない。一時停止では呼ばない。
 	void EndPlay();
 
-	// このワールドを公開し、編集中も含めてサブシステムを Tick する。
-	// 戻り値は、いずれかのサブシステムが相対マウスを要求したか。
+	// このワールドを公開し、編集中も含めてサブシステムと全コンポーネントを Tick する。
+	// コンポーネントはスロット順。戻り値は、いずれかが相対マウスを要求したか。
 	[[nodiscard]] bool Tick(
 		float deltaSeconds,
 		const SessionServices& session,

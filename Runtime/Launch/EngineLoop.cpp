@@ -1,7 +1,6 @@
 #include "Runtime/Launch/EngineLoop.h"
 
 #include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/EditorCameraServices.h"
 #include "Engine/Application/Services/SceneContentServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/UiServices.h"
@@ -329,8 +328,7 @@ Result<void> EngineLoop::RenderFrame()
 				"EngineLoop::RenderFrame missing world services");
 		}
 
-		ExtractView(
-			*published.world, extractedView, width, height, m_context.GetService<EditorCameraServices>());
+		ExtractView(*published.world, extractedView, width, height);
 		ExtractLighting(*published.world, extractedLighting);
 		Extract(
 			*published.world,

@@ -2,19 +2,17 @@
 
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/EditorCameraServices.h"
 #include "Engine/Application/Services/SceneContentServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Camera/CameraComponent.h"
 #include "Engine/Camera/CameraExtract.h"
 #include "Engine/Camera/CameraState.h"
-#include "Engine/Camera/CameraSubsystem.h"
+#include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Frame/FrameContext.h"
 #include "Engine/Math/Matrix.h"
 #include "Engine/Math/Transform.h"
-#include "Engine/Platform/InputState.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
 #include "Engine/Renderer/Scene/RenderViewTypes.h"
@@ -829,15 +827,7 @@ Result<void> RunWorldTests()
 	}
 
 	World cameraWorld{};
-	if (!cameraWorld.AddSubsystem(std::make_unique<CameraSubsystem>()))
-	{
-		return FailRuntime(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"Camera subsystem should register on a new world");
-	}
-	CameraSubsystem* cameras = static_cast<CameraSubsystem*>(cameraWorld.FindSubsystem("Camera"));
-	if (cameras == nullptr || cameras->FindCamera(cameraWorld).IsValid())
+	if (FindCamera(cameraWorld).IsValid())
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -845,13 +835,14 @@ Result<void> RunWorldTests()
 			"FindCamera should miss when the world has no camera");
 	}
 
-	const EntityId spawnedCamera = cameras->SpawnCamera(cameraWorld, nullptr, nullptr);
+	const EntityId spawnedCamera = SpawnCamera(cameraWorld, nullptr, nullptr);
 	const Transform* spawnedTransform = cameraWorld.GetTransform(spawnedCamera);
 	const CameraComponent* spawnedLens = cameraWorld.Get<CameraComponent>(spawnedCamera);
 	const DirectX::XMFLOAT3 spawnedForward = spawnedTransform != nullptr
 		? ForwardFromRotation(spawnedTransform->rotation)
 		: DirectX::XMFLOAT3{};
-	if (cameras->FindCamera(cameraWorld) != spawnedCamera || spawnedTransform == nullptr || spawnedLens == nullptr
+	if (FindCamera(cameraWorld) != spawnedCamera || spawnedTransform == nullptr || spawnedLens == nullptr
+		|| cameraWorld.Get<CameraSystemComponent>(spawnedCamera) == nullptr
 		|| cameraWorld.GetName(spawnedCamera) != "Camera" || cameraWorld.GetParent(spawnedCamera).IsValid()
 		|| !IsNearlyEqual(spawnedTransform->position.x, 0.0f)
 		|| !IsNearlyEqual(spawnedTransform->position.y, 1.6f)
@@ -871,12 +862,12 @@ Result<void> RunWorldTests()
 
 	const DirectX::XMFLOAT3 posedPosition{ 4.0f, 5.0f, 6.0f };
 	const DirectX::XMFLOAT3 posedForward{ 1.0f, 0.0f, 0.0f };
-	const EntityId posedCamera = cameras->SpawnCamera(cameraWorld, &posedPosition, &posedForward);
+	const EntityId posedCamera = SpawnCamera(cameraWorld, &posedPosition, &posedForward);
 	const Transform* posedTransform = cameraWorld.GetTransform(posedCamera);
 	const DirectX::XMFLOAT3 posedAxis = posedTransform != nullptr
 		? ForwardFromRotation(posedTransform->rotation)
 		: DirectX::XMFLOAT3{};
-	if (cameras->FindCamera(cameraWorld) != spawnedCamera || posedTransform == nullptr
+	if (FindCamera(cameraWorld) != spawnedCamera || posedTransform == nullptr
 		|| !IsNearlyEqual(posedTransform->position.x, 4.0f)
 		|| !IsNearlyEqual(posedTransform->position.y, 5.0f)
 		|| !IsNearlyEqual(posedTransform->position.z, 6.0f)
@@ -890,24 +881,18 @@ Result<void> RunWorldTests()
 			"SpawnCamera should use an explicit pose, and FindCamera should keep the earliest camera");
 	}
 
-	const InputState idleInput{};
-	if (cameras->UpdateCamera(cameraWorld, spawnedCamera, nullptr, 0.1f, false, false)
-		|| cameras->UpdateCamera(cameraWorld, spawnedCamera, &idleInput, 0.1f, false, false)
+	SessionServices idleSession{};
+	idleSession.mode = SessionMode::Playing;
+	WorldServices idleServices{};
+	const bool idleRelative = cameraWorld.Tick(0.1f, idleSession, idleServices, nullptr, false, false);
+	const EntityId plainEntity = cameraWorld.Spawn(WorldSpawnDesc{});
+	if (idleRelative || cameraWorld.Get<CameraSystemComponent>(plainEntity) != nullptr
 		|| !IsNearlyEqual(cameraWorld.GetTransform(spawnedCamera)->position.y, 1.6f))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"UpdateCamera should leave the camera pose unchanged without input");
-	}
-
-	const EntityId plainEntity = cameraWorld.Spawn(WorldSpawnDesc{});
-	if (cameras->UpdateCamera(cameraWorld, plainEntity, &idleInput, 0.1f, false, false))
-	{
-		return FailRuntime(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"UpdateCamera should ignore an entity without a camera");
+			"Tick should leave the camera pose unchanged before play");
 	}
 
 	CameraState expectedPose{};
@@ -960,19 +945,12 @@ Result<void> RunWorldTests()
 	}
 
 	World cameraClone = cameraWorld.Clone();
-	if (!cameraClone.AddSubsystem(std::make_unique<CameraSubsystem>()))
-	{
-		return FailRuntime(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"Camera subsystem should register on a cloned world");
-	}
 	const Transform* clonedCameraTransform = cameraClone.GetTransform(spawnedCamera);
-	const CameraSubsystem* clonedCameras = static_cast<const CameraSubsystem*>(cameraClone.FindSubsystem("Camera"));
-	if (clonedCameras == nullptr || clonedCameras->FindCamera(cameraClone) != spawnedCamera || clonedCameraTransform == nullptr
+	if (FindCamera(cameraClone) != spawnedCamera || clonedCameraTransform == nullptr
 		|| !IsNearlyEqual(clonedCameraTransform->position.y, 1.6f)
 		|| cameraClone.Get<CameraComponent>(spawnedCamera) == nullptr
-		|| !IsNearlyEqual(cameraClone.Get<CameraComponent>(spawnedCamera)->fovYDegrees, 90.0f))
+		|| !IsNearlyEqual(cameraClone.Get<CameraComponent>(spawnedCamera)->fovYDegrees, 90.0f)
+		|| cameraClone.Get<CameraSystemComponent>(spawnedCamera) == nullptr)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -981,8 +959,7 @@ Result<void> RunWorldTests()
 	}
 
 	World sessionWorld{};
-	if (!sessionWorld.AddSubsystem(std::make_unique<GameSubsystem>())
-		|| !sessionWorld.AddSubsystem(std::make_unique<CameraSubsystem>()))
+	if (!sessionWorld.AddSubsystem(std::make_unique<GameSubsystem>()))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -1019,8 +996,7 @@ Result<void> RunWorldTests()
 		return begun;
 	}
 
-	const CameraSubsystem* sessionCameras = static_cast<const CameraSubsystem*>(sessionWorld.FindSubsystem("Camera"));
-	const EntityId playCamera = sessionCameras != nullptr ? sessionCameras->FindCamera(sessionWorld) : EntityId{};
+	const EntityId playCamera = FindCamera(sessionWorld);
 	const Transform* playCameraTransform = sessionWorld.GetTransform(playCamera);
 	if (!sessionWorld.IsPlaying() || playCamera == sessionBody || playCameraTransform == nullptr
 		|| !IsNearlyEqual(playCameraTransform->position.x, 2.0f)
@@ -1034,7 +1010,7 @@ Result<void> RunWorldTests()
 	}
 
 	if (auto again = sessionWorld.BeginPlay(true, nullptr, nullptr); !again
-		|| sessionCameras == nullptr || sessionCameras->FindCamera(sessionWorld) != playCamera)
+		|| FindCamera(sessionWorld) != playCamera)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -1070,11 +1046,8 @@ Result<void> RunWorldTests()
 	sessionWorld.FixedTick(playingSession, kFixedDeltaSeconds);
 	extracted.clear();
 	Extract(sessionWorld, extracted, 0.0f, playingSession, stats);
-	EditorCameraServices pausedEditorCamera{};
-	pausedEditorCamera.valid = true;
-	pausedEditorCamera.view.viewportWidth = 7;
 	ExtractedView pausedView{};
-	ExtractView(sessionWorld, pausedView, 640, 480, &pausedEditorCamera);
+	ExtractView(sessionWorld, pausedView, 640, 480);
 	SessionServices heldSession{};
 	heldSession.mode = SessionMode::Paused;
 	WorldServices heldServices{};
@@ -1121,11 +1094,8 @@ Result<void> RunWorldTests()
 			"Loading during play should update the editor snapshot");
 	}
 
-	EditorCameraServices editorCamera{};
-	editorCamera.valid = true;
-	editorCamera.view.viewportWidth = 7;
 	ExtractedView sessionView{};
-	ExtractView(sessionWorld, sessionView, 640, 480, &editorCamera);
+	ExtractView(sessionWorld, sessionView, 640, 480);
 	ExtractedLighting sessionLighting{};
 	sessionWorld.GetLighting().ambientIntensity = 0.35f;
 	ExtractLighting(sessionWorld, sessionLighting);
@@ -1140,12 +1110,13 @@ Result<void> RunWorldTests()
 	sessionWorld.EndPlay();
 	const Transform* restored = sessionWorld.GetTransform(sessionBody);
 	ExtractedView editorView{};
-	ExtractView(sessionWorld, editorView, 640, 480, &editorCamera);
+	editorView.viewportWidth = 7;
+	ExtractView(sessionWorld, editorView, 640, 480);
 	extracted.clear();
 	SessionServices editorSession{};
 	Extract(sessionWorld, extracted, 1.0f, editorSession, stats);
 	if (sessionWorld.IsPlaying()
-		|| sessionCameras == nullptr || sessionCameras->FindCamera(sessionWorld).IsValid() || restored == nullptr
+		|| FindCamera(sessionWorld).IsValid() || restored == nullptr
 		|| !IsNearlyEqual(restored->position.y, 4.0f) || !IsNearlyEqual(restored->scale.y, 3.0f)
 		|| !HasNamedEntity(sessionWorld, "Loaded") || editorView.viewportWidth != 7
 		|| extracted.size() != 1 || !IsNearlyEqual(ExtractedTranslationY(extracted[0]), 4.0f)

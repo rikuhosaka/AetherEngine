@@ -2,6 +2,7 @@
 
 #include "Engine/Application/Subsystem/IWorldSubsystem.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Math/Transform.h"
 
@@ -369,6 +370,18 @@ Result<void> World::BeginPlay(
 		started.push_back(subsystem);
 	}
 
+	if (auto camera = EnsurePlayCamera(*this, cameraPosition, cameraForward); !camera)
+	{
+		for (IWorldSubsystem* startedSubsystem : started)
+		{
+			startedSubsystem->OnEndPlay(*this);
+		}
+
+		m_document = std::move(*m_editSnapshot);
+		m_editSnapshot.reset();
+		return camera;
+	}
+
 	m_appliedMode = SessionMode::Playing;
 	return MakeOk();
 }
@@ -410,6 +423,25 @@ bool World::Tick(
 	{
 		const bool wantsRelativeMouse = subsystem->Tick(
 			*this, session, input, deltaSeconds, mouseCaptured, keyboardCaptured);
+		relativeMouse = relativeMouse || wantsRelativeMouse;
+	}
+
+	for (uint32_t index = 0; index < m_document.slots.size(); ++index)
+	{
+		Slot& slot = m_document.slots[index];
+		if (!slot.alive)
+		{
+			continue;
+		}
+
+		const bool wantsRelativeMouse = slot.actor.TickComponents(
+			*this,
+			EntityId{ index, slot.generation },
+			session,
+			input,
+			deltaSeconds,
+			mouseCaptured,
+			keyboardCaptured);
 		relativeMouse = relativeMouse || wantsRelativeMouse;
 	}
 

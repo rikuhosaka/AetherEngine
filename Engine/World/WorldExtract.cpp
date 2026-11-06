@@ -1,11 +1,10 @@
 #include "Engine/World/WorldExtract.h"
 
 #include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/EditorCameraServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Camera/CameraComponent.h"
 #include "Engine/Camera/CameraExtract.h"
-#include "Engine/Camera/CameraSubsystem.h"
+#include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Math/Matrix.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
@@ -92,24 +91,12 @@ void ExtractView(
 	const World& world,
 	ExtractedView& outView,
 	uint32_t viewportWidth,
-	uint32_t viewportHeight,
-	const EditorCameraServices* editorCamera)
+	uint32_t viewportHeight)
 {
-	if (world.IsPlaying())
+	const EntityId camera = FindCamera(world);
+	if (camera.IsValid())
 	{
-		// 編集カメラは再生中は無視する。停止するまで公開されたままだが、視点には使わない。
-		const CameraSubsystem* cameras = static_cast<const CameraSubsystem*>(world.FindSubsystem("Camera"));
-		const EntityId camera = cameras != nullptr ? cameras->FindCamera(world) : EntityId{};
-		if (camera.IsValid())
-		{
-			ExtractCameraView(world, camera, viewportWidth, viewportHeight, outView);
-		}
-		return;
-	}
-
-	if (editorCamera != nullptr && editorCamera->valid)
-	{
-		outView = editorCamera->view;
+		ExtractCameraView(world, camera, viewportWidth, viewportHeight, outView);
 	}
 }
 

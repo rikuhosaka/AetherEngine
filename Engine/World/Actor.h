@@ -11,7 +11,9 @@
 #include <unordered_map>
 #include <utility>
 
+class InputState;
 class World;
+struct SessionServices;
 
 // 責任: 1エンティティの名前、親、変換、コンポーネントを保持する。
 // 役割: World のスロットに入るシーンノード。生存と ID の世代はスロットが持つ。
@@ -35,6 +37,14 @@ private:
 	{
 		virtual ~ComponentHolder() = default;
 		[[nodiscard]] virtual std::unique_ptr<ComponentHolder> Clone() const = 0;
+		virtual bool Tick(
+			World& world,
+			EntityId self,
+			const SessionServices& session,
+			const InputState* input,
+			float deltaSeconds,
+			bool mouseCaptured,
+			bool keyboardCaptured) = 0;
 	};
 
 	template<typename T>
@@ -48,6 +58,18 @@ private:
 		[[nodiscard]] std::unique_ptr<ComponentHolder> Clone() const override
 		{
 			return std::make_unique<TypedComponentHolder<T>>(value);
+		}
+
+		bool Tick(
+			World& world,
+			EntityId self,
+			const SessionServices& session,
+			const InputState* input,
+			float deltaSeconds,
+			bool mouseCaptured,
+			bool keyboardCaptured) override
+		{
+			return value.Tick(world, self, session, input, deltaSeconds, mouseCaptured, keyboardCaptured);
 		}
 
 		T value;
@@ -92,6 +114,27 @@ private:
 	[[nodiscard]] bool Remove()
 	{
 		return components.erase(std::type_index(typeid(T))) > 0;
+	}
+
+	// 生存中の Tick で World が呼ぶ。各コンポーネントの結果を合わせ、相対マウスが必要なら true。
+	[[nodiscard]] bool TickComponents(
+		World& world,
+		EntityId self,
+		const SessionServices& session,
+		const InputState* input,
+		float deltaSeconds,
+		bool mouseCaptured,
+		bool keyboardCaptured)
+	{
+		bool relativeMouse = false;
+		for (const auto& entry : components)
+		{
+			const bool wantsRelativeMouse = entry.second->Tick(
+				world, self, session, input, deltaSeconds, mouseCaptured, keyboardCaptured);
+			relativeMouse = relativeMouse || wantsRelativeMouse;
+		}
+
+		return relativeMouse;
 	}
 
 	std::unordered_map<std::type_index, std::unique_ptr<ComponentHolder>> components{};

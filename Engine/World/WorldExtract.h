@@ -6,7 +6,6 @@
 #include <vector>
 
 struct DebugStatsServices;
-struct EditorCameraServices;
 struct ExtractedLighting;
 struct ExtractedObject;
 struct ExtractedView;
@@ -31,12 +30,10 @@ void Extract(
 	float alpha,
 	const SessionServices& session,
 	DebugStatsServices& stats);
-// 再生中（一時停止を含む）はプレイカメラ、それ以外は編集カメラ。
-// 再生中にカメラが無いときは outView を書き換えない。呼び出し側は毎回空の出力を渡す。
+// 先頭の CameraSystemComponent からビューを書く。カメラが無ければ outView を変えない。
 void ExtractView(
 	const World& world,
 	ExtractedView& outView,
 	uint32_t viewportWidth,
-	uint32_t viewportHeight,
-	const EditorCameraServices* editorCamera);
+	uint32_t viewportHeight);
 void ExtractLighting(const World& world, ExtractedLighting& outLighting);

@@ -11,7 +11,7 @@ struct CameraLens
 
 // 責任: 自由飛行カメラの姿勢とレンズをまとめて保持する。
 // 役割: コントローラの入出力。エンティティへ書く前の作業値としても使う。
-// 所有: EditorCamera か CameraSubsystem のメンバ。シーン上の Transform とは別物。
+// 所有: CameraSystemComponent のメンバ。シーン上の Transform とは別物。
 struct CameraState
 {
 	DirectX::XMFLOAT3 position { 0.0f, 2.0f, -5.0f };

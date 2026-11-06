@@ -1,13 +1,12 @@
 #include "Engine/Engine/Test/EngineSessionTest.h"
 
-#include "Engine/Application/Services/EditorCameraServices.h"
 #include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Services/SceneContentServices.h"
 #include "Engine/Application/Services/SessionServices.h"
 #include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
-#include "Engine/Camera/CameraSubsystem.h"
+#include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Engine/Engine.h"
 #include "Engine/World/World.h"
@@ -26,17 +25,22 @@ Result<void> RunEngineSessionTests()
 {
 	RenderServices render{};
 	InputServices input{};
-	EditorCameraServices editorCamera{};
-	editorCamera.valid = true;
-	editorCamera.position = { 2.0f, 3.0f, 4.0f };
-	editorCamera.forward = { 0.0f, 0.0f, 1.0f };
 
 	SubsystemContext context{};
 	context.RegisterService(&render);
 	context.RegisterService(&input);
-	context.RegisterService(&editorCamera);
 
 	Engine engine{ EngineConfig{} };
+	const EntityId editorCamera = FindCamera(engine.GetWorld());
+	Transform* editorCameraTransform = engine.GetWorld().GetTransform(editorCamera);
+	if (!editorCamera.IsValid() || editorCameraTransform == nullptr)
+	{
+		return FailRuntime(
+			LogCategory::Core,
+			ErrorCode::InvalidArgument,
+			"Engine should spawn an editor camera");
+	}
+	editorCameraTransform->position = { 2.0f, 3.0f, 4.0f };
 	if (auto initialized = engine.Initialize(context); !initialized)
 	{
 		return initialized;
@@ -53,6 +57,16 @@ Result<void> RunEngineSessionTests()
 			LogCategory::Core,
 			ErrorCode::InvalidArgument,
 			"Engine should publish the world before the first tick");
+	}
+
+	World* editorWorld = &engine.GetWorld();
+	if (editorWorld->FindSubsystem("Game") != nullptr || editorWorld->FindSubsystem("Camera") != nullptr)
+	{
+		engine.Shutdown(context);
+		return FailRuntime(
+			LogCategory::Core,
+			ErrorCode::InvalidArgument,
+			"The editor world should not register play subsystems");
 	}
 
 	WorldSpawnDesc bodyDesc{};
@@ -74,10 +88,10 @@ Result<void> RunEngineSessionTests()
 
 	session->mode = SessionMode::Playing;
 	engine.Tick(context, 0.016f);
-	const CameraSubsystem* cameras = static_cast<const CameraSubsystem*>(engine.GetWorld().FindSubsystem("Camera"));
-	const EntityId camera = cameras != nullptr ? cameras->FindCamera(engine.GetWorld()) : EntityId{};
+	const EntityId camera = FindCamera(engine.GetWorld());
 	const Transform* cameraTransform = engine.GetWorld().GetTransform(camera);
-	if (!engine.GetWorld().IsPlaying() || published->generation != 2 || camera == body || cameraTransform == nullptr
+	if (!engine.GetWorld().IsPlaying() || published->world == editorWorld || editorWorld->IsPlaying()
+		|| published->generation != 2 || camera == body || cameraTransform == nullptr
 		|| !IsNearlyEqual(cameraTransform->position.x, 2.0f)
 		|| !IsNearlyEqual(cameraTransform->position.y, 3.0f)
 		|| !IsNearlyEqual(cameraTransform->position.z, 4.0f))
@@ -86,7 +100,7 @@ Result<void> RunEngineSessionTests()
 		return FailRuntime(
 			LogCategory::Core,
 			ErrorCode::InvalidArgument,
-			"Play should start from the editor camera pose and advance the world generation");
+			"Play should copy the editor world, start from the editor camera pose, and advance the world generation");
 	}
 
 	session->mode = SessionMode::Paused;
@@ -103,9 +117,9 @@ Result<void> RunEngineSessionTests()
 
 	session->mode = SessionMode::Editor;
 	engine.Tick(context, 0.016f);
-	const Transform* restored = engine.GetWorld().GetTransform(body);
-	if (engine.GetWorld().IsPlaying() || published->generation != 3 || restored == nullptr
-		|| !IsNearlyEqual(restored->position.y, 4.0f))
+	const Transform* restored = editorWorld->GetTransform(body);
+	if (engine.GetWorld().IsPlaying() || published->world != editorWorld || published->generation != 3
+		|| restored == nullptr || !IsNearlyEqual(restored->position.y, 4.0f))
 	{
 		engine.Shutdown(context);
 		return FailRuntime(

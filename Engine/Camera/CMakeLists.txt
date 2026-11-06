@@ -4,10 +4,10 @@ file(GLOB_RECURSE Camera_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/*.h
 )
 
-# CameraSubsystem.cpp は World を呼び、World は CameraSubsystem を呼ぶ。
+# CameraSystemComponent.cpp は World を呼び、World は CameraSystemComponent を呼ぶ。
 # Camera ライブラリへ入れると World との静的ライブラリ循環になるので、翻訳単位は World が持つ。
 # 宣言は Camera に残す。ここへ cpp を戻すとリンク順が再び循環する。
-list(FILTER Camera_SRC EXCLUDE REGEX "CameraSubsystem\\.cpp$")
+list(FILTER Camera_SRC EXCLUDE REGEX "CameraSystemComponent\\.cpp$")
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${Camera_SRC})
 
