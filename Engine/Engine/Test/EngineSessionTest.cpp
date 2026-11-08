@@ -1,14 +1,11 @@
 #include "Engine/Engine/Test/EngineSessionTest.h"
 
-#include "Engine/Application/Services/InputServices.h"
-#include "Engine/Application/Services/RenderServices.h"
-#include "Engine/Application/Services/SceneContentServices.h"
-#include "Engine/Application/Services/SessionServices.h"
-#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Engine/Engine.h"
+#include "Engine/Platform/InputSubsystem.h"
 #include "Engine/World/World.h"
 
 #include <cmath>
@@ -23,13 +20,16 @@ namespace
 
 Result<void> RunEngineSessionTests()
 {
-	RenderServices render{};
-	InputServices input{};
+	SubsystemRegistry registry{};
+	registry.Register(CreateInputSubsystem());
+	SubsystemRegistry::SetCurrent(&registry);
+	const struct CurrentRegistryScope
+	{
+		~CurrentRegistryScope() { SubsystemRegistry::SetCurrent(nullptr); }
+	} clearCurrent;
+	(void)clearCurrent;
 
 	SubsystemContext context{};
-	context.RegisterService(&render);
-	context.RegisterService(&input);
-
 	Engine engine{ EngineConfig{} };
 	const EntityId editorCamera = FindCamera(engine.GetWorld());
 	Transform* editorCameraTransform = engine.GetWorld().GetTransform(editorCamera);
@@ -46,9 +46,9 @@ Result<void> RunEngineSessionTests()
 		return initialized;
 	}
 
-	SceneContentServices* content = context.GetService<SceneContentServices>();
-	SessionServices* session = context.GetService<SessionServices>();
-	WorldServices* published = context.GetService<WorldServices>();
+	SceneContentServices* content = &engine.GetSceneContent();
+	SessionServices* session = &engine.GetSession();
+	WorldServices* published = &engine.GetWorldServices();
 	if (content == nullptr || session == nullptr || published == nullptr || published->world != &engine.GetWorld()
 		|| published->generation != 1)
 	{
@@ -129,6 +129,7 @@ Result<void> RunEngineSessionTests()
 	}
 
 	engine.Shutdown(context);
+	SubsystemRegistry::SetCurrent(nullptr);
 	LOG_INFO(LogCategory::Core, "EngineSessionTests passed");
 	return MakeOk();
 }

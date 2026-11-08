@@ -459,9 +459,7 @@ void World::FixedTick(const SessionServices& session, float fixedDeltaSeconds)
 Result<void> World::LoadContent(
 	SceneContentServices& content,
 	WorldServices& published,
-	SubsystemContext& ctx,
-	FrameContext& frameContext,
-	RHICommandList* commandList)
+	SubsystemContext& ctx)
 {
 	if (content.loader == nullptr)
 	{
@@ -478,7 +476,7 @@ Result<void> World::LoadContent(
 		target = &editorDocument;
 	}
 
-	if (auto loaded = content.loader->Load(*target, ctx, frameContext, commandList); !loaded)
+	if (auto loaded = content.loader->Load(*target, ctx); !loaded)
 	{
 		return loaded;
 	}

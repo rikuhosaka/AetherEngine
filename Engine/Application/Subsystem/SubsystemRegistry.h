@@ -26,6 +26,31 @@ public:
 	[[nodiscard]] std::span<ISubsystem* const> GetInitOrder() const;
 	[[nodiscard]] std::span<ISubsystem* const> GetTickOrder() const;
 
+	// EngineLoop が起動中のレジストリを置く。終了で外す。所有はしない。
+	static void SetCurrent(SubsystemRegistry* registry) noexcept;
+	[[nodiscard]] static SubsystemRegistry* Current() noexcept;
+
+	template<typename T>
+	[[nodiscard]] T* Find() const
+	{
+		for (const std::unique_ptr<ISubsystem>& subsystem : m_subsystems)
+		{
+			if (T* typed = dynamic_cast<T*>(subsystem.get()))
+			{
+				return typed;
+			}
+		}
+
+		return nullptr;
+	}
+
+	template<typename T>
+	[[nodiscard]] static T* FindCurrent()
+	{
+		SubsystemRegistry* registry = Current();
+		return registry != nullptr ? registry->Find<T>() : nullptr;
+	}
+
 private:
 	[[nodiscard]] ISubsystem* FindByName(std::string_view name) const;
 

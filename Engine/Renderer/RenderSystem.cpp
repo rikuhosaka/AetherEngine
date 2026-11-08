@@ -1,6 +1,6 @@
 #include "Engine/Renderer/RenderSystem.h"
 
-#include "Engine/Application/Services/GpuQueueRetirement.h"
+#include "Engine/Renderer/GpuQueueRetirement.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemTypes.h"
 #include "Engine/Core/Log/LogMacros.h"
@@ -23,6 +23,9 @@
 #include "Engine/RHI/Interface/RHIImGui.h"
 #include "Engine/RHI/Interface/RHITransientDescriptorAllocator.h"
 #include "Engine/RHI/Interface/RHIUploadBuffer.h"
+#include "Engine/SceneDocument/SceneDocument.h"
+
+#include "imgui.h"
 
 #include <array>
 
@@ -227,21 +230,30 @@ Result<void> RenderSystem::Initialize(
 
 	m_render.resources = m_impl->renderer->GetResourceServices();
 	m_render.shaderRoot = m_config.shaderRoot;
-	ctx.RegisterService(&m_rhi);
-	ctx.RegisterService(&m_render);
+
+	RHIImGuiDesc imguiDesc{};
+	imguiDesc.hwnd = hwnd;
+	imguiDesc.commandQueue = m_rhi.graphicsQueue;
+	imguiDesc.framesInFlight = EngineConstants::kFrameInFlightCount;
+	auto imguiResult = m_rhi.device->CreateImGui(imguiDesc);
+	if (!imguiResult)
+	{
+		Shutdown(ctx);
+		return MakeFail(imguiResult.error.code, imguiResult.error.message);
+	}
+	m_imgui = std::move(imguiResult.value);
 	return MakeOk();
 }
 
-void RenderSystem::Shutdown(SubsystemContext& ctx)
+void RenderSystem::Shutdown(SubsystemContext& /*ctx*/)
 {
+	m_imgui.reset();
 	if (m_impl == nullptr)
 	{
 		return;
 	}
 
 	RetireGraphicsQueue(&m_rhi);
-	ctx.UnregisterService(&m_render);
-	ctx.UnregisterService(&m_rhi);
 	m_render = {};
 	m_impl->renderer.reset();
 	m_impl->descriptorAllocator.reset();
@@ -355,13 +367,61 @@ void RenderSystem::AbortRecording()
 	DiscardRecording(m_rhi.frameContexts[slot]);
 }
 
+bool RenderSystem::BeginUiFrame()
+{
+	if (m_imgui == nullptr)
+	{
+		return false;
+	}
+
+	m_imgui->NewFrame();
+	return true;
+}
+
+UiFrameCapture RenderSystem::EndUiFrame()
+{
+	UiFrameCapture capture{};
+	if (m_imgui == nullptr)
+	{
+		return capture;
+	}
+
+	m_imgui->Render();
+	capture.anyWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+	capture.wantCaptureMouse = m_imgui->WantCaptureMouse();
+	capture.wantCaptureKeyboard = m_imgui->WantCaptureKeyboard();
+	return capture;
+}
+
+Result<UploadedSceneAssets> RenderSystem::UploadScene(
+	const SceneDocument& document,
+	const AssetCache& cache,
+	FrameContext& frameContext)
+{
+	if (m_render.resources == nullptr)
+	{
+		return FailInternal<UploadedSceneAssets>(
+			LogCategory::Core,
+			ErrorCode::InvalidArgument,
+			"RenderSystem::UploadScene requires render resources");
+	}
+
+	return UploadSceneAssets(
+		document,
+		cache,
+		*m_render.resources,
+		frameContext,
+		frameContext.graphicsCommandList,
+		m_config.assetsRoot,
+		m_config.shaderRoot);
+}
+
 Result<void> RenderSystem::Render(
 	uint32_t viewportWidth,
 	uint32_t viewportHeight,
 	const ExtractedView& view,
 	const ExtractedLighting& lighting,
-	std::span<const ExtractedObject> objects,
-	RHIImGui* imgui)
+	std::span<const ExtractedObject> objects)
 {
 	if (viewportWidth == 0 || viewportHeight == 0)
 	{
@@ -424,9 +484,9 @@ Result<void> RenderSystem::Render(
 		m_impl->renderer->Render(commandList);
 		m_impl->display->PrepareSceneDepthForRead(frameContext, commandList);
 		m_impl->renderer->DrawSceneDepthDebug(commandList);
-		if (imgui != nullptr)
+		if (m_imgui != nullptr)
 		{
-			imgui->Draw(commandList);
+			m_imgui->Draw(commandList);
 		}
 		m_impl->display->EndMainRenderPass(frameContext, commandList);
 	}

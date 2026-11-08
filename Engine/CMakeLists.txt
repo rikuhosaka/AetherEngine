@@ -37,6 +37,9 @@ set_target_properties(Physics PROPERTIES FOLDER "Engine/Physics")
 add_subdirectory(World)
 set_target_properties(World PROPERTIES FOLDER "Engine/World")
 
+# Fbx の生成は Renderer にある。World はこのディレクトリより後で定義される。
+target_link_libraries(Renderer PUBLIC World)
+
 add_subdirectory(SceneDocument)
 set_target_properties(SceneDocument PROPERTIES FOLDER "Engine/SceneDocument")
 

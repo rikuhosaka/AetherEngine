@@ -1,11 +1,17 @@
 #pragma once
 
-#include "Engine/Application/Services/UiServices.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 
 #include <memory>
 
-class RHIImGui;
+// ImGui の実体は RenderSystem が持つ。ここにあるのは、そのフレームで UI を描けるかと入力キャプチャの結果だけ。
+struct UiServices
+{
+	bool frameStarted = false;
+	bool wantCaptureMouse = false;
+	bool wantCaptureKeyboard = false;
+	bool anyWindowHovered = false;
+};
 
 class UiSubsystem final : public ISubsystem
 {
@@ -24,8 +30,10 @@ public:
 	void Tick(SubsystemContext& ctx, float deltaSeconds) override;
 	void Shutdown(SubsystemContext& ctx) override;
 
+	[[nodiscard]] UiServices& GetUi() noexcept { return m_services; }
+	[[nodiscard]] const UiServices& GetUi() const noexcept { return m_services; }
+
 private:
-	std::unique_ptr<RHIImGui> m_imgui{};
 	UiServices m_services{};
 };
 

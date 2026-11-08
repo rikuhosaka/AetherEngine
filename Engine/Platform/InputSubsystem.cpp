@@ -1,7 +1,8 @@
 #include "Engine/Platform/InputSubsystem.h"
 
-#include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Engine/Platform/WindowSubsystem.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Platform/Win32InputDevice.h"
@@ -25,13 +26,14 @@ std::span<const char* const> InputSubsystem::GetDependencies() const
 	return kDependencies;
 }
 
-Result<void> InputSubsystem::Initialize(SubsystemContext& ctx)
+Result<void> InputSubsystem::Initialize(SubsystemContext& /*ctx*/)
 {
-	auto* windowServices = ctx.GetService<WindowServices>();
+	WindowSubsystem* window = SubsystemRegistry::FindCurrent<WindowSubsystem>();
+	const WindowServices* windowServices = window != nullptr ? &window->GetServices() : nullptr;
 	if (windowServices == nullptr || windowServices->hwnd == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"InputSubsystem requires WindowServices");
+			"InputSubsystem requires WindowSubsystem");
 	}
 
 	if (m_device == nullptr)
@@ -41,13 +43,13 @@ Result<void> InputSubsystem::Initialize(SubsystemContext& ctx)
 
 	m_device->Reset(windowServices->hwnd, windowServices->clientWidth, windowServices->clientHeight, m_state);
 	m_services.state = &m_state;
-	ctx.RegisterService(&m_services);
 	return MakeOk();
 }
 
-Result<void> InputSubsystem::OnResize(SubsystemContext& ctx, uint32_t width, uint32_t height)
+Result<void> InputSubsystem::OnResize(SubsystemContext& /*ctx*/, uint32_t width, uint32_t height)
 {
-	auto* windowServices = ctx.GetService<WindowServices>();
+	WindowSubsystem* window = SubsystemRegistry::FindCurrent<WindowSubsystem>();
+	const WindowServices* windowServices = window != nullptr ? &window->GetServices() : nullptr;
 	if (windowServices == nullptr || windowServices->hwnd == nullptr || m_device == nullptr || width == 0 || height == 0)
 	{
 		return MakeOk();
@@ -58,9 +60,10 @@ Result<void> InputSubsystem::OnResize(SubsystemContext& ctx, uint32_t width, uin
 	return MakeOk();
 }
 
-void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
+void InputSubsystem::Tick(SubsystemContext& /*ctx*/, float /*deltaSeconds*/)
 {
-	auto* windowServices = ctx.GetService<WindowServices>();
+	WindowSubsystem* window = SubsystemRegistry::FindCurrent<WindowSubsystem>();
+	const WindowServices* windowServices = window != nullptr ? &window->GetServices() : nullptr;
 	if (windowServices == nullptr || windowServices->hwnd == nullptr || m_device == nullptr)
 	{
 		return;
@@ -82,9 +85,8 @@ void InputSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 	m_services.keyboardCaptured = false;
 }
 
-void InputSubsystem::Shutdown(SubsystemContext& ctx)
+void InputSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 {
-	ctx.UnregisterService(&m_services);
 	m_services = {};
 	m_device.reset();
 }

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Engine/Application/Services/SceneContentServices.h"
-#include "Engine/Application/Services/SessionServices.h"
-#include "Engine/Application/Services/WorldServices.h"
+#include "Engine/World/SceneContentServices.h"
+#include "Engine/World/SessionServices.h"
+#include "Engine/World/WorldServices.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/World/Actor.h"
 #include "Engine/World/EntityId.h"
@@ -28,9 +28,7 @@ struct WorldSpawnDesc
 
 class InputState;
 class IWorldSubsystem;
-class RHICommandList;
 class SubsystemContext;
-struct FrameContext;
 
 // 責任: シーン文書と、その文書に紐づく再生用サブシステムの寿命を持つ。
 // 役割: エンティティの生成、破棄、親子と、プレイセッションの開始、終了、Tick を行う。
@@ -180,12 +178,11 @@ public:
 	void FixedTick(const SessionServices& session, float fixedDeltaSeconds);
 
 	// シーンを文書へ読む。再生中はライブの文書を触らず、EndPlay で戻すスナップショットだけ差し替える。
+	// GPU リソースの生成は呼び出し側が行う。
 	[[nodiscard]] Result<void> LoadContent(
 		SceneContentServices& content,
 		WorldServices& published,
-		SubsystemContext& ctx,
-		FrameContext& frameContext,
-		RHICommandList* commandList);
+		SubsystemContext& ctx);
 
 	template<typename Fn>
 	void ForEachAlive(Fn&& fn) const

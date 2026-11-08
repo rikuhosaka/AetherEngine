@@ -4,11 +4,11 @@
 #include "Editor/UI/Outliner.h"
 #include "Editor/UI/Stats.h"
 
-#include "Engine/Application/Services/SessionServices.h"
-#include "Engine/Application/Services/UiServices.h"
-#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Engine/Core/Log/Result.h"
+#include "Engine/Engine/Engine.h"
+#include "Engine/Renderer/UiSubsystem.h"
 #include "Engine/World/World.h"
 
 namespace
@@ -26,21 +26,22 @@ std::span<const char* const> EditorUiSubsystem::GetDependencies() const
 	return kDependencies;
 }
 
-Result<void> EditorUiSubsystem::Initialize(SubsystemContext& ctx)
+Result<void> EditorUiSubsystem::Initialize(SubsystemContext& /*ctx*/)
 {
-	ctx.RegisterService(&m_selection);
 	return MakeOk();
 }
 
 void EditorUiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 {
-	const auto* uiServices = ctx.GetService<UiServices>();
-	if (uiServices == nullptr || uiServices->imgui == nullptr)
+	UiSubsystem* ui = SubsystemRegistry::FindCurrent<UiSubsystem>();
+	const UiServices* uiServices = ui != nullptr ? &ui->GetUi() : nullptr;
+	if (uiServices == nullptr || !uiServices->frameStarted)
 	{
 		return;
 	}
 
-	auto* worldServices = ctx.GetService<WorldServices>();
+	Engine* engine = SubsystemRegistry::FindCurrent<Engine>();
+	WorldServices* worldServices = engine != nullptr ? &engine->GetWorldServices() : nullptr;
 	const uint32_t worldGeneration = worldServices != nullptr ? worldServices->generation : 0;
 	if (m_selection.worldGeneration != worldGeneration)
 	{
@@ -50,15 +51,14 @@ void EditorUiSubsystem::Tick(SubsystemContext& ctx, float /*deltaSeconds*/)
 
 	DrawStats(ctx);
 
-	const auto* session = ctx.GetService<SessionServices>();
+	const SessionServices* session = engine != nullptr ? &engine->GetSession() : nullptr;
 	const bool editable = session != nullptr && session->mode == SessionMode::Editor;
 	const World* world = worldServices != nullptr ? worldServices->world : nullptr;
 	DrawOutliner(world, &m_selection);
 	DrawDetails(worldServices != nullptr ? worldServices->world : nullptr, &m_selection, editable);
 }
 
-void EditorUiSubsystem::Shutdown(SubsystemContext& ctx)
+void EditorUiSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 {
-	ctx.UnregisterService(&m_selection);
 	m_selection = {};
 }

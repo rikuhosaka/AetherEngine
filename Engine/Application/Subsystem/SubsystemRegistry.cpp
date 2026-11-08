@@ -12,11 +12,23 @@
 
 namespace
 {
+SubsystemRegistry* g_currentRegistry = nullptr;
+
 bool CompareTickOrder(ISubsystem* lhs, ISubsystem* rhs)
 {
 	return static_cast<int32_t>(lhs->GetTickGroup()) < static_cast<int32_t>(rhs->GetTickGroup());
 }
 } // namespace
+
+void SubsystemRegistry::SetCurrent(SubsystemRegistry* registry) noexcept
+{
+	g_currentRegistry = registry;
+}
+
+SubsystemRegistry* SubsystemRegistry::Current() noexcept
+{
+	return g_currentRegistry;
+}
 
 void SubsystemRegistry::Register(std::unique_ptr<ISubsystem> subsystem)
 {

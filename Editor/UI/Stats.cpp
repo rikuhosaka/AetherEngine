@@ -1,10 +1,9 @@
 #include "Editor/UI/Stats.h"
 
-#include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/SessionServices.h"
-#include "Engine/Application/Services/WindowServices.h"
-#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Engine/Engine/Engine.h"
+#include "Engine/Platform/WindowSubsystem.h"
 #include "Engine/World/Transform.h"
 #include "Engine/World/World.h"
 
@@ -14,12 +13,14 @@ void DrawStats(SubsystemContext& ctx)
 {
 	const float deltaSeconds = ctx.GetDeltaSeconds();
 	const float framesPerSecond = deltaSeconds > 0.0f ? 1.0f / deltaSeconds : 0.0f;
-	const auto* windowServices = ctx.GetService<WindowServices>();
+	WindowSubsystem* window = SubsystemRegistry::FindCurrent<WindowSubsystem>();
+	const WindowServices* windowServices = window != nullptr ? &window->GetServices() : nullptr;
 	const uint32_t clientWidth = windowServices != nullptr ? windowServices->clientWidth : 0;
 	const uint32_t clientHeight = windowServices != nullptr ? windowServices->clientHeight : 0;
-	const auto* debugStats = ctx.GetService<DebugStatsServices>();
+	Engine* engine = SubsystemRegistry::FindCurrent<Engine>();
+	const DebugStatsServices* debugStats = engine != nullptr ? &engine->GetDebugStats() : nullptr;
 	const uint32_t extractedObjectCount = debugStats != nullptr ? debugStats->extractedObjectCount : 0;
-	const auto* worldServices = ctx.GetService<WorldServices>();
+	WorldServices* worldServices = engine != nullptr ? &engine->GetWorldServices() : nullptr;
 	const World* world = worldServices != nullptr ? worldServices->world : nullptr;
 	uint32_t entityCount = 0;
 	if (world != nullptr)
@@ -36,14 +37,15 @@ void DrawStats(SubsystemContext& ctx)
 	ImGui::Text("Frame slot %u", ctx.GetFrameSlot());
 	ImGui::Text("Objects %u", extractedObjectCount);
 	ImGui::Text("Entities %u", entityCount);
-	if (auto* session = ctx.GetService<SessionServices>())
+	if (engine != nullptr)
 	{
+		SessionServices& session = engine->GetSession();
 		const char* modeName = "Editor";
-		if (session->mode == SessionMode::Playing)
+		if (session.mode == SessionMode::Playing)
 		{
 			modeName = "Playing";
 		}
-		else if (session->mode == SessionMode::Paused)
+		else if (session.mode == SessionMode::Paused)
 		{
 			modeName = "Paused";
 		}
@@ -52,17 +54,17 @@ void DrawStats(SubsystemContext& ctx)
 		// Pause は再生中だけ受け付ける。停止中に一時停止へ入れるとセッションを開かずに捨てられる。
 		if (ImGui::Button("Play"))
 		{
-			session->mode = SessionMode::Playing;
+			session.mode = SessionMode::Playing;
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Pause") && session->mode == SessionMode::Playing)
+		if (ImGui::Button("Pause") && session.mode == SessionMode::Playing)
 		{
-			session->mode = SessionMode::Paused;
+			session.mode = SessionMode::Paused;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Stop"))
 		{
-			session->mode = SessionMode::Editor;
+			session.mode = SessionMode::Editor;
 		}
 	}
 	ImGui::End();

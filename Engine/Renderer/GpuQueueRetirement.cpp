@@ -1,6 +1,6 @@
-#include "Engine/Application/Services/GpuQueueRetirement.h"
+#include "Engine/Renderer/GpuQueueRetirement.h"
 
-#include "Engine/Application/Services/RHIServices.h"
+#include "Engine/Renderer/RHIServices.h"
 #include "Engine/RHI/Interface/RHICommandList.h"
 #include "Engine/RHI/Interface/RHICommandQueue.h"
 #include "Engine/RHI/Interface/RHIFence.h"

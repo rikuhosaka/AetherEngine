@@ -1,20 +1,26 @@
 #include "Engine/SceneDocument/SceneDocumentSubsystem.h"
 
-#include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
+#include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Engine/Engine/Engine.h"
 #include "Engine/SceneDocument/SceneAssetLoader.h"
+#include "Engine/SceneDocument/SceneDocument.h"
 
 #include <utility>
-#include <vector>
 
 namespace
 {
 constexpr const char* kDependencies[] = { "Engine" };
 } // namespace
 
-std::unique_ptr<ISubsystem> CreateSceneDocumentSubsystem()
+SceneDocumentSubsystem::SceneDocumentSubsystem(std::filesystem::path assetsRoot)
+	: m_assetsRoot(std::move(assetsRoot))
 {
-	return std::make_unique<SceneDocumentSubsystem>();
+}
+
+std::unique_ptr<ISubsystem> CreateSceneDocumentSubsystem(std::filesystem::path assetsRoot)
+{
+	return std::make_unique<SceneDocumentSubsystem>(std::move(assetsRoot));
 }
 
 std::span<const char* const> SceneDocumentSubsystem::GetDependencies() const
@@ -22,17 +28,17 @@ std::span<const char* const> SceneDocumentSubsystem::GetDependencies() const
 	return kDependencies;
 }
 
-Result<void> SceneDocumentSubsystem::Initialize(SubsystemContext& ctx)
+Result<void> SceneDocumentSubsystem::Initialize(SubsystemContext& /*ctx*/)
 {
-	m_content = ctx.GetService<SceneContentServices>();
-	if (m_content == nullptr)
+	Engine* engine = SubsystemRegistry::FindCurrent<Engine>();
+	if (engine == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"SceneDocumentSubsystem requires SceneContentServices");
+			"SceneDocumentSubsystem requires Engine");
 	}
 
+	m_content = &engine->GetSceneContent();
 	m_content->loader = this;
-	ctx.RegisterService(&m_editorServices);
 	return MakeOk();
 }
 
@@ -41,45 +47,25 @@ void SceneDocumentSubsystem::Tick(SubsystemContext& /*ctx*/, float /*deltaSecond
 	Publish(m_editorServices);
 }
 
-Result<void> SceneDocumentSubsystem::Load(
-	World& world,
-	SubsystemContext& ctx,
-	FrameContext& frameContext,
-	RHICommandList* commandList)
+Result<void> SceneDocumentSubsystem::Load(World& /*world*/, SubsystemContext& /*ctx*/)
 {
-	RenderServices* renderServices = ctx.GetService<RenderServices>();
-	if (renderServices == nullptr || renderServices->resources == nullptr)
+	if (m_assetsRoot.empty())
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"SceneDocumentSubsystem requires RenderServices");
+			"SceneDocumentSubsystem requires an assets root");
 	}
 
-	const std::filesystem::path assetsRoot = renderServices->shaderRoot.parent_path();
-	const std::filesystem::path scenePath = assetsRoot / "Scenes" / "PhysicsDrop.json";
+	const std::filesystem::path scenePath = m_assetsRoot / "Scenes" / "PhysicsDrop.json";
 	Result<SceneDocument> document = LoadSceneDocument(scenePath);
 	if (!document)
 	{
 		return MakeFail(document.error.code, document.error.message);
 	}
 
-	Result<void> assetsLoaded = m_assetCache.LoadDirectory(assetsRoot);
+	Result<void> assetsLoaded = m_assetCache.LoadDirectory(m_assetsRoot);
 	if (!assetsLoaded)
 	{
 		return MakeFail(assetsLoaded.error.code, assetsLoaded.error.message);
-	}
-
-	SceneAssetLoader loader{};
-	Result<SceneAssets> assets = loader.Load(
-		document.value,
-		m_assetCache,
-		*renderServices->resources,
-		frameContext,
-		commandList,
-		assetsRoot,
-		renderServices->shaderRoot);
-	if (!assets)
-	{
-		return MakeFail(assets.error.code, assets.error.message);
 	}
 
 	Result<void> collision = ApplyMeshCollision(document.value, m_assetCache);
@@ -90,35 +76,11 @@ Result<void> SceneDocumentSubsystem::Load(
 
 	SetPath(scenePath);
 	SetDocument(std::move(document.value));
-
-	std::vector<SceneModelRef> modelRefs{};
-	modelRefs.reserve(assets.value.models.size());
-	for (const SceneModelAsset& model : assets.value.models)
-	{
-		modelRefs.push_back(SceneModelRef{ model.documentId, model.assets.get() });
-	}
-
-	Result<std::vector<WorldDocumentBinding>> instantiated = InstantiateScene(
-		world,
-		GetDocument(),
-		assets.value.meshes,
-		assets.value.render,
-		modelRefs);
-	if (!instantiated)
-	{
-		return MakeFail(instantiated.error.code, instantiated.error.message);
-	}
-
-	if (m_content != nullptr)
-	{
-		m_content->loaded = true;
-	}
-
 	Publish(m_editorServices);
 	return MakeOk();
 }
 
-void SceneDocumentSubsystem::Shutdown(SubsystemContext& ctx)
+void SceneDocumentSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 {
 	if (m_content != nullptr)
 	{
@@ -127,7 +89,6 @@ void SceneDocumentSubsystem::Shutdown(SubsystemContext& ctx)
 		m_content = nullptr;
 	}
 
-	ctx.UnregisterService(&m_editorServices);
 	m_editorServices = {};
 	m_hasDocument = false;
 }

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Engine/Application/Services/RHIServices.h"
-#include "Engine/Application/Services/RenderServices.h"
+#include "Engine/Renderer/RHIServices.h"
+#include "Engine/Renderer/RenderServices.h"
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/Renderer/Scene/SceneAssetUpload.h"
 
 #include <cstdint>
 #include <memory>
@@ -14,6 +15,13 @@ class FrameContext;
 class RHIImGui;
 class RenderSystemImpl;
 class SubsystemContext;
+
+struct UiFrameCapture
+{
+	bool wantCaptureMouse = false;
+	bool wantCaptureKeyboard = false;
+	bool anyWindowHovered = false;
+};
 
 class RenderSystem
 {
@@ -35,8 +43,17 @@ public:
 		uint32_t viewportHeight,
 		const ExtractedView& view,
 		const ExtractedLighting& lighting,
-		std::span<const ExtractedObject> objects,
-		RHIImGui* imgui);
+		std::span<const ExtractedObject> objects);
+
+	// UI サブシステムの Tick より前に呼ぶ。ImGui が無ければ false。
+	[[nodiscard]] bool BeginUiFrame();
+	// ウィジェットを描いた後、UiPresent より前に呼ぶ。
+	[[nodiscard]] UiFrameCapture EndUiFrame();
+
+	[[nodiscard]] Result<UploadedSceneAssets> UploadScene(
+		const SceneDocument& document,
+		const AssetCache& cache,
+		FrameContext& frameContext);
 
 	Result<FrameContext*> BeginRecording();
 	Result<void> SubmitAndWait();
@@ -53,6 +70,7 @@ private:
 	void DiscardRecording(FrameContext& frameContext);
 
 	std::unique_ptr<RenderSystemImpl> m_impl{};
+	std::unique_ptr<RHIImGui> m_imgui{};
 	RHIServices m_rhi{};
 	RenderServices m_render{};
 	EngineLoopConfig m_config{};

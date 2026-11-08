@@ -1,10 +1,9 @@
 #include "Engine/Engine/Engine.h"
 
 #include "Editor/UI/EditorUiSubsystem.h"
-#include "Engine/Application/Services/InputServices.h"
-#include "Engine/Application/Services/RenderServices.h"
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Engine/Platform/InputSubsystem.h"
 #include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/World/GameSubsystem.h"
@@ -102,26 +101,26 @@ std::span<const char* const> Engine::GetDependencies() const
 	return kDependencies;
 }
 
-Result<void> Engine::Initialize(SubsystemContext& ctx)
+Result<void> Engine::Initialize(SubsystemContext& /*ctx*/)
 {
-	if (ctx.GetService<RenderServices>() == nullptr || ctx.GetService<InputServices>() == nullptr)
+	if (SubsystemRegistry::FindCurrent<InputSubsystem>() == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"Engine requires RenderServices and InputServices");
+			"Engine requires InputSubsystem");
 	}
 
 	m_session.mode = SessionMode::Editor;
 	m_worldServices.Publish(&m_editorWorld);
-	ctx.RegisterService(&m_debugStats);
-	ctx.RegisterService(&m_worldServices);
-	ctx.RegisterService(&m_session);
-	ctx.RegisterService(&m_content);
 	return MakeOk();
 }
 
-void Engine::Tick(SubsystemContext& ctx, float deltaSeconds)
+void Engine::Tick(SubsystemContext& /*ctx*/, float deltaSeconds)
 {
-	InputServices* inputServices = ctx.GetService<InputServices>();
+	InputServices* inputServices = nullptr;
+	if (InputSubsystem* input = SubsystemRegistry::FindCurrent<InputSubsystem>())
+	{
+		inputServices = &input->GetInput();
+	}
 	ApplyPlaySession(m_editorWorld, m_gameWorld, m_session, m_content.loaded);
 
 	World& world = GetWorld();
@@ -143,7 +142,7 @@ void Engine::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
 	GetWorld().FixedTick(m_session, fixedDeltaSeconds);
 }
 
-void Engine::Shutdown(SubsystemContext& ctx)
+void Engine::Shutdown(SubsystemContext& /*ctx*/)
 {
 	if (m_gameWorld != nullptr)
 	{
@@ -151,12 +150,8 @@ void Engine::Shutdown(SubsystemContext& ctx)
 		m_gameWorld.reset();
 	}
 
-	ctx.UnregisterService(&m_content);
 	m_content = {};
-	ctx.UnregisterService(&m_session);
 	m_session = {};
-	ctx.UnregisterService(&m_worldServices);
 	m_worldServices = {};
-	ctx.UnregisterService(&m_debugStats);
 	m_debugStats = {};
 }

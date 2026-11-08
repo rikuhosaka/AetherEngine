@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Application/Services/SessionServices.h"
+#include "Engine/World/SessionServices.h"
 #include "Engine/Application/Subsystem/SubsystemTypes.h"
 #include "Engine/Core/Log/Result.h"
 

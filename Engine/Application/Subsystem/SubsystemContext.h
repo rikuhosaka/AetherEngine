@@ -1,38 +1,13 @@
 #pragma once
 
 #include <cstdint>
-#include <typeindex>
-#include <unordered_map>
 
-// 責任: サブシステム間のサービスと、そのフレームの時刻を受け渡す。
-// 役割: 型をキーにしたサービス検索と、可変刻み、補間係数、フレームスロットの置き場。
-// 所有: EngineLoop のメンバ。登録されたサービスは非所有ポインタで、寿命は登録した側にある。
+// 責任: そのフレームの時刻をサブシステムへ渡す。
+// 役割: 可変刻み、補間係数、フレームスロットの置き場。
+// 所有: EngineLoop のメンバ。
 class SubsystemContext
 {
 public:
-	template<typename T>
-	void RegisterService(T* service)
-	{
-		m_services[std::type_index(typeid(T))] = service;
-	}
-
-	template<typename T>
-	void UnregisterService(T* service)
-	{
-		const auto it = m_services.find(std::type_index(typeid(T)));
-		if (it != m_services.end() && it->second == service)
-		{
-			m_services.erase(it);
-		}
-	}
-
-	template<typename T>
-	[[nodiscard]] T* GetService() const
-	{
-		const auto it = m_services.find(std::type_index(typeid(T)));
-		return it != m_services.end() ? static_cast<T*>(it->second) : nullptr;
-	}
-
 	void SetDeltaSeconds(float deltaSeconds) { m_deltaSeconds = deltaSeconds; }
 	[[nodiscard]] float GetDeltaSeconds() const { return m_deltaSeconds; }
 
@@ -43,7 +18,6 @@ public:
 	[[nodiscard]] uint32_t GetFrameSlot() const { return m_frameSlot; }
 
 private:
-	std::unordered_map<std::type_index, void*> m_services{};
 	float m_deltaSeconds = 0.0f;
 	float m_interpolationAlpha = 0.0f;
 	uint32_t m_frameSlot = 0;

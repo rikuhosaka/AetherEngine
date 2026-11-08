@@ -1,7 +1,7 @@
 #include "Engine/World/WorldExtract.h"
 
-#include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/SessionServices.h"
+#include "Engine/World/DebugStatsServices.h"
+#include "Engine/World/SessionServices.h"
 #include "Engine/Camera/CameraComponent.h"
 #include "Engine/Camera/CameraExtract.h"
 #include "Engine/Camera/CameraSystemComponent.h"

@@ -1,7 +1,7 @@
 #include "Engine/SceneDocument/ServiceLifetimeTest.h"
 
-#include "Engine/Application/Services/EditorSceneServices.h"
-#include "Engine/Application/Services/WorldServices.h"
+#include "Engine/SceneDocument/EditorSceneServices.h"
+#include "Engine/World/WorldServices.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/SceneDocument/SceneDocumentSubsystem.h"
 #include "Engine/World/World.h"

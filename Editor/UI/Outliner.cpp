@@ -1,6 +1,6 @@
 #include "Editor/UI/Outliner.h"
 
-#include "Engine/Application/Services/WorldSelectionServices.h"
+#include "Editor/UI/WorldSelectionServices.h"
 #include "Engine/World/World.h"
 
 #include "imgui.h"

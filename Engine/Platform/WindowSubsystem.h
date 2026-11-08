@@ -1,12 +1,26 @@
 #pragma once
 
-#include "Engine/Application/Services/WindowServices.h"
 #include "Engine/Application/Subsystem/EngineLoopConfig.h"
 #include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 #include "Engine/Platform/GameWindow.h"
+#include "Engine/Platform/InputState.h"
 
+#include <Windows.h>
+
+#include <cstdint>
 #include <memory>
+
+struct WindowServices
+{
+	HWND hwnd = nullptr;
+	HINSTANCE hInstance = nullptr;
+	uint32_t clientWidth = 0;
+	uint32_t clientHeight = 0;
+	bool isMinimized = false;
+	int mouseWheelDelta = 0;
+	TextInput textInput{};
+};
 
 class WindowSubsystem final : public ISubsystem, public IEngineLoopPlatform
 {
@@ -25,6 +39,7 @@ public:
 	[[nodiscard]] uint32_t GetPendingHeight() const override;
 
 	[[nodiscard]] bool ProcessMessages();
+	[[nodiscard]] WindowServices& GetServices() noexcept { return m_services; }
 	[[nodiscard]] const WindowServices& GetServices() const noexcept { return m_services; }
 
 private:

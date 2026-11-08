@@ -1,4 +1,4 @@
-#include "Engine/SceneDocument/FbxSceneAssets.h"
+#include "Engine/Renderer/Scene/FbxSceneAssets.h"
 
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"

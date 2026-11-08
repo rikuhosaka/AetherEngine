@@ -1,12 +1,10 @@
 #include "Runtime/Launch/EngineLoop.h"
 
-#include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/SceneContentServices.h"
-#include "Engine/Application/Services/SessionServices.h"
-#include "Engine/Application/Services/UiServices.h"
-#include "Engine/Application/Services/WindowServices.h"
-#include "Engine/Application/Services/WorldServices.h"
 #include "Engine/Application/Subsystem/IEngineLoopPlatform.h"
+#include "Engine/Engine/Engine.h"
+#include "Engine/Renderer/UiSubsystem.h"
+#include "Engine/SceneDocument/SceneDocument.h"
+#include "Engine/SceneDocument/SceneDocumentSubsystem.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/Frame/FrameContext.h"
@@ -30,20 +28,40 @@ struct PublishedWorld
 	DebugStatsServices* stats = nullptr;
 };
 
-[[nodiscard]] PublishedWorld FindPublishedWorld(SubsystemContext& context)
+[[nodiscard]] PublishedWorld FindPublishedWorld()
 {
 	PublishedWorld published{};
-	published.services = context.GetService<WorldServices>();
-	if (published.services == nullptr || published.services->world == nullptr)
+	Engine* engine = SubsystemRegistry::FindCurrent<Engine>();
+	if (engine == nullptr)
+	{
+		return {};
+	}
+
+	published.services = &engine->GetWorldServices();
+	if (published.services->world == nullptr)
 	{
 		return {};
 	}
 
 	published.world = published.services->world;
-	published.content = context.GetService<SceneContentServices>();
-	published.session = context.GetService<SessionServices>();
-	published.stats = context.GetService<DebugStatsServices>();
+	published.content = &engine->GetSceneContent();
+	published.session = &engine->GetSession();
+	published.stats = &engine->GetDebugStats();
 	return published;
+}
+
+void PublishUiCapture(const UiFrameCapture& capture)
+{
+	UiSubsystem* ui = SubsystemRegistry::FindCurrent<UiSubsystem>();
+	if (ui == nullptr)
+	{
+		return;
+	}
+
+	UiServices& uiServices = ui->GetUi();
+	uiServices.wantCaptureMouse = capture.wantCaptureMouse;
+	uiServices.wantCaptureKeyboard = capture.wantCaptureKeyboard;
+	uiServices.anyWindowHovered = capture.anyWindowHovered;
 }
 } // namespace
 
@@ -55,10 +73,11 @@ EngineLoop::EngineLoop(EngineLoopConfig config, SubsystemRegistry registry)
 
 Result<void> EngineLoop::Initialize()
 {
-	m_context.RegisterService(&m_registry);
+	SubsystemRegistry::SetCurrent(&m_registry);
 
 	if (auto built = m_registry.BuildOrders(); !built)
 	{
+		SubsystemRegistry::SetCurrent(nullptr);
 		return built;
 	}
 
@@ -208,12 +227,14 @@ void EngineLoop::UpdateClock()
 
 Result<void> EngineLoop::ApplyPendingResize()
 {
-	auto* windowServices = m_context.GetService<WindowServices>();
-	if (windowServices == nullptr)
+	WindowSubsystem* window = SubsystemRegistry::FindCurrent<WindowSubsystem>();
+	if (window == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"EngineLoop::ApplyPendingResize missing required services");
+			"EngineLoop::ApplyPendingResize missing WindowSubsystem");
 	}
+
+	WindowServices& windowServices = window->GetServices();
 
 	if (m_pendingWidth == 0 || m_pendingHeight == 0)
 	{
@@ -236,8 +257,8 @@ Result<void> EngineLoop::ApplyPendingResize()
 		}
 	}
 
-	windowServices->clientWidth = m_pendingWidth;
-	windowServices->clientHeight = m_pendingHeight;
+	windowServices.clientWidth = m_pendingWidth;
+	windowServices.clientHeight = m_pendingHeight;
 
 	m_pendingResize = false;
 	return MakeOk();
@@ -246,12 +267,36 @@ Result<void> EngineLoop::ApplyPendingResize()
 void EngineLoop::TickSubsystems()
 {
 	const float deltaSeconds = m_context.GetDeltaSeconds();
+	bool uiFrameOpen = false;
 	for (ISubsystem* subsystem : m_registry.GetTickOrder())
 	{
-		if (subsystem != nullptr)
+		if (subsystem == nullptr)
 		{
-			subsystem->Tick(m_context, deltaSeconds);
+			continue;
 		}
+
+		const char* name = subsystem->GetName();
+		if (uiFrameOpen && std::strcmp(name, "UiPresent") == 0)
+		{
+			PublishUiCapture(m_render.EndUiFrame());
+			uiFrameOpen = false;
+		}
+
+		if (std::strcmp(name, "UI") == 0)
+		{
+			uiFrameOpen = m_render.BeginUiFrame();
+			if (UiSubsystem* ui = SubsystemRegistry::FindCurrent<UiSubsystem>())
+			{
+				ui->GetUi().frameStarted = uiFrameOpen;
+			}
+		}
+
+		subsystem->Tick(m_context, deltaSeconds);
+	}
+
+	if (uiFrameOpen)
+	{
+		PublishUiCapture(m_render.EndUiFrame());
 	}
 }
 
@@ -271,7 +316,7 @@ void EngineLoop::TickFixedSubsystems()
 
 Result<void> EngineLoop::LoadInitialContent()
 {
-	const PublishedWorld published = FindPublishedWorld(m_context);
+	const PublishedWorld published = FindPublishedWorld();
 	if (published.world == nullptr)
 	{
 		return MakeOk();
@@ -280,7 +325,7 @@ Result<void> EngineLoop::LoadInitialContent()
 	if (published.content == nullptr || published.services == nullptr)
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"EngineLoop::LoadInitialContent missing world services");
+			"EngineLoop::LoadInitialContent missing the engine world");
 	}
 
 	auto recording = m_render.BeginRecording();
@@ -293,11 +338,43 @@ Result<void> EngineLoop::LoadInitialContent()
 	m_context.SetFrameSlot(frameContext->frameIndex);
 
 	if (auto loadResult = published.world->LoadContent(
-			*published.content, *published.services, m_context, *frameContext, frameContext->graphicsCommandList);
+			*published.content, *published.services, m_context);
 		!loadResult)
 	{
 		m_render.AbortRecording();
 		return loadResult;
+	}
+
+	SceneDocumentSubsystem* scene = SubsystemRegistry::FindCurrent<SceneDocumentSubsystem>();
+	if (scene != nullptr && scene->HasDocument())
+	{
+		auto uploaded = m_render.UploadScene(scene->GetDocument(), scene->GetAssetCache(), *frameContext);
+		if (!uploaded)
+		{
+			m_render.AbortRecording();
+			return MakeFail(uploaded.error.code, uploaded.error.message);
+		}
+
+		std::vector<SceneModelRef> modelRefs{};
+		modelRefs.reserve(uploaded.value.models.size());
+		for (const SceneModelAsset& model : uploaded.value.models)
+		{
+			modelRefs.push_back(SceneModelRef{ model.documentId, model.assets.get() });
+		}
+
+		Result<std::vector<WorldDocumentBinding>> instantiated = InstantiateScene(
+			*published.world,
+			scene->GetDocument(),
+			uploaded.value.meshes,
+			uploaded.value.render,
+			modelRefs);
+		if (!instantiated)
+		{
+			m_render.AbortRecording();
+			return MakeFail(instantiated.error.code, instantiated.error.message);
+		}
+
+		published.content->loaded = true;
 	}
 
 	return m_render.SubmitAndWait();
@@ -305,7 +382,8 @@ Result<void> EngineLoop::LoadInitialContent()
 
 Result<void> EngineLoop::RenderFrame()
 {
-	auto* windowServices = m_context.GetService<WindowServices>();
+	WindowSubsystem* window = SubsystemRegistry::FindCurrent<WindowSubsystem>();
+	const WindowServices* windowServices = window != nullptr ? &window->GetServices() : nullptr;
 	if (windowServices != nullptr
 		&& (windowServices->isMinimized || windowServices->clientWidth == 0 || windowServices->clientHeight == 0))
 	{
@@ -319,13 +397,13 @@ Result<void> EngineLoop::RenderFrame()
 	std::vector<ExtractedObject> extractedObjects;
 	ExtractedView extractedView{};
 	ExtractedLighting extractedLighting{};
-	const PublishedWorld published = FindPublishedWorld(m_context);
+	const PublishedWorld published = FindPublishedWorld();
 	if (published.world != nullptr)
 	{
 		if (published.session == nullptr || published.stats == nullptr)
 		{
 			return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-				"EngineLoop::RenderFrame missing world services");
+				"EngineLoop::RenderFrame missing the engine world");
 		}
 
 		ExtractView(*published.world, extractedView, width, height);
@@ -338,19 +416,12 @@ Result<void> EngineLoop::RenderFrame()
 			*published.stats);
 	}
 
-	RHIImGui* imgui = nullptr;
-	if (auto* uiServices = m_context.GetService<UiServices>())
-	{
-		imgui = uiServices->imgui;
-	}
-
 	if (auto renderResult = m_render.Render(
 			width,
 			height,
 			extractedView,
 			extractedLighting,
-			extractedObjects,
-			imgui);
+			extractedObjects);
 		!renderResult)
 	{
 		return renderResult;
@@ -385,7 +456,7 @@ void EngineLoop::ShutdownSession()
 		}
 	}
 
-	m_context.UnregisterService(&m_registry);
+	SubsystemRegistry::SetCurrent(nullptr);
 	m_platform = nullptr;
 }
 

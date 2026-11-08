@@ -1,6 +1,6 @@
 #include "Editor/UI/Details.h"
 
-#include "Engine/Application/Services/WorldSelectionServices.h"
+#include "Editor/UI/WorldSelectionServices.h"
 #include "Engine/World/Transform.h"
 #include "Engine/World/World.h"
 

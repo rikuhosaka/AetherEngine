@@ -1,12 +1,19 @@
 #pragma once
 
-#include "Engine/Application/Services/InputServices.h"
 #include "Engine/Application/Subsystem/ISubsystem.h"
 #include "Engine/Platform/InputState.h"
 
 #include <memory>
 
 class Win32InputDevice;
+
+struct InputServices
+{
+	const InputState* state = nullptr;
+	bool relativeMouse = false;
+	bool mouseCaptured = false;
+	bool keyboardCaptured = false;
+};
 
 class InputSubsystem final : public ISubsystem
 {
@@ -25,6 +32,9 @@ public:
 	Result<void> OnResize(SubsystemContext& ctx, uint32_t width, uint32_t height) override;
 	void Tick(SubsystemContext& ctx, float deltaSeconds) override;
 	void Shutdown(SubsystemContext& ctx) override;
+
+	[[nodiscard]] InputServices& GetInput() noexcept { return m_services; }
+	[[nodiscard]] const InputServices& GetInput() const noexcept { return m_services; }
 
 private:
 	std::unique_ptr<Win32InputDevice> m_device;

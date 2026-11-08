@@ -1,6 +1,6 @@
 #include "Engine/SceneDocument/SceneDocument.h"
 
-#include "Engine/SceneDocument/FbxSceneAssets.h"
+#include "Engine/Renderer/Scene/FbxSceneAssets.h"
 #include "Engine/World/World.h"
 #include "ThirdParty/nlohmann/json.hpp"
 

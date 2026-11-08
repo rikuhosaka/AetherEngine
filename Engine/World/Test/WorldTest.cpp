@@ -1,16 +1,15 @@
 #include "Engine/World/Test/WorldTest.h"
 
 #include "Engine/Application/Subsystem/SubsystemContext.h"
-#include "Engine/Application/Services/DebugStatsServices.h"
-#include "Engine/Application/Services/SceneContentServices.h"
-#include "Engine/Application/Services/SessionServices.h"
-#include "Engine/Application/Services/WorldServices.h"
+#include "Engine/World/DebugStatsServices.h"
+#include "Engine/World/SceneContentServices.h"
+#include "Engine/World/SessionServices.h"
+#include "Engine/World/WorldServices.h"
 #include "Engine/Camera/CameraComponent.h"
 #include "Engine/Camera/CameraExtract.h"
 #include "Engine/Camera/CameraState.h"
 #include "Engine/Camera/CameraSystemComponent.h"
 #include "Engine/Core/Log/LogMacros.h"
-#include "Engine/Frame/FrameContext.h"
 #include "Engine/Math/Matrix.h"
 #include "Engine/Math/Transform.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
@@ -129,11 +128,7 @@ namespace
 class RecordingLoader final : public ISceneContent
 {
 public:
-	Result<void> Load(
-		World& world,
-		SubsystemContext&,
-		FrameContext&,
-		RHICommandList*) override
+	Result<void> Load(World& world, SubsystemContext&) override
 	{
 		WorldSpawnDesc desc{};
 		desc.name = "Loaded";
@@ -1084,8 +1079,7 @@ Result<void> RunWorldTests()
 	content.loaded = true;
 	WorldServices published{};
 	SubsystemContext loadContext{};
-	FrameContext loadFrame{};
-	if (auto loaded = sessionWorld.LoadContent(content, published, loadContext, loadFrame, nullptr); !loaded
+	if (auto loaded = sessionWorld.LoadContent(content, published, loadContext); !loaded
 		|| HasNamedEntity(sessionWorld, "Loaded") || published.world != &sessionWorld || published.generation != 1)
 	{
 		return FailRuntime(

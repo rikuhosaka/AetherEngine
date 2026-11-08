@@ -10,7 +10,7 @@ WindowSubsystem::WindowSubsystem(EngineLoopConfig config)
 {
 }
 
-Result<void> WindowSubsystem::Initialize(SubsystemContext& ctx)
+Result<void> WindowSubsystem::Initialize(SubsystemContext& /*ctx*/)
 {
 	GameWindow::CreateDesc desc{};
 	desc.hInstance = m_config.hInstance;
@@ -25,13 +25,11 @@ Result<void> WindowSubsystem::Initialize(SubsystemContext& ctx)
 
 	m_window = std::move(windowResult.value);
 	SyncServicesFromWindow();
-	ctx.RegisterService(&m_services);
 	return MakeOk();
 }
 
-void WindowSubsystem::Shutdown(SubsystemContext& ctx)
+void WindowSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 {
-	ctx.UnregisterService(&m_services);
 	m_window.reset();
 	m_services = {};
 }
