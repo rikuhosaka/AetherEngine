@@ -28,6 +28,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPSTR /*lpC
 	config.shaderRoot = ResolveShaderRoot();
 	config.compiledShaderRoot = ResolveCompiledShaderRoot();
 	config.assetsRoot = ResolveAssetsDirectory();
+	config.scenePath = config.assetsRoot / "Scenes" / "PhysicsDrop.json";
 	config.dx12DebugConfigPath = ResolveDx12DebugConfigPath();
 
 	SubsystemRegistry registry;

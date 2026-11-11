@@ -13,6 +13,7 @@ struct EngineConfig
 	std::filesystem::path shaderRoot{};
 	std::filesystem::path compiledShaderRoot{};
 	std::filesystem::path assetsRoot{};
+	std::filesystem::path scenePath{};
 	std::filesystem::path dx12DebugConfigPath{};
 
 	uint32_t initialWidth = 1280;

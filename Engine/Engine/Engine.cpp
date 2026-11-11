@@ -15,13 +15,19 @@ namespace
 {
 constexpr const char* kDependencies[] = { "Input" };
 
-// UI が書いた SessionMode を、編集用 World とゲーム用 World の切り替えへ反映する。
-// ボタンはモードを書くだけで BeginPlay / EndPlay は呼ばない。反映はこの関数だけが行う。
+void RejectPlayRequest(SessionServices& session)
+{
+	session.requestMode = SessionMode::Editor;
+	session.mode = SessionMode::Editor;
+}
+
+// UI が書いた requestMode を、編集用 World とゲーム用 World の切り替えへ反映する。
+// ボタンは依頼を書くだけで BeginPlay / EndPlay は呼ばない。反映はこの関数だけが行う。
 // セッションを開くのは Playing への遷移だけ。最初から Paused を書かれてもセッションは開かず Editor に戻す。
 // 開くときは編集用 World の文書をコピーし、Game を足してから BeginPlay する。
 // カメラアクターは文書に入っているのでコピーが視点になる。無ければ BeginPlay が作る。
 // 開いているセッションの一時停止は World を破棄しない。閉じるのは Editor へ戻ったとき。
-// 公開先のポインタは続く Tick が書き換える。
+// 反映できた結果は mode に書く。公開先のポインタは続く Tick が書き換える。
 void ApplyPlaySession(
 	World& editorWorld,
 	std::unique_ptr<World>& gameWorld,
@@ -29,12 +35,13 @@ void ApplyPlaySession(
 	bool contentLoaded)
 {
 	const bool sessionOpen = gameWorld != nullptr;
-	const bool wantSession = session.mode == SessionMode::Playing || session.mode == SessionMode::Paused;
+	const SessionMode requested = session.requestMode;
+	const bool wantSession = requested == SessionMode::Playing || requested == SessionMode::Paused;
 	if (wantSession && !sessionOpen)
 	{
-		if (session.mode == SessionMode::Paused)
+		if (requested == SessionMode::Paused)
 		{
-			session.mode = SessionMode::Editor;
+			RejectPlayRequest(session);
 			return;
 		}
 
@@ -43,18 +50,19 @@ void ApplyPlaySession(
 		if (!gameAdded)
 		{
 			LOG_ERROR(LogCategory::Core, "Engine failed to register play world subsystems");
-			session.mode = SessionMode::Editor;
+			RejectPlayRequest(session);
 			return;
 		}
 
 		if (auto begun = started->BeginPlay(contentLoaded, nullptr, nullptr); !begun)
 		{
 			LogResult(begun, LogCategory::Core);
-			session.mode = SessionMode::Editor;
+			RejectPlayRequest(session);
 			return;
 		}
 
 		gameWorld = std::move(started);
+		session.mode = SessionMode::Playing;
 		return;
 	}
 
@@ -62,7 +70,11 @@ void ApplyPlaySession(
 	{
 		gameWorld->EndPlay();
 		gameWorld.reset();
+		session.mode = SessionMode::Editor;
+		return;
 	}
+
+	session.mode = sessionOpen ? requested : SessionMode::Editor;
 }
 } // namespace
 
@@ -109,6 +121,7 @@ Result<void> Engine::Initialize(SubsystemContext& /*ctx*/)
 			"Engine requires InputSubsystem");
 	}
 
+	m_session.requestMode = SessionMode::Editor;
 	m_session.mode = SessionMode::Editor;
 	m_worldServices.Publish(&m_editorWorld);
 	return MakeOk();
@@ -116,30 +129,19 @@ Result<void> Engine::Initialize(SubsystemContext& /*ctx*/)
 
 void Engine::Tick(SubsystemContext& /*ctx*/, float deltaSeconds)
 {
-	InputServices* inputServices = nullptr;
-	if (InputSubsystem* input = SubsystemRegistry::FindCurrent<InputSubsystem>())
-	{
-		inputServices = &input->GetInput();
-	}
 	ApplyPlaySession(m_editorWorld, m_gameWorld, m_session, m_content.loaded);
-
-	World& world = GetWorld();
-	const bool relativeMouse = world.Tick(
-		deltaSeconds,
-		m_session,
-		m_worldServices,
-		inputServices != nullptr ? inputServices->state : nullptr,
-		inputServices != nullptr && inputServices->mouseCaptured,
-		inputServices != nullptr && inputServices->keyboardCaptured);
-	if (inputServices != nullptr)
-	{
-		inputServices->relativeMouse = relativeMouse;
-	}
+	GetWorld().Tick(deltaSeconds, m_worldServices);
 }
 
 void Engine::FixedTick(SubsystemContext& /*ctx*/, float fixedDeltaSeconds)
 {
-	GetWorld().FixedTick(m_session, fixedDeltaSeconds);
+	// 積分は Playing の間だけ。一時停止と編集中は World へ渡さない。
+	if (m_session.mode != SessionMode::Playing)
+	{
+		return;
+	}
+
+	GetWorld().FixedTick(fixedDeltaSeconds);
 }
 
 void Engine::Shutdown(SubsystemContext& /*ctx*/)

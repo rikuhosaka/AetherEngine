@@ -6,9 +6,14 @@
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Engine/Engine.h"
 #include "Engine/Platform/InputSubsystem.h"
+#include "Engine/Renderer/Scene/RenderSceneTypes.h"
+#include "Engine/World/DebugStatsServices.h"
+#include "Engine/World/RigidBody.h"
 #include "Engine/World/World.h"
+#include "Engine/World/WorldExtract.h"
 
 #include <cmath>
+#include <vector>
 
 namespace
 {
@@ -73,11 +78,20 @@ Result<void> RunEngineSessionTests()
 	bodyDesc.name = "Body";
 	bodyDesc.transform.position = { 0.0f, 4.0f, 0.0f };
 	const EntityId body = engine.GetWorld().Spawn(std::move(bodyDesc));
+	if (!engine.GetWorld().Add<RigidBody>(body, RigidBody{}))
+	{
+		engine.Shutdown(context);
+		return FailRuntime(
+			LogCategory::Core,
+			ErrorCode::InvalidArgument,
+			"Engine should accept a rigid body on the editor world");
+	}
 	content->loaded = true;
 
-	session->mode = SessionMode::Paused;
+	session->requestMode = SessionMode::Paused;
 	engine.Tick(context, 0.016f);
-	if (session->mode != SessionMode::Editor || engine.GetWorld().IsPlaying() || published->generation != 1)
+	if (session->requestMode != SessionMode::Editor || session->mode != SessionMode::Editor
+		|| engine.GetWorld().IsPlaying() || published->generation != 1)
 	{
 		engine.Shutdown(context);
 		return FailRuntime(
@@ -88,9 +102,21 @@ Result<void> RunEngineSessionTests()
 
 	session->mode = SessionMode::Playing;
 	engine.Tick(context, 0.016f);
+	if (session->mode != SessionMode::Editor || engine.GetWorld().IsPlaying())
+	{
+		engine.Shutdown(context);
+		return FailRuntime(
+			LogCategory::Core,
+			ErrorCode::InvalidArgument,
+			"The result mode should not open a session");
+	}
+
+	session->requestMode = SessionMode::Playing;
+	engine.Tick(context, 0.016f);
 	const EntityId camera = FindCamera(engine.GetWorld());
 	const Transform* cameraTransform = engine.GetWorld().GetTransform(camera);
-	if (!engine.GetWorld().IsPlaying() || published->world == editorWorld || editorWorld->IsPlaying()
+	if (!engine.GetWorld().IsPlaying() || session->mode != SessionMode::Playing
+		|| published->world == editorWorld || editorWorld->IsPlaying()
 		|| published->generation != 2 || camera == body || cameraTransform == nullptr
 		|| !IsNearlyEqual(cameraTransform->position.x, 2.0f)
 		|| !IsNearlyEqual(cameraTransform->position.y, 3.0f)
@@ -103,22 +129,46 @@ Result<void> RunEngineSessionTests()
 			"Play should copy the editor world, start from the editor camera pose, and advance the world generation");
 	}
 
-	session->mode = SessionMode::Paused;
-	engine.Tick(context, 0.016f);
-	engine.GetWorld().GetTransform(body)->position.y = 1.0f;
-	if (!engine.GetWorld().IsPlaying() || published->generation != 2)
+	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
+	for (int stepIndex = 0; stepIndex < 30; ++stepIndex)
+	{
+		engine.FixedTick(context, kFixedDeltaSeconds);
+	}
+	DebugStatsServices stats{};
+	std::vector<ExtractedObject> extracted{};
+	Extract(engine.GetWorld(), extracted, 1.0f, stats);
+	const float playedHeight = engine.GetWorld().GetTransform(body)->position.y;
+	if (!(playedHeight < 3.5f))
 	{
 		engine.Shutdown(context);
 		return FailRuntime(
 			LogCategory::Core,
 			ErrorCode::InvalidArgument,
-			"Pause should keep the open play session");
+			"Playing should step the rigid body");
 	}
 
-	session->mode = SessionMode::Editor;
+	session->requestMode = SessionMode::Paused;
+	engine.Tick(context, 0.016f);
+	engine.FixedTick(context, kFixedDeltaSeconds);
+	extracted.clear();
+	Extract(engine.GetWorld(), extracted, 1.0f, stats);
+	if (!engine.GetWorld().IsPlaying() || session->mode != SessionMode::Paused || published->generation != 2
+		|| !IsNearlyEqual(engine.GetWorld().GetTransform(body)->position.y, playedHeight))
+	{
+		engine.Shutdown(context);
+		return FailRuntime(
+			LogCategory::Core,
+			ErrorCode::InvalidArgument,
+			"Pause should keep the open play session and skip the step");
+	}
+
+	engine.GetWorld().GetTransform(body)->position.y = 1.0f;
+
+	session->requestMode = SessionMode::Editor;
 	engine.Tick(context, 0.016f);
 	const Transform* restored = editorWorld->GetTransform(body);
-	if (engine.GetWorld().IsPlaying() || published->world != editorWorld || published->generation != 3
+	if (engine.GetWorld().IsPlaying() || session->mode != SessionMode::Editor
+		|| published->world != editorWorld || published->generation != 3
 		|| restored == nullptr || !IsNearlyEqual(restored->position.y, 4.0f))
 	{
 		engine.Shutdown(context);

@@ -11,9 +11,7 @@
 #include <unordered_map>
 #include <utility>
 
-class InputState;
 class World;
-struct SessionServices;
 
 // 責任: 1エンティティの名前、親、変換、コンポーネントを保持する。
 // 役割: World のスロットに入るシーンノード。生存と ID の世代はスロットが持つ。
@@ -37,14 +35,7 @@ private:
 	{
 		virtual ~ComponentHolder() = default;
 		[[nodiscard]] virtual std::unique_ptr<ComponentHolder> Clone() const = 0;
-		virtual bool Tick(
-			World& world,
-			EntityId self,
-			const SessionServices& session,
-			const InputState* input,
-			float deltaSeconds,
-			bool mouseCaptured,
-			bool keyboardCaptured) = 0;
+		virtual void Tick(World& world, float deltaSeconds) = 0;
 	};
 
 	template<typename T>
@@ -60,16 +51,9 @@ private:
 			return std::make_unique<TypedComponentHolder<T>>(value);
 		}
 
-		bool Tick(
-			World& world,
-			EntityId self,
-			const SessionServices& session,
-			const InputState* input,
-			float deltaSeconds,
-			bool mouseCaptured,
-			bool keyboardCaptured) override
+		void Tick(World& world, float deltaSeconds) override
 		{
-			return value.Tick(world, self, session, input, deltaSeconds, mouseCaptured, keyboardCaptured);
+			value.Tick(world, deltaSeconds);
 		}
 
 		T value;
@@ -116,25 +100,13 @@ private:
 		return components.erase(std::type_index(typeid(T))) > 0;
 	}
 
-	// 生存中の Tick で World が呼ぶ。各コンポーネントの結果を合わせ、相対マウスが必要なら true。
-	[[nodiscard]] bool TickComponents(
-		World& world,
-		EntityId self,
-		const SessionServices& session,
-		const InputState* input,
-		float deltaSeconds,
-		bool mouseCaptured,
-		bool keyboardCaptured)
+	// 生存中の Tick で World が呼ぶ。
+	void TickComponents(World& world, float deltaSeconds)
 	{
-		bool relativeMouse = false;
 		for (const auto& entry : components)
 		{
-			const bool wantsRelativeMouse = entry.second->Tick(
-				world, self, session, input, deltaSeconds, mouseCaptured, keyboardCaptured);
-			relativeMouse = relativeMouse || wantsRelativeMouse;
+			entry.second->Tick(world, deltaSeconds);
 		}
-
-		return relativeMouse;
 	}
 
 	std::unordered_map<std::type_index, std::unique_ptr<ComponentHolder>> components{};

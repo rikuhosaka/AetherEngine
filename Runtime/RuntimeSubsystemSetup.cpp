@@ -18,7 +18,7 @@ void RegisterRuntimeSubsystems(SubsystemRegistry& registry, const EngineLoopConf
 	registry.Register(CreateUiPresentSubsystem());
 	registry.Register(CreateInputSubsystem());
 	Engine(config).RegisterSubsystems(registry);
-	registry.Register(CreateSceneDocumentSubsystem(config.assetsRoot));
+	registry.Register(CreateSceneDocumentSubsystem(config.assetsRoot, config.scenePath));
 }
 
 WindowSubsystem* FindWindowSubsystem(const SubsystemRegistry& registry)

@@ -50,21 +50,21 @@ void DrawStats(SubsystemContext& ctx)
 			modeName = "Paused";
 		}
 		ImGui::Text("Mode %s", modeName);
-		// モードを書くだけ。BeginPlay / EndPlay は後続の Engine::Tick が行う。
-		// Pause は再生中だけ受け付ける。停止中に一時停止へ入れるとセッションを開かずに捨てられる。
+		// 依頼だけを書く。BeginPlay / EndPlay は後続の Engine::Tick が行い、結果は mode に入る。
+		// Pause は結果が再生中のときだけ依頼する。停止中の一時停止はセッションを開かずに捨てられる。
 		if (ImGui::Button("Play"))
 		{
-			session.mode = SessionMode::Playing;
+			session.requestMode = SessionMode::Playing;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Pause") && session.mode == SessionMode::Playing)
 		{
-			session.mode = SessionMode::Paused;
+			session.requestMode = SessionMode::Paused;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Stop"))
 		{
-			session.mode = SessionMode::Editor;
+			session.requestMode = SessionMode::Editor;
 		}
 	}
 	ImGui::End();

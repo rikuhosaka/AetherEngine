@@ -1,7 +1,7 @@
 #include "Engine/Camera/CameraSystemComponent.h"
 
-#include "Engine/World/SessionServices.h"
 #include "Engine/Camera/CameraComponent.h"
+#include "Engine/Camera/PlayerController.h"
 #include "Engine/Platform/InputState.h"
 #include "Engine/World/World.h"
 
@@ -49,28 +49,18 @@ void WriteCameraPose(Transform& transform, const CameraState& pose)
 }
 } // namespace
 
-bool CameraSystemComponent::Tick(
+void CameraSystemComponent::ApplyControl(
 	World& world,
-	EntityId self,
-	const SessionServices& session,
 	const InputState* input,
 	float deltaSeconds,
-	bool mouseCaptured,
-	bool keyboardCaptured)
+	bool useMouse,
+	bool useKeyboard)
 {
-	// 編集中は編集用 World だけが Tick される。再生中と一時停止中はゲーム用 World だけが Tick される。
-	const bool editorView = session.mode == SessionMode::Editor && !world.IsPlaying();
-	const bool playView = world.IsPlaying()
-		&& (session.mode == SessionMode::Playing || session.mode == SessionMode::Paused);
-	if (!editorView && !playView)
+	const EntityId owner = GetOwner();
+	Transform* transform = world.GetTransform(owner);
+	if (input == nullptr || transform == nullptr || world.Get<CameraComponent>(owner) == nullptr)
 	{
-		return false;
-	}
-
-	Transform* transform = world.GetTransform(self);
-	if (input == nullptr || transform == nullptr || world.Get<CameraComponent>(self) == nullptr)
-	{
-		return false;
+		return;
 	}
 
 	if (!m_poseReady)
@@ -81,13 +71,8 @@ bool CameraSystemComponent::Tick(
 		m_poseReady = true;
 	}
 
-	// mouseCaptured / keyboardCaptured は UI が入力を取っているという意味。取られている軸はカメラへ渡さない。
-	// 右ボタン押下かつマウスが空いているときだけ、相対マウス（カーソルを隠して視点を回す）を要求する。
-	const bool useMouse = !mouseCaptured;
-	const bool useKeyboard = !keyboardCaptured;
 	m_cameraController.Update(m_cameraPose, *input, deltaSeconds, useMouse, useKeyboard);
 	WriteCameraPose(*transform, m_cameraPose);
-	return useMouse && input->IsDown(Key::MouseRight);
 }
 
 EntityId FindCamera(const World& world)
@@ -123,7 +108,8 @@ EntityId SpawnCamera(
 	WriteCameraPose(desc.transform, pose);
 	const EntityId camera = world.Spawn(std::move(desc));
 	if (!world.Add<CameraComponent>(camera, CameraComponent{})
-		|| !world.Add<CameraSystemComponent>(camera, CameraSystemComponent{}))
+		|| !world.Add<CameraSystemComponent>(camera, CameraSystemComponent{})
+		|| !world.Add<PlayerController>(camera, PlayerController{}))
 	{
 		world.Destroy(camera);
 		return {};
@@ -147,8 +133,11 @@ Result<void> EnsurePlayCamera(
 
 	if (lens.IsValid())
 	{
-		if (world.Get<CameraSystemComponent>(lens) != nullptr
-			|| world.Add<CameraSystemComponent>(lens, CameraSystemComponent{}))
+		const bool hasSystem = world.Get<CameraSystemComponent>(lens) != nullptr
+			|| world.Add<CameraSystemComponent>(lens, CameraSystemComponent{});
+		const bool hasPlayer = world.Get<PlayerController>(lens) != nullptr
+			|| world.Add<PlayerController>(lens, PlayerController{});
+		if (hasSystem && hasPlayer)
 		{
 			return MakeOk();
 		}

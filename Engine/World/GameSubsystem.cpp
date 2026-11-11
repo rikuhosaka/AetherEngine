@@ -27,11 +27,11 @@ void GameSubsystem::OnEndPlay(World& /*world*/)
 	m_physics.reset();
 }
 
-void GameSubsystem::FixedTick(World& world, const SessionServices& session, float fixedDeltaSeconds)
+void GameSubsystem::FixedTick(World& world, float fixedDeltaSeconds)
 {
-	// 一時停止中も World::FixedTick は届く。積分するのは Playing の間だけ。
+	// 届いた固定ステップは積分する。一時停止中は Engine が呼ばない。
 	// ステップ失敗はセッションを止めず記録する。ここで失敗を返す口が無い。
-	if (session.mode != SessionMode::Playing || m_physics == nullptr)
+	if (m_physics == nullptr)
 	{
 		return;
 	}

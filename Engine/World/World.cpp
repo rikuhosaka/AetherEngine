@@ -13,44 +13,36 @@
 
 World::World() = default;
 
-// 文書だけ写す。スナップショット、モード、サブシステムは持っていかない。
+// Clone だけが使う。文書だけ写す。セッションとサブシステムは持っていかない。
 World::World(const World& other)
 	: m_document(other.m_document)
 {
 }
 
-// 文書だけ置き換える。代入先が再生中でもスナップショット、モード、既存サブシステムの実行時状態は残る。
-World& World::operator=(const World& other)
+World World::Clone() const
 {
-	if (this != &other)
-	{
-		m_document = other.m_document;
-	}
-
-	return *this;
+	return World(*this);
 }
 
-// 文書、セッション、サブシステムをまとめて移す。移した側のモードは Editor に戻し、サブシステム容器は空になる。
+// 文書、セッション、サブシステムをまとめて移す。移した側はセッションを閉じ、サブシステム容器は空になる。
 World::World(World&& other) noexcept
 	: m_document(std::move(other.m_document))
-	, m_editSnapshot(std::move(other.m_editSnapshot))
-	, m_appliedMode(other.m_appliedMode)
+	, m_playing(other.m_playing)
 	, m_subsystems(std::move(other.m_subsystems))
 {
-	other.m_appliedMode = SessionMode::Editor;
+	other.m_playing = false;
 }
 
-// ムーブ構築と同じ。代入先が持っていたセッションとサブシステムは捨て、移した側は Editor でサブシステム無しになる。
+// ムーブ構築と同じ。代入先が持っていたセッションとサブシステムは捨て、移した側はセッションを閉じてサブシステム無しになる。
 World& World::operator=(World&& other) noexcept
 {
 	if (this != &other)
 	{
 		m_document = std::move(other.m_document);
-		m_editSnapshot = std::move(other.m_editSnapshot);
-		m_appliedMode = other.m_appliedMode;
+		m_playing = other.m_playing;
 		m_subsystems = std::move(other.m_subsystems);
 
-		other.m_appliedMode = SessionMode::Editor;
+		other.m_playing = false;
 	}
 
 	return *this;
@@ -338,7 +330,7 @@ Result<void> World::BeginPlay(
 	const DirectX::XMFLOAT3* cameraPosition,
 	const DirectX::XMFLOAT3* cameraForward)
 {
-	if (m_appliedMode == SessionMode::Playing)
+	if (m_playing)
 	{
 		return MakeOk();
 	}
@@ -348,10 +340,8 @@ Result<void> World::BeginPlay(
 		return MakeFail(ErrorCode::InvalidArgument, "Play requires loaded scene content");
 	}
 
-	m_editSnapshot = m_document;
-
-	// 失敗したサブシステム自身は OnEndPlay しない。開始済みを登録順に戻し、文書をスナップショットへ戻す。
-	// 逆順ではない。後続が先行の後始末に依存する書き方はできない。
+	// 失敗したサブシステム自身は OnEndPlay しない。開始済みを登録順に戻す。
+	// 逆順ではない。後続が先行の後始末に依存する書き方はできない。文書は戻さない。
 	std::vector<IWorldSubsystem*> started{};
 	for (IWorldSubsystem* subsystem : SubsystemOrder())
 	{
@@ -362,8 +352,6 @@ Result<void> World::BeginPlay(
 				startedSubsystem->OnEndPlay(*this);
 			}
 
-			m_document = std::move(*m_editSnapshot);
-			m_editSnapshot.reset();
 			return begun;
 		}
 
@@ -377,53 +365,36 @@ Result<void> World::BeginPlay(
 			startedSubsystem->OnEndPlay(*this);
 		}
 
-		m_document = std::move(*m_editSnapshot);
-		m_editSnapshot.reset();
 		return camera;
 	}
 
-	m_appliedMode = SessionMode::Playing;
+	m_playing = true;
 	return MakeOk();
 }
 
 void World::EndPlay()
 {
-	if (m_appliedMode != SessionMode::Playing)
+	if (!m_playing)
 	{
 		return;
 	}
 
-	if (m_editSnapshot.has_value())
-	{
-		m_document = std::move(*m_editSnapshot);
-		m_editSnapshot.reset();
-	}
-
-	// 文書を戻したあと。OnEndPlay はプレイ中に足したカメラや剛体を文書上では見られない。
+	// 文書はそのまま。OnEndPlay はプレイ中に足したカメラや剛体を文書上で見られる。
 	for (IWorldSubsystem* subsystem : SubsystemOrder())
 	{
 		subsystem->OnEndPlay(*this);
 	}
 
-	m_appliedMode = SessionMode::Editor;
+	m_playing = false;
 }
 
-bool World::Tick(
-	float deltaSeconds,
-	const SessionServices& session,
-	WorldServices& published,
-	const InputState* input,
-	bool mouseCaptured,
-	bool keyboardCaptured)
+void World::Tick(float deltaSeconds, WorldServices& published)
 {
 	published.Publish(this);
 
-	bool relativeMouse = false;
 	for (IWorldSubsystem* subsystem : SubsystemOrder())
 	{
-		const bool wantsRelativeMouse = subsystem->Tick(
-			*this, session, input, deltaSeconds, mouseCaptured, keyboardCaptured);
-		relativeMouse = relativeMouse || wantsRelativeMouse;
+		subsystem->Tick(*this, deltaSeconds);
 	}
 
 	for (uint32_t index = 0; index < m_document.slots.size(); ++index)
@@ -434,25 +405,15 @@ bool World::Tick(
 			continue;
 		}
 
-		const bool wantsRelativeMouse = slot.actor.TickComponents(
-			*this,
-			EntityId{ index, slot.generation },
-			session,
-			input,
-			deltaSeconds,
-			mouseCaptured,
-			keyboardCaptured);
-		relativeMouse = relativeMouse || wantsRelativeMouse;
+		slot.actor.TickComponents(*this, deltaSeconds);
 	}
-
-	return relativeMouse;
 }
 
-void World::FixedTick(const SessionServices& session, float fixedDeltaSeconds)
+void World::FixedTick(float fixedDeltaSeconds)
 {
 	for (IWorldSubsystem* subsystem : SubsystemOrder())
 	{
-		subsystem->FixedTick(*this, session, fixedDeltaSeconds);
+		subsystem->FixedTick(*this, fixedDeltaSeconds);
 	}
 }
 
@@ -467,23 +428,9 @@ Result<void> World::LoadContent(
 			"World requires scene content");
 	}
 
-	World* target = this;
-	World editorDocument{};
-	// 再生中のロードはシミュレーション中の文書へ書かない。停止時に戻る編集文書だけ更新する。
-	if (m_editSnapshot.has_value())
-	{
-		editorDocument.m_document = *m_editSnapshot;
-		target = &editorDocument;
-	}
-
-	if (auto loaded = content.loader->Load(*target, ctx); !loaded)
+	if (auto loaded = content.loader->Load(*this, ctx); !loaded)
 	{
 		return loaded;
-	}
-
-	if (m_editSnapshot.has_value())
-	{
-		m_editSnapshot = std::move(editorDocument.m_document);
 	}
 
 	published.Publish(this);

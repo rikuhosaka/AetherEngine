@@ -3,7 +3,6 @@
 #include "Engine/Application/Subsystem/SubsystemContext.h"
 #include "Engine/World/DebugStatsServices.h"
 #include "Engine/World/SceneContentServices.h"
-#include "Engine/World/SessionServices.h"
 #include "Engine/World/WorldServices.h"
 #include "Engine/Camera/CameraComponent.h"
 #include "Engine/Camera/CameraExtract.h"
@@ -876,12 +875,10 @@ Result<void> RunWorldTests()
 			"SpawnCamera should use an explicit pose, and FindCamera should keep the earliest camera");
 	}
 
-	SessionServices idleSession{};
-	idleSession.mode = SessionMode::Playing;
 	WorldServices idleServices{};
-	const bool idleRelative = cameraWorld.Tick(0.1f, idleSession, idleServices, nullptr, false, false);
+	cameraWorld.Tick(0.1f, idleServices);
 	const EntityId plainEntity = cameraWorld.Spawn(WorldSpawnDesc{});
-	if (idleRelative || cameraWorld.Get<CameraSystemComponent>(plainEntity) != nullptr
+	if (cameraWorld.Get<CameraSystemComponent>(plainEntity) != nullptr
 		|| !IsNearlyEqual(cameraWorld.GetTransform(spawnedCamera)->position.y, 1.6f))
 	{
 		return FailRuntime(
@@ -1013,17 +1010,15 @@ Result<void> RunWorldTests()
 			"Beginning play twice should keep the open session");
 	}
 
-	SessionServices playingSession{};
-	playingSession.mode = SessionMode::Playing;
 	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
 	for (int stepIndex = 0; stepIndex < 30; ++stepIndex)
 	{
-		sessionWorld.FixedTick(playingSession, kFixedDeltaSeconds);
+		sessionWorld.FixedTick(kFixedDeltaSeconds);
 	}
 
 	DebugStatsServices stats{};
 	std::vector<ExtractedObject> extracted{};
-	Extract(sessionWorld, extracted, 1.0f, playingSession, stats);
+	Extract(sessionWorld, extracted, 1.0f, stats);
 	const Transform* fallen = sessionWorld.GetTransform(sessionBody);
 	if (fallen == nullptr || !(fallen->position.y < 3.5f) || !IsNearlyEqual(fallen->scale.x, 2.0f)
 		|| !IsNearlyEqual(fallen->scale.y, 3.0f) || !IsNearlyEqual(fallen->scale.z, 4.0f)
@@ -1037,18 +1032,13 @@ Result<void> RunWorldTests()
 	}
 
 	const float pausedHeight = fallen->position.y;
-	playingSession.mode = SessionMode::Paused;
-	sessionWorld.FixedTick(playingSession, kFixedDeltaSeconds);
 	extracted.clear();
-	Extract(sessionWorld, extracted, 0.0f, playingSession, stats);
+	Extract(sessionWorld, extracted, 1.0f, stats);
 	ExtractedView pausedView{};
 	ExtractView(sessionWorld, pausedView, 640, 480);
-	SessionServices heldSession{};
-	heldSession.mode = SessionMode::Paused;
 	WorldServices heldServices{};
-	const bool heldRelative = sessionWorld.Tick(
-		0.016f, heldSession, heldServices, nullptr, false, false);
-	if (!sessionWorld.IsPlaying() || heldRelative || heldServices.generation != 1
+	sessionWorld.Tick(0.016f, heldServices);
+	if (!sessionWorld.IsPlaying() || heldServices.generation != 1
 		|| !IsNearlyEqual(sessionWorld.GetTransform(sessionBody)->position.y, pausedHeight)
 		|| extracted.size() != 1 || !IsNearlyEqual(ExtractedTranslationY(extracted[0]), pausedHeight)
 		|| pausedView.viewportWidth != 640)
@@ -1056,12 +1046,11 @@ Result<void> RunWorldTests()
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"Pause should keep the play scene, skip the step, and extract the play camera");
+			"Leaving the fixed step uncalled should keep the play scene and extract the latest pose");
 	}
 
 	World playingClone = sessionWorld.Clone();
-	World playingCopy{};
-	playingCopy = sessionWorld;
+	World playingCopy = sessionWorld.Clone();
 	playingCopy.GetTransform(sessionBody)->position.y = 0.0f;
 	if (playingClone.IsPlaying() || playingCopy.IsPlaying()
 		|| !IsNearlyEqual(playingClone.GetTransform(sessionBody)->position.y, pausedHeight)
@@ -1070,7 +1059,7 @@ Result<void> RunWorldTests()
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"Copy and Clone should copy the simulated document and leave the play session behind");
+			"Clone should copy the simulated document and leave the play session behind");
 	}
 
 	RecordingLoader loader{};
@@ -1080,12 +1069,12 @@ Result<void> RunWorldTests()
 	WorldServices published{};
 	SubsystemContext loadContext{};
 	if (auto loaded = sessionWorld.LoadContent(content, published, loadContext); !loaded
-		|| HasNamedEntity(sessionWorld, "Loaded") || published.world != &sessionWorld || published.generation != 1)
+		|| !HasNamedEntity(sessionWorld, "Loaded") || published.world != &sessionWorld || published.generation != 1)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"Loading during play should update the editor snapshot");
+			"Loading during play should write the live document");
 	}
 
 	ExtractedView sessionView{};
@@ -1102,34 +1091,30 @@ Result<void> RunWorldTests()
 	}
 
 	sessionWorld.EndPlay();
-	const Transform* restored = sessionWorld.GetTransform(sessionBody);
-	ExtractedView editorView{};
-	editorView.viewportWidth = 7;
-	ExtractView(sessionWorld, editorView, 640, 480);
+	const Transform* closed = sessionWorld.GetTransform(sessionBody);
+	ExtractedView closedView{};
+	closedView.viewportWidth = 7;
+	ExtractView(sessionWorld, closedView, 640, 480);
 	extracted.clear();
-	SessionServices editorSession{};
-	Extract(sessionWorld, extracted, 1.0f, editorSession, stats);
+	Extract(sessionWorld, extracted, 1.0f, stats);
 	if (sessionWorld.IsPlaying()
-		|| FindCamera(sessionWorld).IsValid() || restored == nullptr
-		|| !IsNearlyEqual(restored->position.y, 4.0f) || !IsNearlyEqual(restored->scale.y, 3.0f)
-		|| !HasNamedEntity(sessionWorld, "Loaded") || editorView.viewportWidth != 7
-		|| extracted.size() != 1 || !IsNearlyEqual(ExtractedTranslationY(extracted[0]), 4.0f)
+		|| !FindCamera(sessionWorld).IsValid() || closed == nullptr
+		|| !IsNearlyEqual(closed->position.y, pausedHeight) || !IsNearlyEqual(closed->scale.y, 3.0f)
+		|| !HasNamedEntity(sessionWorld, "Loaded") || closedView.viewportWidth != 640
+		|| extracted.size() != 1 || !IsNearlyEqual(ExtractedTranslationY(extracted[0]), pausedHeight)
 		|| playingClone.IsPlaying() || !IsNearlyEqual(playingClone.GetTransform(sessionBody)->position.y, pausedHeight))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"Ending play should restore the editor document, including content loaded during play");
+			"Ending play should close the session and leave the play document in place");
 	}
 
-	SessionServices session{};
-	session.mode = SessionMode::Playing;
 	WorldServices tickServices{};
-	const bool playingRelative = sessionWorld.Tick(
-		0.016f, session, tickServices, nullptr, false, false);
-	if (playingRelative || sessionWorld.IsPlaying() || session.mode != SessionMode::Playing
+	sessionWorld.Tick(0.016f, tickServices);
+	if (sessionWorld.IsPlaying()
 		|| tickServices.world != &sessionWorld || tickServices.generation != 1
-		|| !IsNearlyEqual(sessionWorld.GetTransform(sessionBody)->position.y, 4.0f))
+		|| !IsNearlyEqual(sessionWorld.GetTransform(sessionBody)->position.y, pausedHeight))
 	{
 		return FailRuntime(
 			LogCategory::ECS,

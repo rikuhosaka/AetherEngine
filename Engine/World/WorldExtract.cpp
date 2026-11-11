@@ -1,7 +1,6 @@
 #include "Engine/World/WorldExtract.h"
 
 #include "Engine/World/DebugStatsServices.h"
-#include "Engine/World/SessionServices.h"
 #include "Engine/Camera/CameraComponent.h"
 #include "Engine/Camera/CameraExtract.h"
 #include "Engine/Camera/CameraSystemComponent.h"
@@ -70,15 +69,8 @@ void Extract(
 	World& world,
 	std::vector<ExtractedObject>& outObjects,
 	float alpha,
-	const SessionServices& session,
 	DebugStatsServices& stats)
 {
-	if (session.mode == SessionMode::Paused)
-	{
-		// 一時停止中に補間すると、停止した瞬間の中間姿勢が残る。最新ステップをそのまま出す。
-		alpha = 1.0f;
-	}
-
 	if (GameSubsystem* game = static_cast<GameSubsystem*>(world.FindSubsystem("Game")))
 	{
 		game->WriteTransforms(world, alpha);

@@ -337,21 +337,21 @@ Result<void> EngineLoop::LoadInitialContent()
 	FrameContext* frameContext = recording.value;
 	m_context.SetFrameSlot(frameContext->frameIndex);
 
-	if (auto loadResult = published.world->LoadContent(
-			*published.content, *published.services, m_context);
-		!loadResult)
-	{
-		m_render.AbortRecording();
-		return loadResult;
-	}
-
 	SceneDocumentSubsystem* scene = SubsystemRegistry::FindCurrent<SceneDocumentSubsystem>();
-	if (scene != nullptr && scene->HasDocument())
+	std::vector<WorldDocumentBinding> spawned{};
+	if (scene != nullptr)
 	{
-		auto uploaded = m_render.UploadScene(scene->GetDocument(), scene->GetAssetCache(), *frameContext);
+		if (auto read = scene->ReadScene(m_config.scenePath); !read)
+		{
+			m_render.AbortRecording();
+			return read;
+		}
+
+		auto uploaded = m_render.UploadScene(scene->GetPendingDocument(), scene->GetAssetCache(), *frameContext);
 		if (!uploaded)
 		{
 			m_render.AbortRecording();
+			scene->DiscardPending();
 			return MakeFail(uploaded.error.code, uploaded.error.message);
 		}
 
@@ -364,20 +364,42 @@ Result<void> EngineLoop::LoadInitialContent()
 
 		Result<std::vector<WorldDocumentBinding>> instantiated = InstantiateScene(
 			*published.world,
-			scene->GetDocument(),
+			scene->GetPendingDocument(),
 			uploaded.value.meshes,
 			uploaded.value.render,
 			modelRefs);
 		if (!instantiated)
 		{
 			m_render.AbortRecording();
+			scene->DiscardPending();
 			return MakeFail(instantiated.error.code, instantiated.error.message);
 		}
 
+		spawned = std::move(instantiated.value);
+	}
+
+	if (auto submitted = m_render.SubmitAndWait(); !submitted)
+	{
+		for (const WorldDocumentBinding& binding : spawned)
+		{
+			published.world->Destroy(binding.entity);
+		}
+
+		if (scene != nullptr)
+		{
+			scene->DiscardPending();
+		}
+
+		return submitted;
+	}
+
+	if (scene != nullptr && scene->HasPending())
+	{
+		scene->CommitPending();
 		published.content->loaded = true;
 	}
 
-	return m_render.SubmitAndWait();
+	return MakeOk();
 }
 
 Result<void> EngineLoop::RenderFrame()
@@ -408,11 +430,14 @@ Result<void> EngineLoop::RenderFrame()
 
 		ExtractView(*published.world, extractedView, width, height);
 		ExtractLighting(*published.world, extractedLighting);
+		// 一時停止中に補間すると、停止した瞬間の中間姿勢が残る。最新ステップをそのまま出す。
+		const float alpha = published.session->mode == SessionMode::Paused
+			? 1.0f
+			: m_context.GetInterpolationAlpha();
 		Extract(
 			*published.world,
 			extractedObjects,
-			m_context.GetInterpolationAlpha(),
-			*published.session,
+			alpha,
 			*published.stats);
 	}
 

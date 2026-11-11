@@ -1,8 +1,10 @@
 #include "Engine/SceneDocument/SceneDocumentTest.h"
 
 #include "Engine/AssetSystem/AssetCache.h"
+#include "Engine/SceneDocument/EditorSceneServices.h"
 #include "Engine/SceneDocument/SceneAssetLoader.h"
 #include "Engine/SceneDocument/SceneDocument.h"
+#include "Engine/SceneDocument/SceneDocumentSubsystem.h"
 #include "Engine/Core/Log/LogMacros.h"
 #include "Engine/Physics/PhysicsLibrary.h"
 #include "Engine/Renderer/Scene/RenderLightingTypes.h"
@@ -503,6 +505,60 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	if (auto drop = TestPhysicsDropDocument(assetsRoot); !drop)
 	{
 		return drop;
+	}
+
+	SceneDocumentSubsystem fresh(assetsRoot);
+	const std::filesystem::path scenePath = assetsRoot / "Scenes" / "PhysicsDrop.json";
+	const std::filesystem::path missingPath = assetsRoot / "Scenes" / "Missing.json";
+	const Result<void> read = fresh.ReadScene(scenePath);
+	EditorSceneServices unpublished{};
+	fresh.Publish(unpublished);
+	const Result<void> failedPending = read ? fresh.ReadScene(missingPath) : read;
+	EditorSceneServices stillUnpublished{};
+	fresh.Publish(stillUnpublished);
+	if (!read || failedPending || fresh.HasDocument() || !fresh.HasPending()
+		|| unpublished.document != nullptr || stillUnpublished.document != nullptr)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"ReadScene should keep the document unpublished");
+	}
+
+	fresh.CommitPending();
+	EditorSceneServices published{};
+	fresh.Publish(published);
+	const Result<void> failedPublished = fresh.ReadScene(missingPath);
+	EditorSceneServices stillPublished{};
+	fresh.Publish(stillPublished);
+	if (fresh.HasPending() || !fresh.HasDocument() || failedPublished
+		|| published.document == nullptr || published.document->entities.size() != 6
+		|| published.path != scenePath || stillPublished.document != published.document
+		|| stillPublished.path != scenePath)
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"CommitPending should publish the scene, and a failed read should leave it");
+	}
+
+	SceneDocumentSubsystem kept(assetsRoot);
+	SceneDocument original{};
+	original.world.push_back({});
+	original.world.back().name = "Kept";
+	kept.SetDocument(std::move(original));
+	kept.SetPath("Scenes/Kept.json");
+	const Result<void> missing = kept.ReadScene(missingPath);
+	EditorSceneServices keptServices{};
+	kept.Publish(keptServices);
+	if (missing || !kept.HasDocument() || kept.HasPending() || keptServices.document == nullptr
+		|| keptServices.path != std::filesystem::path("Scenes/Kept.json")
+		|| keptServices.document->world.empty() || keptServices.document->world.front().name != "Kept")
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"A failed scene read should leave the published document");
 	}
 
 	LOG_INFO(LogCategory::ECS, "SceneDocumentLoadTests passed");

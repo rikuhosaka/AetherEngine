@@ -1,12 +1,10 @@
 #pragma once
 
-#include "Engine/World/SessionServices.h"
 #include "Engine/Application/Subsystem/SubsystemTypes.h"
 #include "Engine/Core/Log/Result.h"
 
 #include <DirectXMath.h>
 
-class InputState;
 class World;
 
 // 責任: 1つの World の、プレイセッション中だけ存在する処理を定義する。
@@ -37,19 +35,11 @@ public:
 	{
 	}
 
-	virtual void FixedTick(World& /*world*/, const SessionServices& /*session*/, float /*fixedDeltaSeconds*/)
+	virtual void FixedTick(World& /*world*/, float /*fixedDeltaSeconds*/)
 	{
 	}
 
-	// 相対マウスが必要なら true。World は各サブシステムの結果を合わせる。
-	virtual bool Tick(
-		World& /*world*/,
-		const SessionServices& /*session*/,
-		const InputState* /*input*/,
-		float /*deltaSeconds*/,
-		bool /*mouseCaptured*/,
-		bool /*keyboardCaptured*/)
+	virtual void Tick(World& /*world*/, float /*deltaSeconds*/)
 	{
-		return false;
 	}
 };

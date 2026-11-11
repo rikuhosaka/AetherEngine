@@ -13,14 +13,19 @@ namespace
 constexpr const char* kDependencies[] = { "Engine" };
 } // namespace
 
-SceneDocumentSubsystem::SceneDocumentSubsystem(std::filesystem::path assetsRoot)
+SceneDocumentSubsystem::SceneDocumentSubsystem(
+	std::filesystem::path assetsRoot,
+	std::filesystem::path scenePath)
 	: m_assetsRoot(std::move(assetsRoot))
+	, m_scenePath(std::move(scenePath))
 {
 }
 
-std::unique_ptr<ISubsystem> CreateSceneDocumentSubsystem(std::filesystem::path assetsRoot)
+std::unique_ptr<ISubsystem> CreateSceneDocumentSubsystem(
+	std::filesystem::path assetsRoot,
+	std::filesystem::path scenePath)
 {
-	return std::make_unique<SceneDocumentSubsystem>(std::move(assetsRoot));
+	return std::make_unique<SceneDocumentSubsystem>(std::move(assetsRoot), std::move(scenePath));
 }
 
 std::span<const char* const> SceneDocumentSubsystem::GetDependencies() const
@@ -49,13 +54,23 @@ void SceneDocumentSubsystem::Tick(SubsystemContext& /*ctx*/, float /*deltaSecond
 
 Result<void> SceneDocumentSubsystem::Load(World& /*world*/, SubsystemContext& /*ctx*/)
 {
+	return ReadScene(m_scenePath);
+}
+
+Result<void> SceneDocumentSubsystem::ReadScene(const std::filesystem::path& scenePath)
+{
 	if (m_assetsRoot.empty())
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"SceneDocumentSubsystem requires an assets root");
 	}
 
-	const std::filesystem::path scenePath = m_assetsRoot / "Scenes" / "PhysicsDrop.json";
+	if (scenePath.empty())
+	{
+		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
+			"SceneDocumentSubsystem requires a scene path");
+	}
+
 	Result<SceneDocument> document = LoadSceneDocument(scenePath);
 	if (!document)
 	{
@@ -74,10 +89,32 @@ Result<void> SceneDocumentSubsystem::Load(World& /*world*/, SubsystemContext& /*
 		return MakeFail(collision.error.code, collision.error.message);
 	}
 
-	SetPath(scenePath);
-	SetDocument(std::move(document.value));
-	Publish(m_editorServices);
+	m_pending = std::move(document.value);
+	m_pendingPath = scenePath;
+	m_hasPending = true;
 	return MakeOk();
+}
+
+void SceneDocumentSubsystem::CommitPending()
+{
+	if (!m_hasPending)
+	{
+		return;
+	}
+
+	SetPath(std::move(m_pendingPath));
+	SetDocument(std::move(m_pending));
+	m_pending = {};
+	m_pendingPath.clear();
+	m_hasPending = false;
+	Publish(m_editorServices);
+}
+
+void SceneDocumentSubsystem::DiscardPending()
+{
+	m_pending = {};
+	m_pendingPath.clear();
+	m_hasPending = false;
 }
 
 void SceneDocumentSubsystem::Shutdown(SubsystemContext& /*ctx*/)
@@ -89,6 +126,7 @@ void SceneDocumentSubsystem::Shutdown(SubsystemContext& /*ctx*/)
 		m_content = nullptr;
 	}
 
+	DiscardPending();
 	m_editorServices = {};
 	m_hasDocument = false;
 }

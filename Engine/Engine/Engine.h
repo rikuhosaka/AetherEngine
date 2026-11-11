@@ -13,7 +13,7 @@
 class SubsystemRegistry;
 
 // 責任: 起動時からある編集用 World と、プレイ中だけのゲーム用 World、セッションと公開用サービスを持つ。
-// 役割: UI が書いたモードをプレイの開始と終了へ反映し、可変 Tick と固定 Tick を今の World へ渡す。
+// 役割: UI が書いた依頼をプレイの開始と終了へ反映し、可変 Tick と固定 Tick を今の World へ渡す。
 // 所有: SubsystemRegistry が unique_ptr で持つ。編集用 World は常にメンバ。ゲーム用 World はプレイ中だけ unique_ptr で持つ。
 //       公開されるのは今 Tick している World。他のサブシステムはレジストリからこの Engine を引いて読む。
 class Engine final : public ISubsystem

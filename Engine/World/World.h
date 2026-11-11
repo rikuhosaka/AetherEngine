@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Engine/World/SceneContentServices.h"
-#include "Engine/World/SessionServices.h"
 #include "Engine/World/WorldServices.h"
 #include "Engine/Core/Log/Result.h"
 #include "Engine/World/Actor.h"
@@ -13,7 +12,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,20 +24,19 @@ struct WorldSpawnDesc
 	EntityId parent{};
 };
 
-class InputState;
 class IWorldSubsystem;
 class SubsystemContext;
 
 // 責任: シーン文書と、その文書に紐づく再生用サブシステムの寿命を持つ。
 // 役割: エンティティの生成、破棄、親子と、プレイセッションの開始、終了、Tick を行う。
 // 所有: Engine のメンバ。アクター、コンポーネント、IWorldSubsystem を所有する。
-//       セッションと入力は参照で受け取り、所有しない。サブシステムの実行時状態はコピーに含めず、ムーブで一緒に移る。
+//       セッションが開いているかどうかだけを持つ。モードは持たない。
+//       サブシステムの実行時状態は Clone に含めず、ムーブで一緒に移る。
 class World final
 {
 public:
 	World();
-	World(const World& other);
-	World& operator=(const World& other);
+	World& operator=(const World&) = delete;
 	World(World&&) noexcept;
 	World& operator=(World&&) noexcept;
 	~World();
@@ -64,6 +61,7 @@ public:
 
 	// Fails when the entity is dead or already has this component.
 	// T must derive from Component and be copyable.
+	// 足せたコンポーネントには、このエンティティの ID を書く。
 	template<typename T>
 	[[nodiscard]] bool Add(EntityId id, T value)
 	{
@@ -73,7 +71,13 @@ public:
 			return false;
 		}
 
-		return slot->actor.Add(std::move(value));
+		if (!slot->actor.Add(std::move(value)))
+		{
+			return false;
+		}
+
+		slot->actor.Get<T>()->BindOwner(id);
+		return true;
 	}
 
 	template<typename T>
@@ -131,13 +135,10 @@ public:
 	[[nodiscard]] LightingSettings& GetLighting() { return m_document.lighting; }
 	[[nodiscard]] const LightingSettings& GetLighting() const { return m_document.lighting; }
 
-	// 文書だけを写す。スロット、世代、親子、名前、変換、空き番号、コンポーネント、ライティング。
+	// 文書だけを写した新しい World を返す。スロット、世代、親子、名前、変換、空き番号、コンポーネント、ライティング。
 	// 死んだスロットは死んだままなのでエンティティ ID は一致する。欠けているコンポーネントも欠けたまま。
 	// プレイセッションとサブシステムは写さない。複製先のサブシステムは空。
-	[[nodiscard]] World Clone() const
-	{
-		return World(*this);
-	}
+	[[nodiscard]] World Clone() const;
 
 	// ワールド所有のサブシステムを足す。null、または同名が既にあるときは足さない。
 	[[nodiscard]] bool AddSubsystem(std::unique_ptr<IWorldSubsystem> subsystem);
@@ -147,37 +148,30 @@ public:
 	[[nodiscard]] const IWorldSubsystem* FindSubsystem(std::string_view name) const;
 
 	// プレイセッションが開いている。一時停止中も true。Editor へ戻して EndPlay したときだけ false。
-	[[nodiscard]] bool IsPlaying() const { return m_appliedMode == SessionMode::Playing; }
+	[[nodiscard]] bool IsPlaying() const { return m_playing; }
 
-	// 文書をスナップショットしてから、サブシステムを Tick グループ順に OnBeginPlay する。
+	// サブシステムを Tick グループ順に OnBeginPlay する。
 	// 開始が揃ったら、先頭のカメラへ CameraSystemComponent を足す。カメラが無ければ1つ作る。
 	// すでにセッション中なら何もしない。コンテンツ未ロード、開始失敗、カメラを足せないとき失敗する。
-	// 失敗時は開始済みだけ OnEndPlay し、文書をスナップショットへ戻してセッションを開かない。
+	// 失敗時は開始済みだけ OnEndPlay し、セッションを開かない。文書は戻さない。
 	// カメラ位置と前方は両方非 null のときだけ使う。片方でも null なら代替姿勢でカメラを足す。
 	[[nodiscard]] Result<void> BeginPlay(
 		bool contentLoaded,
 		const DirectX::XMFLOAT3* cameraPosition,
 		const DirectX::XMFLOAT3* cameraForward);
-	// セッションを閉じ、文書をスナップショットへ戻してから各 OnEndPlay を呼ぶ。
-	// OnEndPlay から見えるのは編集時の文書で、再生中に生成したエンティティは既に無い。
+	// セッションを閉じ、各 OnEndPlay を呼ぶ。文書は戻さない。
+	// OnEndPlay から見えるのは再生中の文書で、再生中に生成したエンティティも残っている。
 	// IsPlaying は OnEndPlay の間も true。セッションが閉じていなければ何もしない。一時停止では呼ばない。
 	void EndPlay();
 
 	// このワールドを公開し、編集中も含めてサブシステムと全コンポーネントを Tick する。
-	// コンポーネントはスロット順。戻り値は、いずれかが相対マウスを要求したか。
-	[[nodiscard]] bool Tick(
-		float deltaSeconds,
-		const SessionServices& session,
-		WorldServices& published,
-		const InputState* input,
-		bool mouseCaptured,
-		bool keyboardCaptured);
+	// コンポーネントはスロット順。入力はコンポーネントが自分で読む。
+	void Tick(float deltaSeconds, WorldServices& published);
 
-	// 固定ステップ。積分するかは各サブシステムが session.mode を見て決める。
-	// 一時停止中も届くが、GameSubsystem は Playing のときだけ進める。
-	void FixedTick(const SessionServices& session, float fixedDeltaSeconds);
+	// 固定ステップ。呼ぶのは再生中だけ。一時停止と編集中は Engine が呼ばない。
+	void FixedTick(float fixedDeltaSeconds);
 
-	// シーンを文書へ読む。再生中はライブの文書を触らず、EndPlay で戻すスナップショットだけ差し替える。
+	// シーンをこの World の文書へ読む。再生中でもライブの文書を更新する。
 	// GPU リソースの生成は呼び出し側が行う。
 	[[nodiscard]] Result<void> LoadContent(
 		SceneContentServices& content,
@@ -254,7 +248,10 @@ private:
 
 	[[nodiscard]] std::vector<IWorldSubsystem*> SubsystemOrder() const;
 
-	// コピー構築、コピー代入、Clone が写すもの。プレイ中の実行時状態は外に置く。
+	// Clone だけが使う。文書だけを写し、セッションとサブシステムは持っていかない。
+	World(const World& other);
+
+	// Clone が写すもの。プレイ中の実行時状態は外に置く。
 	struct Document
 	{
 		std::vector<Slot> slots{};
@@ -264,12 +261,10 @@ private:
 
 	Document m_document{};
 
-	// プレイセッション。コピーと Clone には含めない。コピー代入もここを消さない。
-	// 再生中の World へコピー代入すると、文書だけ替わってセッションと物理が残る。
-	std::optional<Document> m_editSnapshot{};
-	SessionMode m_appliedMode = SessionMode::Editor;
+	// プレイセッションが開いている。Clone には含めない。一時停止でも true のまま。
+	bool m_playing = false;
 
-	// ワールド所有のサブシステム。生成後に AddSubsystem で足す。コピーと Clone は空のまま。
+	// ワールド所有のサブシステム。生成後に AddSubsystem で足す。Clone は空のまま。
 	// ムーブは実行時状態ごと移す。移した側のサブシステムは空。
 	std::vector<std::unique_ptr<IWorldSubsystem>> m_subsystems{};
 };
