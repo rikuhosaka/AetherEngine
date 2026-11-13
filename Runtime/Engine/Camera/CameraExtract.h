@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/Engine/Camera/CameraComponent.h"
+#include "Runtime/Engine/World/Component/CameraComponent.h"
 #include "Runtime/Engine/Camera/CameraState.h"
 
 #include <DirectXMath.h>

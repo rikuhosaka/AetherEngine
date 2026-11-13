@@ -4,7 +4,7 @@
 #include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
 #include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Runtime/Engine/Engine/Subsystem/InputSubsystem.h"
-#include "Runtime/Engine/Camera/CameraSystemComponent.h"
+#include "Runtime/Engine/World/Component/CameraSystemComponent.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Engine/World/Subsystem/GameSubsystem.h"
 

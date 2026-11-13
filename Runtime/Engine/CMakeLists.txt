@@ -1,9 +1,6 @@
 
 add_library(Engine INTERFACE)
 
-add_subdirectory(AssetSystem)
-set_target_properties(AssetSystem PROPERTIES FOLDER "Runtime/Engine/AssetSystem")
-
 add_subdirectory(Camera)
 set_target_properties(Camera PROPERTIES FOLDER "Runtime/Engine/Camera")
 

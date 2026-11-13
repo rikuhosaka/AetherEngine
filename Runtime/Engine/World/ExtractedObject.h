@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Runtime/Engine/World/EntityId.h"
-#include "Runtime/Engine/World/Renderable.h"
+#include "Runtime/Engine/World/Component/Renderable.h"
 
 #include <cstdint>
 #include <span>

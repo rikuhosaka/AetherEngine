@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/Engine/World/Component.h"
+#include "Runtime/Engine/World/Component/Component.h"
 #include "Runtime/Engine/World/EntityId.h"
 #include "Runtime/Engine/World/Transform.h"
 

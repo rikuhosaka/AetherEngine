@@ -4,7 +4,7 @@
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 #include "Runtime/Renderer/Material/MaterialTypes.h"
 #include "Runtime/Renderer/Mesh/MeshTypes.h"
-#include "Runtime/Engine/AssetSystem/Texture/Loader/TextureLoadTypes.h"
+#include "Runtime/AssetSystem/Texture/Loader/TextureLoadTypes.h"
 #include "Runtime/Renderer/Texture/TextureTypes.h"
 #include "Runtime/Engine/World/EntityId.h"
 #include "Runtime/Engine/World/Transform.h"

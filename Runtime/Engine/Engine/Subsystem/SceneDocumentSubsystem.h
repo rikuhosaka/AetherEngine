@@ -4,7 +4,7 @@
 #include "Runtime/Engine/World/SceneContentServices.h"
 #include "Runtime/Engine/Application/Subsystem/ISceneContent.h"
 #include "Runtime/Engine/Application/Subsystem/ISubsystem.h"
-#include "Runtime/Engine/AssetSystem/AssetCache.h"
+#include "Runtime/AssetSystem/AssetCache.h"
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 
 #include <filesystem>

@@ -1,6 +1,6 @@
 #include "Runtime/Engine/SceneDocument/SceneDocumentTest.h"
 
-#include "Runtime/Engine/AssetSystem/AssetCache.h"
+#include "Runtime/AssetSystem/AssetCache.h"
 #include "Runtime/Engine/SceneDocument/EditorSceneServices.h"
 #include "Runtime/Engine/SceneDocument/SceneAssetLoader.h"
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"

@@ -4,7 +4,7 @@
 #include "Runtime/Core/Math/Matrix.h"
 #include "Runtime/Core/Math/Transform.h"
 #include "Runtime/Engine/World/ExtractedObject.h"
-#include "Runtime/Engine/World/Renderable.h"
+#include "Runtime/Engine/World/Component/Renderable.h"
 #include "Runtime/Engine/World/World.h"
 #include "Runtime/Engine/World/WorldExtract.h"
 

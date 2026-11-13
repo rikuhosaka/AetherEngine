@@ -3,7 +3,7 @@
 #include "Runtime/Engine/SceneDocument/SceneCapture.h"
 
 #include "Runtime/Core/Log/LogMacros.h"
-#include "Runtime/Engine/World/DocumentEntityId.h"
+#include "Runtime/Engine/World/Component/DocumentEntityId.h"
 #include "Runtime/Engine/World/World.h"
 
 #include <cmath>

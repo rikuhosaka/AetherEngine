@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/Engine/AssetSystem/Texture/Loader/TextureLoadTypes.h"
+#include "Runtime/AssetSystem/Texture/Loader/TextureLoadTypes.h"
 #include "Runtime/Renderer/Texture/TextureTypes.h"
 
 #include <cstdint>

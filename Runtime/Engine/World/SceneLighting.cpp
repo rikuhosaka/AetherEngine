@@ -1,7 +1,7 @@
 #include "Runtime/Engine/World/SceneLighting.h"
 
 #include "Runtime/Engine/World/ExtractedLighting.h"
-#include "Runtime/Engine/World/LightComponent.h"
+#include "Runtime/Engine/World/Component/LightComponent.h"
 #include "Runtime/Engine/World/World.h"
 
 #include <DirectXMath.h>

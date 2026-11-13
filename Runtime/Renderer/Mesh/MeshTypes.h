@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/Engine/AssetSystem/MeshBounds.h"
+#include "Runtime/AssetSystem/MeshBounds.h"
 #include "Runtime/Core/Handle/Handle.h"
 #include "Runtime/RHI/Interface/RHIBuffer.h"
 

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Runtime/Engine/Camera/CameraComponent.h"
+#include "Runtime/Engine/World/Component/CameraComponent.h"
 #include "Runtime/Engine/World/EntityId.h"
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/World/LightComponent.h"
-#include "Runtime/Engine/World/Renderable.h"
-#include "Runtime/Engine/World/RigidBody.h"
+#include "Runtime/Engine/World/Component/LightComponent.h"
+#include "Runtime/Engine/World/Component/Renderable.h"
+#include "Runtime/Engine/World/Component/RigidBody.h"
 #include "Runtime/Engine/World/WorldDocument.h"
 
 #include <cstdint>

@@ -3,7 +3,7 @@
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Renderer/Resource/FrameContext.h"
 #include "Runtime/Renderer/Texture/Cache/TextureLoadCache.h"
-#include "Runtime/Engine/AssetSystem/Texture/Loader/TextureLoadTypes.h"
+#include "Runtime/AssetSystem/Texture/Loader/TextureLoadTypes.h"
 #include "Runtime/Renderer/Texture/TexturePool.h"
 #include "Runtime/Renderer/Texture/TextureUpload.h"
 

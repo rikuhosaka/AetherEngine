@@ -1,14 +1,14 @@
 #include "Runtime/Engine/World/WorldExtract.h"
 
 #include "Runtime/Engine/World/DebugStatsServices.h"
-#include "Runtime/Engine/Camera/CameraComponent.h"
+#include "Runtime/Engine/World/Component/CameraComponent.h"
 #include "Runtime/Engine/Camera/CameraExtract.h"
-#include "Runtime/Engine/Camera/CameraSystemComponent.h"
+#include "Runtime/Engine/World/Component/CameraSystemComponent.h"
 #include "Runtime/Engine/Camera/ExtractedView.h"
 #include "Runtime/Core/Math/Matrix.h"
 #include "Runtime/Engine/World/ExtractedLighting.h"
 #include "Runtime/Engine/World/Subsystem/GameSubsystem.h"
-#include "Runtime/Engine/World/Renderable.h"
+#include "Runtime/Engine/World/Component/Renderable.h"
 #include "Runtime/Engine/World/SceneLighting.h"
 #include "Runtime/Engine/World/World.h"
 

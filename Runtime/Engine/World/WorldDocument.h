@@ -2,7 +2,7 @@
 
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Engine/World/EntityId.h"
-#include "Runtime/Engine/World/Renderable.h"
+#include "Runtime/Engine/World/Component/Renderable.h"
 #include "Runtime/Engine/World/Transform.h"
 
 #include <cstdint>

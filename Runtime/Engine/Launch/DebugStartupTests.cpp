@@ -1,9 +1,9 @@
 #include "Runtime/Engine/Launch/DebugStartupTests.h"
 
 #include "Runtime/Engine/Application/Test/FixedStepTest.h"
-#include "Runtime/Engine/AssetSystem/Test/AssetCacheTest.h"
+#include "Runtime/AssetSystem/Test/AssetCacheTest.h"
 #include "Runtime/Engine/Application/Test/SubsystemOrderTest.h"
-#include "Runtime/Engine/AssetSystem/Test/FbxModelFileLoaderTest.h"
+#include "Runtime/AssetSystem/Test/FbxModelFileLoaderTest.h"
 #include "Runtime/Engine/Engine/RendererDebugTests.h"
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 #include "Runtime/Engine/SceneDocument/SceneDocumentTest.h"

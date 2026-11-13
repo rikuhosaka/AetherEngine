@@ -1,6 +1,6 @@
 #include "Runtime/Renderer/Scene/SceneAssetUpload.h"
 
-#include "Runtime/Engine/AssetSystem/AssetCache.h"
+#include "Runtime/AssetSystem/AssetCache.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Renderer/Material/MaterialSystemServices.h"
 #include "Runtime/Renderer/Mesh/MeshSystemServices.h"

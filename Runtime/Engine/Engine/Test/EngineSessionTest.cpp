@@ -2,13 +2,13 @@
 
 #include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
 #include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
-#include "Runtime/Engine/Camera/CameraSystemComponent.h"
+#include "Runtime/Engine/World/Component/CameraSystemComponent.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Engine/Engine/Subsystem/Engine.h"
 #include "Runtime/Engine/Engine/Subsystem/InputSubsystem.h"
 #include "Runtime/Engine/World/ExtractedObject.h"
 #include "Runtime/Engine/World/DebugStatsServices.h"
-#include "Runtime/Engine/World/RigidBody.h"
+#include "Runtime/Engine/World/Component/RigidBody.h"
 #include "Runtime/Engine/World/World.h"
 #include "Runtime/Engine/World/WorldExtract.h"
 

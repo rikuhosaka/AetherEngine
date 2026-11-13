@@ -1,7 +1,7 @@
 #include "Runtime/Engine/World/EntityPhysics.h"
 
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/World/RigidBody.h"
+#include "Runtime/Engine/World/Component/RigidBody.h"
 
 namespace
 {

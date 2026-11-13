@@ -2,7 +2,7 @@
 
 #include "Runtime/Engine/Application/Subsystem/IWorldSubsystem.h"
 #include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
-#include "Runtime/Engine/Camera/CameraSystemComponent.h"
+#include "Runtime/Engine/World/Component/CameraSystemComponent.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Math/Transform.h"
 

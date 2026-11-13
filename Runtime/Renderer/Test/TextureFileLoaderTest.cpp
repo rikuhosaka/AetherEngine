@@ -1,8 +1,8 @@
 #include "Runtime/Renderer/Test/TextureFileLoaderTest.h"
 
 #include "Runtime/Core/Log/LogMacros.h"
-#include "Runtime/Engine/AssetSystem/Texture/Loader/TextureAssetPath.h"
-#include "Runtime/Engine/AssetSystem/Texture/Loader/TextureFileLoader.h"
+#include "Runtime/AssetSystem/Texture/Loader/TextureAssetPath.h"
+#include "Runtime/AssetSystem/Texture/Loader/TextureFileLoader.h"
 #include "Runtime/Renderer/Texture/Loader/TextureImageToUpload.h"
 
 namespace
