@@ -1,0 +1,49 @@
+#pragma once
+
+#include "Runtime/Engine/Application/Subsystem/EngineLoopConfig.h"
+#include "Runtime/Engine/Application/Subsystem/FrameClock.h"
+#include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
+#include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
+#include "Runtime/Core/Log/Result.h"
+#include "Runtime/Engine/Engine/EngineRender.h"
+
+class IEngineLoopPlatform;
+struct FrameContext;
+
+// 責任: 起動から終了までのフレーム進行を行う。
+// 役割: サブシステムの初期化、可変 Tick、固定 Tick、最初のシーン読み込み、描画を順に呼ぶ。
+// 所有: レジストリ、コンテキスト、描画システム、フレーム時計をメンバとして持つ。
+//       レジストリ経由で各 ISubsystem を所有する。プラットフォームは非所有ポインタ。
+class EngineLoop
+{
+public:
+	EngineLoop(EngineLoopConfig config, SubsystemRegistry registry);
+
+	Result<void> Initialize();
+	int Run();
+	void Shutdown();
+
+private:
+	bool ProcessPlatformMessages();
+	void UpdateClock();
+	Result<void> ApplyPendingResize();
+	void TickSubsystems();
+	void TickFixedSubsystems();
+	Result<void> LoadInitialContent();
+	Result<void> RenderFrame();
+	Result<void> ResolveHosts();
+	void ShutdownSession();
+
+	EngineLoopConfig m_config{};
+	SubsystemRegistry m_registry{};
+	SubsystemContext m_context{};
+	EngineRender m_render{};
+	FrameClock m_clock{};
+	double m_simulationAccumulator = 0.0;
+	uint32_t m_fixedStepCount = 0;
+	IEngineLoopPlatform* m_platform = nullptr;
+	bool m_running = false;
+	bool m_pendingResize = false;
+	uint32_t m_pendingWidth = 0;
+	uint32_t m_pendingHeight = 0;
+};

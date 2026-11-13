@@ -1,0 +1,136 @@
+#pragma once
+
+#include "Runtime/Engine/World/Component.h"
+#include "Runtime/Engine/World/EntityId.h"
+#include "Runtime/Engine/World/Transform.h"
+
+#include <memory>
+#include <string>
+#include <typeindex>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+
+class World;
+
+// 責任: 1エンティティの名前、親、変換、コンポーネントを保持する。
+// 役割: World のスロットに入るシーンノード。生存と ID の世代はスロットが持つ。
+// 所有: World のスロットが値で持つ。コンポーネントはこのアクターが所有し、アクターのコピーと一緒に複製される。
+struct Actor
+{
+	Actor() = default;
+	Actor(const Actor& other);
+	Actor& operator=(const Actor& other);
+	Actor(Actor&&) noexcept = default;
+	Actor& operator=(Actor&&) noexcept = default;
+
+	EntityId parent{};
+	std::string name{};
+	Transform transform{};
+
+private:
+	friend class World;
+
+	struct ComponentHolder
+	{
+		virtual ~ComponentHolder() = default;
+		[[nodiscard]] virtual std::unique_ptr<ComponentHolder> Clone() const = 0;
+		virtual void Tick(World& world, float deltaSeconds) = 0;
+	};
+
+	template<typename T>
+	struct TypedComponentHolder final : ComponentHolder
+	{
+		explicit TypedComponentHolder(T stored)
+			: value(std::move(stored))
+		{
+		}
+
+		[[nodiscard]] std::unique_ptr<ComponentHolder> Clone() const override
+		{
+			return std::make_unique<TypedComponentHolder<T>>(value);
+		}
+
+		void Tick(World& world, float deltaSeconds) override
+		{
+			value.Tick(world, deltaSeconds);
+		}
+
+		T value;
+	};
+
+	// Fails when this actor already has T. T must derive from Component and be copyable.
+	template<typename T>
+	[[nodiscard]] bool Add(T value)
+	{
+		static_assert(std::is_base_of_v<Component, T>);
+		static_assert(std::is_copy_constructible_v<T>);
+
+		const std::type_index type = std::type_index(typeid(T));
+		if (components.find(type) != components.end())
+		{
+			return false;
+		}
+
+		components.emplace(type, std::make_unique<TypedComponentHolder<T>>(std::move(value)));
+		return true;
+	}
+
+	template<typename T>
+	[[nodiscard]] T* Get()
+	{
+		return const_cast<T*>(std::as_const(*this).Get<T>());
+	}
+
+	template<typename T>
+	[[nodiscard]] const T* Get() const
+	{
+		const auto it = components.find(std::type_index(typeid(T)));
+		if (it == components.end())
+		{
+			return nullptr;
+		}
+
+		return &static_cast<const TypedComponentHolder<T>*>(it->second.get())->value;
+	}
+
+	template<typename T>
+	[[nodiscard]] bool Remove()
+	{
+		return components.erase(std::type_index(typeid(T))) > 0;
+	}
+
+	// 生存中の Tick で World が呼ぶ。
+	void TickComponents(World& world, float deltaSeconds)
+	{
+		for (const auto& entry : components)
+		{
+			entry.second->Tick(world, deltaSeconds);
+		}
+	}
+
+	std::unordered_map<std::type_index, std::unique_ptr<ComponentHolder>> components{};
+};
+
+inline Actor::Actor(const Actor& other)
+	: parent(other.parent)
+	, name(other.name)
+	, transform(other.transform)
+{
+	for (const auto& entry : other.components)
+	{
+		components.emplace(entry.first, entry.second->Clone());
+	}
+}
+
+inline Actor& Actor::operator=(const Actor& other)
+{
+	if (this == &other)
+	{
+		return *this;
+	}
+
+	Actor copy(other);
+	*this = std::move(copy);
+	return *this;
+}

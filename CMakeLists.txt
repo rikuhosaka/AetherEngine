@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD 20)
 # 指定したバージョンが必須であることを伝える（古いコンパイラでエラーにする）
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(COMMON_PCH
-    ${CMAKE_SOURCE_DIR}/Engine/Core/pch.h
+    ${CMAKE_SOURCE_DIR}/Runtime/Core/pch.h
 )
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -51,8 +51,28 @@ endforeach()
 add_subdirectory(ThirdParty)
 set_target_properties(ThirdParty PROPERTIES FOLDER "ThirdParty")
 
-add_subdirectory(Engine)
-set_target_properties(Engine PROPERTIES FOLDER "Engine")
+add_subdirectory(Runtime/Core)
+set_target_properties(Core PROPERTIES FOLDER "Runtime/Core")
+
+add_subdirectory(Runtime/Core/Math)
+set_target_properties(Math PROPERTIES FOLDER "Runtime/Core/Math")
+
+add_subdirectory(Runtime/Core/Platform)
+set_target_properties(Platform PROPERTIES FOLDER "Runtime/Core/Platform")
+
+add_subdirectory(Runtime/Engine)
+set_target_properties(Engine PROPERTIES FOLDER "Runtime/Engine")
+
+# RHI は Application と Platform のあと。
+add_subdirectory(Runtime/RHI)
+set_target_properties(RHI PROPERTIES FOLDER "Runtime/RHI")
+target_link_libraries(Engine INTERFACE
+    RHI
+    RHI_Interface)
+
+# Renderer は World と DX12 のあと。リンクするのは EngineModule だけ。
+add_subdirectory(Runtime/Renderer)
+set_target_properties(Renderer PROPERTIES FOLDER "Runtime/Renderer")
 
 # Assets フォルダ内のすべてのファイルを再帰的に取得
 file(GLOB_RECURSE ASSETS_FILES
@@ -150,6 +170,7 @@ set_target_properties(Editor PROPERTIES FOLDER "Editor")
 
 # Engine is configured before Editor exists. Link here, and keep EngineModule out of the Engine interface.
 target_link_libraries(EngineModule PUBLIC Editor)
+target_link_libraries(EngineModule PUBLIC Renderer)
 
-add_subdirectory(Runtime)
-set_target_properties(Runtime PROPERTIES FOLDER "Runtime")
+add_subdirectory(Runtime/Engine/Launch)
+set_target_properties(Launch PROPERTIES FOLDER "Runtime/Engine/Launch")

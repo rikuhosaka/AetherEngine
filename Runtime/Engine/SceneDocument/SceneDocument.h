@@ -1,0 +1,78 @@
+#pragma once
+
+#include "Runtime/Engine/Camera/CameraComponent.h"
+#include "Runtime/Engine/World/EntityId.h"
+#include "Runtime/Core/Log/Result.h"
+#include "Runtime/Engine/World/LightComponent.h"
+#include "Runtime/Engine/World/Renderable.h"
+#include "Runtime/Engine/World/RigidBody.h"
+#include "Runtime/Engine/World/WorldDocument.h"
+
+#include <cstdint>
+#include <filesystem>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+class World;
+
+// GPU 上のモデルを既存エンティティの子として出す。実装は Renderer 側。
+class ISceneModelSpawn
+{
+public:
+	virtual ~ISceneModelSpawn() = default;
+
+	virtual Result<void> SpawnUnder(World& world, EntityId parent) = 0;
+};
+
+struct SceneModelRef
+{
+	uint32_t documentId = 0;
+	ISceneModelSpawn* assets = nullptr;
+};
+
+// Parallel to SceneDocument::world. A missing component means the entity does not have it.
+struct SceneEntity
+{
+	uint32_t id = 0;
+	std::string mesh{};
+	std::string model{};
+	float tint[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+	std::optional<RigidBody> body{};
+	std::optional<CameraComponent> camera{};
+	std::optional<LightComponent> light{};
+};
+
+struct SceneDocument
+{
+	WorldDocument world{};
+	std::vector<SceneEntity> entities{};
+};
+
+struct SceneMeshRef
+{
+	std::string key{};
+	WorldMeshId mesh{};
+};
+
+struct SceneRenderResources
+{
+	WorldMaterialId material{};
+	WorldTextureId baseColor{};
+	std::optional<uint32_t> materialConstantsSlot{};
+};
+
+[[nodiscard]] Result<std::string> WriteSceneDocument(const SceneDocument& document);
+[[nodiscard]] Result<SceneDocument> ReadSceneDocument(std::string_view text);
+[[nodiscard]] Result<SceneDocument> LoadSceneDocument(const std::filesystem::path& path);
+
+// Resolves mesh keys, copies tint, and adds rigid body, camera, and light components.
+// A failure destroys entities from this call.
+[[nodiscard]] Result<std::vector<WorldDocumentBinding>> InstantiateScene(
+	World& world,
+	const SceneDocument& document,
+	std::span<const SceneMeshRef> meshes,
+	const SceneRenderResources& render,
+	std::span<const SceneModelRef> models = {});

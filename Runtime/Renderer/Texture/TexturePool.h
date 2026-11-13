@@ -1,0 +1,15 @@
+#pragma once
+
+#include "Runtime/Core/Containers/ResourcePool.h"
+#include "Runtime/Renderer/Texture/TextureTypes.h"
+
+class TexturePool
+{
+public:
+	[[nodiscard]] TextureHandle Add(std::unique_ptr<Texture> texture);
+	[[nodiscard]] Texture* Get(TextureHandle handle);
+	void Remove(TextureHandle handle);
+
+private:
+	ResourcePool<Texture> m_pool{};
+};

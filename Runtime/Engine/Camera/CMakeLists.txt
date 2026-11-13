@@ -1,0 +1,35 @@
+file(GLOB_RECURSE Camera_SRC
+    CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.h
+)
+
+# CameraSystemComponent.cpp と PlayerController.cpp は World を呼び、World はそれらを呼ぶ。
+# Camera ライブラリへ入れると World との静的ライブラリ循環になるので、翻訳単位は World が持つ。
+# 宣言は Camera に残す。ここへ cpp を戻すとリンク順が再び循環する。
+list(FILTER Camera_SRC EXCLUDE REGEX "CameraSystemComponent\\.cpp$")
+list(FILTER Camera_SRC EXCLUDE REGEX "PlayerController\\.cpp$")
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${Camera_SRC})
+
+add_library(Camera STATIC ${Camera_SRC})
+
+if (MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+
+target_include_directories(Camera
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}
+)
+
+target_link_libraries(Camera
+    PUBLIC
+        Math
+        Platform
+)
+
+target_compile_definitions(Camera PRIVATE NOMINMAX)
+
+target_precompile_headers(Camera PRIVATE "${CMAKE_SOURCE_DIR}/Runtime/Core/pch.h")
+set_target_properties(Camera PROPERTIES FOLDER "Runtime/Engine/Camera")

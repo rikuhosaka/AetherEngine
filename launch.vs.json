@@ -5,8 +5,8 @@
     {
       "type": "default",
       "project": "CMakeLists.txt",
-      "projectTarget": "Runtime.exe",
-      "name": "Runtime (Debug)"
+      "projectTarget": "Launch.exe",
+      "name": "Launch (Debug)"
     }
   ]
 }

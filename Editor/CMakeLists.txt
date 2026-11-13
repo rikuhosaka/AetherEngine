@@ -26,5 +26,5 @@ target_link_libraries(Editor
 
 target_compile_definitions(Editor PRIVATE NOMINMAX)
 
-target_precompile_headers(Editor PRIVATE "${CMAKE_SOURCE_DIR}/Engine/Core/pch.h")
+target_precompile_headers(Editor PRIVATE "${CMAKE_SOURCE_DIR}/Runtime/Core/pch.h")
 set_target_properties(Editor PROPERTIES FOLDER "Editor")

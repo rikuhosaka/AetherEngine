@@ -1,0 +1,40 @@
+#pragma once
+
+#include "Runtime/Engine/Camera/CameraState.h"
+
+class InputState;
+
+struct FreeFlyCameraSettings
+{
+	float moveSpeed = 8.0f;
+	float fastMoveScale = 4.0f;
+	float lookSensitivity = 0.002f;
+	float minPitchRadians = -DirectX::XM_PIDIV2 + 0.01f;
+	float maxPitchRadians = DirectX::XM_PIDIV2 - 0.01f;
+};
+
+// 責任: 自由飛行のヨーとピッチを入力から更新する。
+// 役割: 渡された CameraState の位置と前方を書き換える。エンティティやデバイスは知らない。
+// 所有: CameraSystemComponent が値で持つ。CameraState は呼び出し側の所有。
+class FreeFlyCameraController
+{
+public:
+	void SetSettings(const FreeFlyCameraSettings& settings) { m_settings = settings; }
+	[[nodiscard]] const FreeFlyCameraSettings& GetSettings() const noexcept { return m_settings; }
+
+	void Reset(CameraState& camera);
+	void Reset(CameraState& camera, const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& forward);
+	void Update(
+		CameraState& camera,
+		const InputState& input,
+		float deltaSeconds,
+		bool useMouse,
+		bool useKeyboard);
+
+private:
+	void SyncOrientationFromYawPitch(CameraState& camera);
+
+	FreeFlyCameraSettings m_settings{};
+	float m_yawRadians = 0.0f;
+	float m_pitchRadians = 0.0f;
+};

@@ -1,8 +1,8 @@
 #include "Editor/UI/Details.h"
 
 #include "Editor/UI/WorldSelectionServices.h"
-#include "Engine/World/Transform.h"
-#include "Engine/World/World.h"
+#include "Runtime/Engine/World/Transform.h"
+#include "Runtime/Engine/World/World.h"
 
 #include "imgui.h"
 

@@ -1,0 +1,160 @@
+#include "DX12CommandQueue.h"
+
+#include "Runtime/RHI/DX12/Common/DX12Result.h"
+#include "Runtime/RHI/DX12/Command/CommandImpl.h"
+#include "Runtime/RHI/DX12/Command/DX12CommandList.h"
+#include "Runtime/RHI/DX12/Device/DX12Device.h"
+#include "Runtime/RHI/DX12/Device/DeviceImpl.h"
+#include "Runtime/RHI/DX12/Sync/DX12Fence.h"
+#include "Runtime/RHI/DX12/Sync/FenceImpl.h"
+#include "Runtime/RHI/DX12/Debug/DX12GpuNaming.h"
+#include "Runtime/RHI/DX12/Debug/DX12Dred.h"
+
+namespace
+{
+void WaitForQueueIdle(ID3D12Device* device, ID3D12CommandQueue* commandQueue)
+{
+	if (device == nullptr || commandQueue == nullptr)
+	{
+		return;
+	}
+
+	ComPtr<ID3D12Fence> fence;
+	const HRESULT createFenceResult = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	if (FAILED(createFenceResult))
+	{
+		DX12Dred::CheckHresult(device, createFenceResult, "CommandQueue::WaitForIdle::CreateFence");
+		return;
+	}
+
+	constexpr uint64_t kIdleFenceValue = 1;
+	const HRESULT signalResult = commandQueue->Signal(fence.Get(), kIdleFenceValue);
+	if (FAILED(signalResult))
+	{
+		DX12Dred::CheckHresult(device, signalResult, "CommandQueue::WaitForIdle::Signal");
+		return;
+	}
+
+	if (fence->GetCompletedValue() < kIdleFenceValue)
+	{
+		HANDLE waitEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		if (waitEvent == nullptr)
+		{
+			DX12Dred::CheckHresult(
+				device,
+				HRESULT_FROM_WIN32(GetLastError()),
+				"CommandQueue::WaitForIdle::CreateEvent");
+			return;
+		}
+
+		const HRESULT setEventResult = fence->SetEventOnCompletion(kIdleFenceValue, waitEvent);
+		if (FAILED(setEventResult))
+		{
+			CloseHandle(waitEvent);
+			DX12Dred::CheckHresult(device, setEventResult, "CommandQueue::WaitForIdle::SetEventOnCompletion");
+			return;
+		}
+
+		const DWORD waitResult = WaitForSingleObject(waitEvent, INFINITE);
+		CloseHandle(waitEvent);
+		if (waitResult == WAIT_FAILED)
+		{
+			DX12Dred::CheckHresult(
+				device,
+				HRESULT_FROM_WIN32(GetLastError()),
+				"CommandQueue::WaitForIdle::WaitForSingleObject");
+		}
+	}
+}
+} // namespace
+
+bool DX12CommandQueue::IsValid() const
+{
+	return m_impl != nullptr && m_impl->commandQueue != nullptr;
+}
+
+Result<std::unique_ptr<DX12CommandQueue>> DX12CommandQueue::Create(const DX12Device* dxDevice)
+{
+	return MakeResourceResult(
+		std::unique_ptr<DX12CommandQueue>(new DX12CommandQueue(dxDevice)),
+		"Failed to create command queue");
+}
+
+DX12CommandQueue::DX12CommandQueue(const DX12Device* dxDevice)
+	: m_impl(std::make_unique<CommandQueueImpl>())
+{
+	ID3D12Device* device = dxDevice->GetImpl()->device.Get();
+	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	queueDesc.NodeMask = 0;
+	ComPtr<ID3D12CommandQueue> commandQueue;
+	auto result = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&commandQueue));
+	if (FAILED(result))
+	{
+		return;
+	}
+	m_impl->commandQueue = commandQueue;
+	DX12GpuNaming::SetName(commandQueue.Get(), "Queue/Graphics");
+}
+
+DX12CommandQueue::~DX12CommandQueue()
+{
+	// ComPtr owns the COM object lifetime; avoid manual Release() (double-release).
+	if (m_impl != nullptr)
+	{
+		m_impl->commandQueue.Reset();
+	}
+}
+
+void DX12CommandQueue::ExecuteCommandLists(const std::vector<RHICommandList*>& commandLists)
+{
+	std::vector<ID3D12CommandList*> dxCommandLists;
+	for (const auto& cmdList : commandLists)
+	{
+		const DX12CommandList* dxCmdList = static_cast<DX12CommandList*>(cmdList);
+		dxCommandLists.push_back(dxCmdList->GetImpl()->commandList.Get());
+	}
+	m_impl->commandQueue->ExecuteCommandLists(static_cast<UINT>(dxCommandLists.size()), dxCommandLists.data());
+}
+
+uint64_t DX12CommandQueue::Signal(RHIFence* fence)
+{
+	DX12Fence* dxFence = static_cast<DX12Fence*>(fence);
+	dxFence->Increment();
+	uint64_t fenceValue = dxFence->GetImpl()->currentFenceValue;
+	HRESULT result = m_impl->commandQueue->Signal(dxFence->GetImpl()->fence.Get(), dxFence->GetImpl()->currentFenceValue);
+	if (FAILED(result))
+	{
+		LOG_ERROR_F(LogCategory::Renderer,
+			"DX12CommandQueue::Signal failed to signal fence: {}", fenceValue);
+		return 0;
+	}
+	return fenceValue;
+}
+
+void DX12CommandQueue::WaitGPU(RHIFence* fence, uint64_t value)
+{
+	DX12Fence* dxFence = static_cast<DX12Fence*>(fence);
+	if (!dxFence->IsComplete(value))
+	{
+		m_impl->commandQueue->Wait(dxFence->GetImpl()->fence.Get(), value);
+	}
+}
+
+void DX12CommandQueue::WaitForIdle()
+{
+	if (m_impl == nullptr || m_impl->commandQueue == nullptr)
+	{
+		return;
+	}
+
+	ComPtr<ID3D12Device> device;
+	if (FAILED(m_impl->commandQueue->GetDevice(IID_PPV_ARGS(&device))))
+	{
+		return;
+	}
+
+	WaitForQueueIdle(device.Get(), m_impl->commandQueue.Get());
+}
