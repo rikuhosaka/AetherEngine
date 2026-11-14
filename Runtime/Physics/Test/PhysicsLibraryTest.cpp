@@ -1,6 +1,6 @@
-#include "Runtime/Engine/Physics/Test/PhysicsLibraryTest.h"
+#include "Runtime/Physics/Test/PhysicsLibraryTest.h"
 
-#include "Runtime/Engine/Physics/PhysicsLibrary.h"
+#include "Runtime/Physics/PhysicsLibrary.h"
 
 Result<void> RunPhysicsLibraryTests()
 {

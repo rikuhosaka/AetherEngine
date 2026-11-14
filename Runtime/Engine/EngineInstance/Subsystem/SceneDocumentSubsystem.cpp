@@ -1,8 +1,8 @@
-#include "Runtime/Engine/Engine/Subsystem/SceneDocumentSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
 
 #include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
 #include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
-#include "Runtime/Engine/Engine/Subsystem/Engine.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/Engine.h"
 #include "Runtime/Engine/SceneDocument/SceneAssetLoader.h"
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 

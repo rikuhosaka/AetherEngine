@@ -1,7 +1,7 @@
 #include "Runtime/Engine/World/Test/EntityPhysicsTest.h"
 
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/Physics/PhysicsLibrary.h"
+#include "Runtime/Physics/PhysicsLibrary.h"
 #include "Runtime/Engine/World/EntityPhysics.h"
 #include "Runtime/Engine/World/World.h"
 

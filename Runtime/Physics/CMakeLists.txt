@@ -31,4 +31,4 @@ target_link_libraries(Physics
 target_compile_definitions(Physics PRIVATE NOMINMAX)
 
 target_precompile_headers(Physics PRIVATE "${CMAKE_SOURCE_DIR}/Runtime/Core/pch.h")
-set_target_properties(Physics PROPERTIES FOLDER "Runtime/Engine/Physics")
+set_target_properties(Physics PROPERTIES FOLDER "Runtime/Physics")

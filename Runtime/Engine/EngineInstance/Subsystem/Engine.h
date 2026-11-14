@@ -5,7 +5,7 @@
 #include "Runtime/Engine/World/SessionServices.h"
 #include "Runtime/Engine/World/WorldServices.h"
 #include "Runtime/Engine/Application/Subsystem/ISubsystem.h"
-#include "Runtime/Engine/Engine/EngineConfig.h"
+#include "Runtime/Engine/EngineInstance/EngineConfig.h"
 #include "Runtime/Engine/World/World.h"
 
 #include <memory>

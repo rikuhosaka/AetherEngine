@@ -63,6 +63,9 @@ set_target_properties(Platform PROPERTIES FOLDER "Runtime/Core/Platform")
 add_subdirectory(Runtime/AssetSystem)
 set_target_properties(AssetSystem PROPERTIES FOLDER "Runtime/AssetSystem")
 
+add_subdirectory(Runtime/Physics)
+set_target_properties(Physics PROPERTIES FOLDER "Runtime/Physics")
+
 add_subdirectory(Runtime/Engine)
 set_target_properties(Engine PROPERTIES FOLDER "Runtime/Engine")
 

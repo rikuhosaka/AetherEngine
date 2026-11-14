@@ -5,7 +5,7 @@
 #include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
 #include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/Engine/EngineRender.h"
+#include "Runtime/Engine/EngineInstance/EngineRender.h"
 
 class IEngineLoopPlatform;
 struct FrameContext;

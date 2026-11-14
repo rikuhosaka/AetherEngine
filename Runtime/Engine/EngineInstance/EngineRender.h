@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Runtime/Engine/Application/Subsystem/EngineLoopConfig.h"
-#include "Runtime/Engine/Engine/Subsystem/UiSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/UiSubsystem.h"
 #include "Runtime/Engine/Camera/ExtractedView.h"
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Engine/World/ExtractedLighting.h"

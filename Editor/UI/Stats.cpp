@@ -2,8 +2,8 @@
 
 #include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
 #include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
-#include "Runtime/Engine/Engine/Subsystem/Engine.h"
-#include "Runtime/Engine/Engine/Subsystem/WindowSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/Engine.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/WindowSubsystem.h"
 #include "Runtime/Engine/World/Transform.h"
 #include "Runtime/Engine/World/World.h"
 

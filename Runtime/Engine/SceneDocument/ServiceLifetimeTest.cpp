@@ -3,7 +3,7 @@
 #include "Runtime/Engine/SceneDocument/EditorSceneServices.h"
 #include "Runtime/Engine/World/WorldServices.h"
 #include "Runtime/Core/Log/LogMacros.h"
-#include "Runtime/Engine/Engine/Subsystem/SceneDocumentSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
 #include "Runtime/Engine/World/World.h"
 
 #include <filesystem>

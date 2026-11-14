@@ -26,4 +26,4 @@ target_link_libraries(EngineModule
 target_compile_definitions(EngineModule PRIVATE NOMINMAX)
 
 target_precompile_headers(EngineModule PRIVATE "${CMAKE_SOURCE_DIR}/Runtime/Core/pch.h")
-set_target_properties(EngineModule PROPERTIES FOLDER "Runtime/Engine/Engine")
+set_target_properties(EngineModule PROPERTIES FOLDER "Runtime/Engine/EngineInstance")

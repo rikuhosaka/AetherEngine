@@ -2,11 +2,11 @@
 
 #include "Runtime/Engine/Application/Subsystem/EngineLoopConfig.h"
 #include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
-#include "Runtime/Engine/Engine/Subsystem/Engine.h"
-#include "Runtime/Engine/Engine/Subsystem/SceneDocumentSubsystem.h"
-#include "Runtime/Engine/Engine/Subsystem/InputSubsystem.h"
-#include "Runtime/Engine/Engine/Subsystem/WindowSubsystem.h"
-#include "Runtime/Engine/Engine/Subsystem/UiSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/Engine.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/InputSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/WindowSubsystem.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/UiSubsystem.h"
 
 #include <cstring>
 #include <memory>

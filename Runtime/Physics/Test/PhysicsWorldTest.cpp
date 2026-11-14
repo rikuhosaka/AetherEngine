@@ -1,8 +1,8 @@
-#include "Runtime/Engine/Physics/Test/PhysicsWorldTest.h"
+#include "Runtime/Physics/Test/PhysicsWorldTest.h"
 
 #include "Runtime/Core/Log/LogMacros.h"
-#include "Runtime/Engine/Physics/PhysicsLibrary.h"
-#include "Runtime/Engine/Physics/PhysicsWorld.h"
+#include "Runtime/Physics/PhysicsLibrary.h"
+#include "Runtime/Physics/PhysicsWorld.h"
 
 #include <DirectXMath.h>
 

@@ -1,4 +1,4 @@
-#include "Runtime/Engine/Engine/RendererDebugTests.h"
+#include "Runtime/Engine/EngineInstance/RendererDebugTests.h"
 
 #include "Runtime/Renderer/Test/FrustumCullTest.h"
 #include "Runtime/Renderer/Test/PrimitiveMeshTest.h"

@@ -2,7 +2,7 @@
 
 #include "Runtime/Core/Handle/Handle.h"
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/Physics/PhysicsTypes.h"
+#include "Runtime/Physics/PhysicsTypes.h"
 
 #include <DirectXMath.h>
 

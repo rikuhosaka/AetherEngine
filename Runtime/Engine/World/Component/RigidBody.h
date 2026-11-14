@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/Engine/Physics/PhysicsTypes.h"
+#include "Runtime/Physics/PhysicsTypes.h"
 #include "Runtime/Engine/World/Component/Component.h"
 
 #include <DirectXMath.h>
