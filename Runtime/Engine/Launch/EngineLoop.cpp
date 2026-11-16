@@ -405,16 +405,18 @@ Result<void> EngineLoop::RenderFrame()
 				"EngineLoop::RenderFrame missing the engine world");
 		}
 
-		ExtractView(*published.world, extractedView, width, height);
 		ExtractLighting(*published.world, extractedLighting);
 		// 一時停止中に補間すると、停止した瞬間の中間姿勢が残る。最新ステップをそのまま出す。
 		const float alpha = published.session->mode == SessionMode::Paused
 			? 1.0f
 			: m_context.GetInterpolationAlpha();
+		std::vector<RenderPose> renderPoses{};
+		SampleRenderPoses(*published.world, alpha, renderPoses);
+		ExtractView(*published.world, extractedView, width, height, renderPoses);
 		Extract(
 			*published.world,
 			extractedObjects,
-			alpha,
+			renderPoses,
 			*published.stats);
 	}
 

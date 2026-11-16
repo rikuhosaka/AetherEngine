@@ -1,24 +1,27 @@
 #pragma once
 
 #include "Runtime/Engine/Application/Subsystem/IWorldSubsystem.h"
+#include "Runtime/Engine/World/RenderPose.h"
 
 #include <memory>
+#include <vector>
 
-class EntityPhysics;
+class PhysicsScene;
 class World;
 
 // 責任: プレイ中の剛体シミュレーションを進める。
-// 役割: 開始時に剛体を束縛し、固定 Tick で積分し、描画前に補間した姿勢をアクターへ戻す。
+// 役割: 開始時に剛体を束縛し、固定 Tick で積分し、ステップ後の姿勢をアクターへ戻す。
+//       補間した姿勢は SamplePoses がフレーム限りの配列で返す。
 //       一時停止中は Engine が FixedTick を呼ばない。
-// 所有: World が名前 "Game" で持つ。再生が開いている間だけ EntityPhysics を unique_ptr で所有する。
+// 所有: World が名前 "Physics" で持つ。再生が開いている間だけ PhysicsScene を unique_ptr で所有する。
 //       剛体コンポーネントはアクターの所有のまま。World のコピーはこの束縛を持っていかない。
-class GameSubsystem final : public IWorldSubsystem
+class PhysicsSubsystem final : public IWorldSubsystem
 {
 public:
-	GameSubsystem();
-	~GameSubsystem() override;
+	PhysicsSubsystem();
+	~PhysicsSubsystem() override;
 
-	[[nodiscard]] const char* GetName() const override { return "Game"; }
+	[[nodiscard]] const char* GetName() const override { return "Physics"; }
 
 	[[nodiscard]] SubsystemTickGroup GetTickGroup() const override
 	{
@@ -32,11 +35,10 @@ public:
 	void OnEndPlay(World& world) override;
 	void FixedTick(World& world, float fixedDeltaSeconds) override;
 
-	// 補間した位置と回転をアクターへ書く。スケールは文書の値のまま。
-	// Extract がメッシュを集める直前に呼ぶ。Tick から呼ぶと固定ステップと描画の間が二重になる。
-	void WriteTransforms(World& world, float alpha);
+	// 補間した位置と回転を out へ書く。物理が無ければ out を空にする。
+	void SamplePoses(float alpha, std::vector<RenderPose>& out) const;
 
 private:
 	// このサブシステムが所有する束縛。セッションを閉じると破棄する。
-	std::unique_ptr<EntityPhysics> m_physics{};
+	std::unique_ptr<PhysicsScene> m_physics{};
 };

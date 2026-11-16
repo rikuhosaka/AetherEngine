@@ -1,4 +1,4 @@
-#include "Runtime/Engine/World/EntityPhysics.h"
+#include "Runtime/Engine/World/PhysicsScene.h"
 
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Engine/World/Component/RigidBody.h"
@@ -22,30 +22,30 @@ namespace
 }
 } // namespace
 
-EntityPhysics::EntityPhysics(PhysicsWorld world)
-	: m_world(std::move(world))
+PhysicsScene::PhysicsScene(PhysicsWorld world)
+	: m_physicsWorld(std::move(world))
 {
 }
 
-Result<EntityPhysics> EntityPhysics::Create()
+Result<PhysicsScene> PhysicsScene::Create()
 {
 	Result<PhysicsWorld> world = PhysicsWorld::Create();
 	if (!world)
 	{
-		return MakeFail<EntityPhysics>(world.error.code, world.error.message);
+		return MakeFail<PhysicsScene>(world.error.code, world.error.message);
 	}
 
-	return MakeOk(EntityPhysics(std::move(world.value)));
+	return MakeOk(PhysicsScene(std::move(world.value)));
 }
 
-Result<PhysicsBodyId> EntityPhysics::Bind(World& world, EntityId entity, PhysicsBodyDesc desc)
+Result<PhysicsBodyId> PhysicsScene::Bind(World& world, EntityId entity, PhysicsBodyDesc desc)
 {
 	if (!world.IsAlive(entity))
 	{
 		return FailRuntime<PhysicsBodyId>(
 			LogCategory::Physics,
 			ErrorCode::InvalidArgument,
-			"EntityPhysics::Bind requires a live entity");
+			"PhysicsScene::Bind requires a live entity");
 	}
 
 	if (world.GetParent(entity).IsValid())
@@ -53,7 +53,7 @@ Result<PhysicsBodyId> EntityPhysics::Bind(World& world, EntityId entity, Physics
 		return FailRuntime<PhysicsBodyId>(
 			LogCategory::Physics,
 			ErrorCode::InvalidArgument,
-			"EntityPhysics::Bind requires a parentless entity");
+			"PhysicsScene::Bind requires a parentless entity");
 	}
 
 	if (IsBound(entity))
@@ -61,7 +61,7 @@ Result<PhysicsBodyId> EntityPhysics::Bind(World& world, EntityId entity, Physics
 		return FailRuntime<PhysicsBodyId>(
 			LogCategory::Physics,
 			ErrorCode::InvalidArgument,
-			"EntityPhysics::Bind requires an unbound entity");
+			"PhysicsScene::Bind requires an unbound entity");
 	}
 
 	const Transform* transform = world.GetTransform(entity);
@@ -70,22 +70,22 @@ Result<PhysicsBodyId> EntityPhysics::Bind(World& world, EntityId entity, Physics
 		return FailRuntime<PhysicsBodyId>(
 			LogCategory::Physics,
 			ErrorCode::InvalidArgument,
-			"EntityPhysics::Bind requires a live entity");
+			"PhysicsScene::Bind requires a live entity");
 	}
 
 	desc.pose.position = transform->position;
 	desc.pose.rotation = transform->rotation;
-	Result<PhysicsBodyId> body = m_world.CreateBody(desc);
+	Result<PhysicsBodyId> body = m_physicsWorld.CreateBody(desc);
 	if (!body)
 	{
 		return MakeFail<PhysicsBodyId>(body.error.code, body.error.message);
 	}
 
-	m_bindings.push_back(Binding{ entity, body.value });
+	m_bindings.push_back(Binding{ entity, body.value, desc.motion });
 	return body;
 }
 
-Result<void> EntityPhysics::Unbind(EntityId entity)
+Result<void> PhysicsScene::Unbind(EntityId entity)
 {
 	for (size_t index = 0; index < m_bindings.size(); ++index)
 	{
@@ -95,7 +95,7 @@ Result<void> EntityPhysics::Unbind(EntityId entity)
 		}
 
 		const PhysicsBodyId body = m_bindings[index].body;
-		if (auto destroyed = m_world.Destroy(body); !destroyed)
+		if (auto destroyed = m_physicsWorld.Destroy(body); !destroyed)
 		{
 			return destroyed;
 		}
@@ -107,16 +107,38 @@ Result<void> EntityPhysics::Unbind(EntityId entity)
 	return FailRuntime(
 		LogCategory::Physics,
 		ErrorCode::InvalidArgument,
-		"EntityPhysics::Unbind requires a bound entity");
+		"PhysicsScene::Unbind requires a bound entity");
 }
 
-Result<void> EntityPhysics::Step(World& world, float fixedDeltaSeconds)
+Result<void> PhysicsScene::Step(World& world, float fixedDeltaSeconds)
 {
 	ReleaseIfEntityDead(world);
-	return m_world.Step(fixedDeltaSeconds);
+	for (const Binding& binding : m_bindings)
+	{
+		if (binding.motion != PhysicsMotion::Kinematic)
+		{
+			continue;
+		}
+
+		const Transform* transform = world.GetTransform(binding.entity);
+		if (transform == nullptr)
+		{
+			continue;
+		}
+
+		PhysicsPose target{};
+		target.position = transform->position;
+		target.rotation = transform->rotation;
+		if (auto moved = m_physicsWorld.MoveKinematic(binding.body, target, fixedDeltaSeconds); !moved)
+		{
+			return moved;
+		}
+	}
+
+	return m_physicsWorld.Step(fixedDeltaSeconds);
 }
 
-void EntityPhysics::WriteTransforms(World& world, float alpha)
+void PhysicsScene::CommitTransforms(World& world)
 {
 	for (size_t index = 0; index < m_bindings.size();)
 	{
@@ -124,13 +146,13 @@ void EntityPhysics::WriteTransforms(World& world, float alpha)
 		Transform* transform = world.GetTransform(binding.entity);
 		if (transform == nullptr)
 		{
-			(void)m_world.Destroy(binding.body);
+			(void)m_physicsWorld.Destroy(binding.body);
 			EraseAt(index);
 			continue;
 		}
 
 		PhysicsPose pose{};
-		if (!m_world.Sample(binding.body, alpha, pose))
+		if (!m_physicsWorld.Sample(binding.body, 1.0f, pose))
 		{
 			EraseAt(index);
 			continue;
@@ -142,12 +164,32 @@ void EntityPhysics::WriteTransforms(World& world, float alpha)
 	}
 }
 
-PhysicsWorld& EntityPhysics::GetWorld()
+void PhysicsScene::SamplePoses(float alpha, std::vector<RenderPose>& out) const
 {
-	return m_world;
+	out.clear();
+	out.reserve(m_bindings.size());
+	for (const Binding& binding : m_bindings)
+	{
+		PhysicsPose pose{};
+		if (!m_physicsWorld.Sample(binding.body, alpha, pose))
+		{
+			continue;
+		}
+
+		RenderPose render{};
+		render.entity = binding.entity;
+		render.position = pose.position;
+		render.rotation = pose.rotation;
+		out.push_back(render);
+	}
 }
 
-bool EntityPhysics::IsBound(EntityId entity) const
+PhysicsWorld& PhysicsScene::GetWorld()
+{
+	return m_physicsWorld;
+}
+
+bool PhysicsScene::IsBound(EntityId entity) const
 {
 	for (const Binding& binding : m_bindings)
 	{
@@ -160,7 +202,7 @@ bool EntityPhysics::IsBound(EntityId entity) const
 	return false;
 }
 
-void EntityPhysics::ReleaseIfEntityDead(World& world)
+void PhysicsScene::ReleaseIfEntityDead(World& world)
 {
 	for (size_t index = 0; index < m_bindings.size();)
 	{
@@ -170,23 +212,23 @@ void EntityPhysics::ReleaseIfEntityDead(World& world)
 			continue;
 		}
 
-		(void)m_world.Destroy(m_bindings[index].body);
+		(void)m_physicsWorld.Destroy(m_bindings[index].body);
 		EraseAt(index);
 	}
 }
 
-void EntityPhysics::EraseAt(size_t index)
+void PhysicsScene::EraseAt(size_t index)
 {
 	m_bindings[index] = m_bindings.back();
 	m_bindings.pop_back();
 }
 
-Result<EntityPhysics> BindRigidBodies(World& world)
+Result<PhysicsScene> BindRigidBodies(World& world)
 {
-	Result<EntityPhysics> physics = EntityPhysics::Create();
+	Result<PhysicsScene> physics = PhysicsScene::Create();
 	if (!physics)
 	{
-		return FailInternal<EntityPhysics>(LogCategory::Physics, physics.error.code, physics.error.message);
+		return FailInternal<PhysicsScene>(LogCategory::Physics, physics.error.code, physics.error.message);
 	}
 
 	std::vector<EntityId> bodies{};
@@ -211,7 +253,7 @@ Result<EntityPhysics> BindRigidBodies(World& world)
 				(void)physics.value.Unbind(boundId);
 			}
 
-			return FailInternal<EntityPhysics>(LogCategory::Physics, created.error.code, created.error.message);
+			return FailInternal<PhysicsScene>(LogCategory::Physics, created.error.code, created.error.message);
 		}
 
 		bound.push_back(id);

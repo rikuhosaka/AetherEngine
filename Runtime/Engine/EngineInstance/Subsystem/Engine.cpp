@@ -6,7 +6,7 @@
 #include "Runtime/Engine/EngineInstance/Subsystem/InputSubsystem.h"
 #include "Runtime/Engine/World/Component/CameraSystemComponent.h"
 #include "Runtime/Core/Log/LogMacros.h"
-#include "Runtime/Engine/World/Subsystem/GameSubsystem.h"
+#include "Runtime/Engine/World/Subsystem/PhysicsSubsystem.h"
 
 #include <memory>
 #include <utility>
@@ -24,7 +24,7 @@ void RejectPlayRequest(SessionServices& session)
 // UI が書いた requestMode を、編集用 World とゲーム用 World の切り替えへ反映する。
 // ボタンは依頼を書くだけで BeginPlay / EndPlay は呼ばない。反映はこの関数だけが行う。
 // セッションを開くのは Playing への遷移だけ。最初から Paused を書かれてもセッションは開かず Editor に戻す。
-// 開くときは編集用 World の文書をコピーし、Game を足してから BeginPlay する。
+// 開くときは編集用 World の文書をコピーし、PhysicsSubsystem を足してから BeginPlay する。
 // カメラアクターは文書に入っているのでコピーが視点になる。無ければ BeginPlay が作る。
 // 開いているセッションの一時停止は World を破棄しない。閉じるのは Editor へ戻ったとき。
 // 反映できた結果は mode に書く。公開先のポインタは続く Tick が書き換える。
@@ -46,8 +46,8 @@ void ApplyPlaySession(
 		}
 
 		std::unique_ptr<World> started = std::make_unique<World>(editorWorld.Clone());
-		const bool gameAdded = started->AddSubsystem(std::make_unique<GameSubsystem>());
-		if (!gameAdded)
+		const bool physicsAdded = started->AddSubsystem(std::make_unique<PhysicsSubsystem>());
+		if (!physicsAdded)
 		{
 			LOG_ERROR(LogCategory::Core, "Engine failed to register play world subsystems");
 			RejectPlayRequest(session);

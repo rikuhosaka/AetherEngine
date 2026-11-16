@@ -48,7 +48,7 @@ public:
 private:
 	// この Engine が所有する。
 	// 編集用 World は起動時に作り、カメラアクターを1つ置く。ゲーム用 World はプレイ開始時に編集用の文書をコピーして作り、
-	// Game を足す。写したカメラが無ければ BeginPlay が作る。停止するとゲーム用 World は破棄する。
+	// PhysicsSubsystem を足す。写したカメラが無ければ BeginPlay が作る。停止するとゲーム用 World は破棄する。
 	EngineConfig m_config{};
 	World m_editorWorld{};
 	std::unique_ptr<World> m_gameWorld{};

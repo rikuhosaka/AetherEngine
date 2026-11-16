@@ -21,7 +21,7 @@ struct RigidBodyShape
 	std::vector<uint32_t> indices{};
 };
 
-// Authored rigid body. The simulated PhysicsBodyId lives in EntityPhysics.
+// Authored rigid body. The simulated PhysicsBodyId lives in PhysicsScene.
 struct RigidBody : Component
 {
 	PhysicsMotion motion = PhysicsMotion::Dynamic;

@@ -9,7 +9,7 @@
 #include "Runtime/Physics/PhysicsLibrary.h"
 #include "Runtime/Engine/World/ExtractedLighting.h"
 #include "Runtime/Engine/World/SceneLighting.h"
-#include "Runtime/Engine/World/EntityPhysics.h"
+#include "Runtime/Engine/World/PhysicsScene.h"
 #include "Runtime/Engine/World/World.h"
 
 #include <cmath>
@@ -247,7 +247,7 @@ namespace
 		meshes,
 		SceneRenderResources{});
 	const WorldDocumentBinding* sphereBinding = instantiated ? FindBinding(instantiated.value, sphereEntity->id) : nullptr;
-	Result<EntityPhysics> created = instantiated ? BindRigidBodies(world) : MakeFail<EntityPhysics>(ErrorCode::InvalidArgument, "Scene did not instantiate");
+	Result<PhysicsScene> created = instantiated ? BindRigidBodies(world) : MakeFail<PhysicsScene>(ErrorCode::InvalidArgument, "Scene did not instantiate");
 	if (!instantiated || !created || sphereBinding == nullptr)
 	{
 		return FailRuntime(
@@ -265,7 +265,7 @@ namespace
 		}
 	}
 
-	created.value.WriteTransforms(world, 1.0f);
+	created.value.CommitTransforms(world);
 	const Transform* fallen = world.GetTransform(sphereBinding->entity);
 	if (fallen == nullptr || !(fallen->position.y < 4.0f))
 	{
@@ -305,7 +305,7 @@ namespace
 		}
 	}
 
-	Result<EntityPhysics> physics = BindRigidBodies(world);
+	Result<PhysicsScene> physics = BindRigidBodies(world);
 	const WorldDocumentBinding* sphere = spawned ? FindBinding(spawned.value, 1) : nullptr;
 	const WorldDocumentBinding* hull = spawned ? FindBinding(spawned.value, 2) : nullptr;
 	const WorldDocumentBinding* marker = spawned ? FindBinding(spawned.value, 3) : nullptr;
@@ -440,7 +440,7 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	const RigidBody* sphereBody = sphereBinding == nullptr ? nullptr : world.Get<RigidBody>(sphereBinding->entity);
 	const RigidBody* hullBody = hullBinding == nullptr ? nullptr : world.Get<RigidBody>(hullBinding->entity);
 	const RigidBody* markerBody = markerBinding == nullptr ? nullptr : world.Get<RigidBody>(markerBinding->entity);
-	Result<EntityPhysics> created = instantiated ? BindRigidBodies(world) : MakeFail<EntityPhysics>(ErrorCode::InvalidArgument, "Scene did not instantiate");
+	Result<PhysicsScene> created = instantiated ? BindRigidBodies(world) : MakeFail<PhysicsScene>(ErrorCode::InvalidArgument, "Scene did not instantiate");
 	float sphereTint[4]{};
 	const bool tintCopied = sphereRenderable != nullptr && sphereRenderable->overrides.parameters.size() == 1
 		&& sphereRenderable->overrides.parameters[0].data.size() == sizeof(sphereTint)

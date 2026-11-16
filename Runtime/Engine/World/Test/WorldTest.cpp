@@ -13,7 +13,7 @@
 #include "Runtime/Engine/Camera/ExtractedView.h"
 #include "Runtime/Engine/World/ExtractedLighting.h"
 #include "Runtime/Engine/World/ExtractedObject.h"
-#include "Runtime/Engine/World/Subsystem/GameSubsystem.h"
+#include "Runtime/Engine/World/Subsystem/PhysicsSubsystem.h"
 #include "Runtime/Engine/World/Component/RigidBody.h"
 #include "Runtime/Engine/World/World.h"
 #include "Runtime/Engine/World/WorldExtract.h"
@@ -949,7 +949,7 @@ Result<void> RunWorldTests()
 	}
 
 	World sessionWorld{};
-	if (!sessionWorld.AddSubsystem(std::make_unique<GameSubsystem>()))
+	if (!sessionWorld.AddSubsystem(std::make_unique<PhysicsSubsystem>()))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -1016,7 +1016,7 @@ Result<void> RunWorldTests()
 
 	DebugStatsServices stats{};
 	std::vector<WorldExtractedObject> extracted{};
-	Extract(sessionWorld, extracted, 1.0f, stats);
+	Extract(sessionWorld, extracted, {}, stats);
 	const Transform* fallen = sessionWorld.GetTransform(sessionBody);
 	if (fallen == nullptr || !(fallen->position.y < 3.5f) || !IsNearlyEqual(fallen->scale.x, 2.0f)
 		|| !IsNearlyEqual(fallen->scale.y, 3.0f) || !IsNearlyEqual(fallen->scale.z, 4.0f)
@@ -1031,7 +1031,7 @@ Result<void> RunWorldTests()
 
 	const float pausedHeight = fallen->position.y;
 	extracted.clear();
-	Extract(sessionWorld, extracted, 1.0f, stats);
+	Extract(sessionWorld, extracted, {}, stats);
 	ExtractedView pausedView{};
 	ExtractView(sessionWorld, pausedView, 640, 480);
 	sessionWorld.Tick(0.016f);
@@ -1092,7 +1092,7 @@ Result<void> RunWorldTests()
 	closedView.viewportWidth = 7;
 	ExtractView(sessionWorld, closedView, 640, 480);
 	extracted.clear();
-	Extract(sessionWorld, extracted, 1.0f, stats);
+	Extract(sessionWorld, extracted, {}, stats);
 	if (sessionWorld.IsPlaying()
 		|| !FindCamera(sessionWorld).IsValid() || closed == nullptr
 		|| !IsNearlyEqual(closed->position.y, pausedHeight) || !IsNearlyEqual(closed->scale.y, 3.0f)

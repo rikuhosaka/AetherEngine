@@ -65,7 +65,7 @@ Result<void> RunEngineSessionTests()
 	}
 
 	World* editorWorld = &engine.GetWorld();
-	if (editorWorld->FindSubsystem("Game") != nullptr || editorWorld->FindSubsystem("Camera") != nullptr)
+	if (editorWorld->FindSubsystem("Physics") != nullptr || editorWorld->FindSubsystem("Camera") != nullptr)
 	{
 		engine.Shutdown(context);
 		return FailRuntime(
@@ -136,7 +136,7 @@ Result<void> RunEngineSessionTests()
 	}
 	DebugStatsServices stats{};
 	std::vector<WorldExtractedObject> extracted{};
-	Extract(engine.GetWorld(), extracted, 1.0f, stats);
+	Extract(engine.GetWorld(), extracted, {}, stats);
 	const float playedHeight = engine.GetWorld().GetTransform(body)->position.y;
 	if (!(playedHeight < 3.5f))
 	{
@@ -151,7 +151,7 @@ Result<void> RunEngineSessionTests()
 	engine.Tick(context, 0.016f);
 	engine.FixedTick(context, kFixedDeltaSeconds);
 	extracted.clear();
-	Extract(engine.GetWorld(), extracted, 1.0f, stats);
+	Extract(engine.GetWorld(), extracted, {}, stats);
 	if (!engine.GetWorld().IsPlaying() || session->mode != SessionMode::Paused || published->generation != 2
 		|| !IsNearlyEqual(engine.GetWorld().GetTransform(body)->position.y, playedHeight))
 	{

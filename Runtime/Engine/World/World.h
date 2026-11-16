@@ -5,12 +5,14 @@
 #include "Runtime/Engine/World/Actor.h"
 #include "Runtime/Engine/World/EntityId.h"
 #include "Runtime/Engine/World/Lighting.h"
+#include "Runtime/Engine/World/RenderPose.h"
 #include "Runtime/Engine/World/Transform.h"
 
 #include <DirectXMath.h>
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -51,6 +53,8 @@ public:
 	[[nodiscard]] EntityId GetParent(EntityId id) const;
 	// Row-vector product local * parent * ... * root. A dead parent breaks the chain.
 	[[nodiscard]] DirectX::XMMATRIX GetWorldMatrix(EntityId id) const;
+	// poses に同じエンティティがあれば、その位置と回転でローカル行列を作る。スケールは Transform のまま。
+	[[nodiscard]] DirectX::XMMATRIX GetWorldMatrix(EntityId id, std::span<const RenderPose> poses) const;
 
 	[[nodiscard]] bool IsAlive(EntityId id) const;
 	// Empty when the entity is dead or was spawned without a name.

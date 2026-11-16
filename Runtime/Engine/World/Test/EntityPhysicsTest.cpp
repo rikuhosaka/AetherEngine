@@ -1,9 +1,12 @@
 #include "Runtime/Engine/World/Test/EntityPhysicsTest.h"
 
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Physics/PhysicsLibrary.h"
-#include "Runtime/Engine/World/EntityPhysics.h"
+#include "Runtime/Core/Math/Matrix.h"
+#include "Runtime/Engine/World/Component/Renderable.h"
+#include "Runtime/Engine/World/PhysicsScene.h"
 #include "Runtime/Engine/World/World.h"
+#include "Runtime/Engine/World/WorldExtract.h"
+#include "Runtime/Physics/PhysicsLibrary.h"
 
 #include <cmath>
 #include <format>
@@ -15,20 +18,20 @@ namespace
 	return std::fabs(left - right) <= epsilon;
 }
 
-[[nodiscard]] Result<EntityPhysics> CreateSimulation()
+[[nodiscard]] Result<PhysicsScene> CreateSimulation()
 {
-	return EntityPhysics::Create();
+	return PhysicsScene::Create();
 }
 
 [[nodiscard]] Result<void> TestBoundSphereFalls()
 {
-	Result<EntityPhysics> created = CreateSimulation();
+	Result<PhysicsScene> created = CreateSimulation();
 	if (!created)
 	{
 		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
 	}
 
-	EntityPhysics& simulation = created.value;
+	PhysicsScene& simulation = created.value;
 	World world{};
 	WorldSpawnDesc spawn{};
 	spawn.transform.position = { 0.0f, 4.0f, 0.0f };
@@ -55,7 +58,7 @@ namespace
 		}
 	}
 
-	simulation.WriteTransforms(world, 1.0f);
+	simulation.CommitTransforms(world);
 	const Transform* transform = world.GetTransform(entity);
 	if (transform == nullptr
 		|| !(transform->position.y < 3.5f)
@@ -73,15 +76,189 @@ namespace
 	return MakeOk();
 }
 
-[[nodiscard]] Result<void> TestBindRejectsParentAndDuplicate()
+[[nodiscard]] float ExtractedTranslationY(const WorldExtractedObject& object)
 {
-	Result<EntityPhysics> created = CreateSimulation();
+	const DirectX::XMMATRIX matrix = Aether::Math::LoadMatrixFromHlsl(object.worldMatrix);
+	DirectX::XMFLOAT4X4 stored{};
+	DirectX::XMStoreFloat4x4(&stored, matrix);
+	return stored._42;
+}
+
+[[nodiscard]] const WorldExtractedObject* FindExtracted(
+	const std::vector<WorldExtractedObject>& objects,
+	EntityId id)
+{
+	for (const WorldExtractedObject& object : objects)
+	{
+		if (object.objectId == id)
+		{
+			return &object;
+		}
+	}
+
+	return nullptr;
+}
+
+[[nodiscard]] Result<void> TestSampleLeavesTransform()
+{
+	Result<PhysicsScene> created = CreateSimulation();
 	if (!created)
 	{
 		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
 	}
 
-	EntityPhysics& simulation = created.value;
+	PhysicsScene& simulation = created.value;
+	World world{};
+	WorldSpawnDesc parentDesc{};
+	parentDesc.transform.position = { 0.0f, 4.0f, 0.0f };
+	const EntityId parent = world.Spawn(parentDesc);
+	WorldSpawnDesc childDesc{};
+	childDesc.parent = parent;
+	childDesc.transform.position = { 0.0f, 1.0f, 0.0f };
+	const EntityId child = world.Spawn(childDesc);
+	Renderable childRenderable{};
+	childRenderable.visible = true;
+	if (!world.Add<Renderable>(child, std::move(childRenderable)))
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
+			"Interpolation test should add a child renderable");
+	}
+
+	PhysicsBodyDesc sphere{};
+	sphere.motion = PhysicsMotion::Dynamic;
+	sphere.shape.type = PhysicsShapeType::Sphere;
+	sphere.shape.radius = 0.5f;
+	if (auto body = simulation.Bind(world, parent, sphere); !body)
+	{
+		return FailInternal(LogCategory::Physics, body.error.code, body.error.message);
+	}
+
+	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
+	for (int stepIndex = 0; stepIndex < 30; ++stepIndex)
+	{
+		if (auto step = simulation.Step(world, kFixedDeltaSeconds); !step)
+		{
+			return step;
+		}
+	}
+
+	simulation.CommitTransforms(world);
+	const Transform* transform = world.GetTransform(parent);
+	if (transform == nullptr)
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
+			"Committed body should keep its transform");
+	}
+
+	const float simulatedY = transform->position.y;
+	std::vector<RenderPose> previous{};
+	simulation.SamplePoses(0.0f, previous);
+	const Transform* afterSample = world.GetTransform(parent);
+	if (previous.size() != 1 || afterSample == nullptr
+		|| !IsNearlyEqual(afterSample->position.y, simulatedY, 0.0001f)
+		|| !(std::fabs(previous[0].position.y - simulatedY) > 0.01f))
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
+			"Sampling a previous pose should leave the committed transform unchanged");
+	}
+
+	std::vector<WorldExtractedObject> extracted{};
+	ExtractWorld(world, extracted, previous);
+	const WorldExtractedObject* visualChild = FindExtracted(extracted, child);
+	const bool foundVisual = visualChild != nullptr;
+	const float visualY = foundVisual ? ExtractedTranslationY(*visualChild) : 0.0f;
+	extracted.clear();
+	ExtractWorld(world, extracted);
+	const WorldExtractedObject* simulatedChild = FindExtracted(extracted, child);
+	const float simulatedChildY = simulatedChild == nullptr ? 0.0f : ExtractedTranslationY(*simulatedChild);
+	const Transform* afterExtract = world.GetTransform(parent);
+	if (!foundVisual || simulatedChild == nullptr || afterExtract == nullptr
+		|| !IsNearlyEqual(afterExtract->position.y, simulatedY, 0.0001f)
+		|| !IsNearlyEqual(visualY, previous[0].position.y + 1.0f, 0.001f)
+		|| !IsNearlyEqual(simulatedChildY, simulatedY + 1.0f, 0.001f))
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
+			"Extract should place a child on the sampled parent pose without writing the transform");
+	}
+
+	return MakeOk();
+}
+
+[[nodiscard]] Result<void> TestKinematicFollowsTransform()
+{
+	Result<PhysicsScene> created = CreateSimulation();
+	if (!created)
+	{
+		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
+	}
+
+	PhysicsScene& simulation = created.value;
+	World world{};
+	WorldSpawnDesc spawn{};
+	spawn.transform.position = { 0.0f, 3.0f, 0.0f };
+	const EntityId entity = world.Spawn(spawn);
+
+	PhysicsBodyDesc box{};
+	box.motion = PhysicsMotion::Kinematic;
+	box.shape.type = PhysicsShapeType::Box;
+	box.shape.halfExtent = { 0.5f, 0.5f, 0.5f };
+	if (auto body = simulation.Bind(world, entity, box); !body)
+	{
+		return FailInternal(LogCategory::Physics, body.error.code, body.error.message);
+	}
+
+	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
+	if (auto step = simulation.Step(world, kFixedDeltaSeconds); !step)
+	{
+		return step;
+	}
+
+	simulation.CommitTransforms(world);
+	Transform* transform = world.GetTransform(entity);
+	if (transform == nullptr || !IsNearlyEqual(transform->position.y, 3.0f, 0.02f))
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
+			"A kinematic body should stay until its transform moves");
+	}
+
+	transform->position.y = 6.0f;
+	if (auto step = simulation.Step(world, kFixedDeltaSeconds); !step)
+	{
+		return step;
+	}
+
+	simulation.CommitTransforms(world);
+	const Transform* committed = world.GetTransform(entity);
+	if (committed == nullptr || !IsNearlyEqual(committed->position.y, 6.0f, 0.02f))
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
+			"A kinematic body should move to the transform written before the step");
+	}
+
+	const float movedY = committed->position.y;
+	std::vector<RenderPose> previous{};
+	simulation.SamplePoses(0.0f, previous);
+	const Transform* afterSample = world.GetTransform(entity);
+	if (afterSample == nullptr || previous.size() != 1
+		|| !IsNearlyEqual(afterSample->position.y, movedY, 0.0001f)
+		|| !IsNearlyEqual(previous[0].position.y, 3.0f, 0.02f))
+	{
+		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
+			"A kinematic body should move to the committed transform, and sampling should leave that transform in place");
+	}
+
+	return MakeOk();
+}
+
+[[nodiscard]] Result<void> TestBindRejectsParentAndDuplicate()
+{
+	Result<PhysicsScene> created = CreateSimulation();
+	if (!created)
+	{
+		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
+	}
+
+	PhysicsScene& simulation = created.value;
 	World world{};
 	const EntityId parent = world.Spawn({});
 	WorldSpawnDesc childDesc{};
@@ -114,13 +291,13 @@ namespace
 
 [[nodiscard]] Result<void> TestUnbindKeepsEntity()
 {
-	Result<EntityPhysics> created = CreateSimulation();
+	Result<PhysicsScene> created = CreateSimulation();
 	if (!created)
 	{
 		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
 	}
 
-	EntityPhysics& simulation = created.value;
+	PhysicsScene& simulation = created.value;
 	World world{};
 	const EntityId entity = world.Spawn({});
 	PhysicsBodyDesc sphere{};
@@ -149,13 +326,13 @@ namespace
 
 [[nodiscard]] Result<void> TestDestroyEntityRemovesBody()
 {
-	Result<EntityPhysics> created = CreateSimulation();
+	Result<PhysicsScene> created = CreateSimulation();
 	if (!created)
 	{
 		return FailInternal(LogCategory::Physics, created.error.code, created.error.message);
 	}
 
-	EntityPhysics& simulation = created.value;
+	PhysicsScene& simulation = created.value;
 	World world{};
 	const EntityId entity = world.Spawn({});
 	PhysicsBodyDesc sphere{};
@@ -194,6 +371,16 @@ Result<void> RunEntityPhysicsTests()
 	if (auto fall = TestBoundSphereFalls(); !fall)
 	{
 		return fall;
+	}
+
+	if (auto sampled = TestSampleLeavesTransform(); !sampled)
+	{
+		return sampled;
+	}
+
+	if (auto kinematic = TestKinematicFollowsTransform(); !kinematic)
+	{
+		return kinematic;
 	}
 
 	if (auto rejected = TestBindRejectsParentAndDuplicate(); !rejected)

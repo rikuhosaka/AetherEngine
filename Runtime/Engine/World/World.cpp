@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -223,7 +224,28 @@ EntityId World::GetParent(EntityId id) const
 	return slot == nullptr ? EntityId{} : slot->actor.parent;
 }
 
+namespace
+{
+[[nodiscard]] const RenderPose* FindRenderPose(std::span<const RenderPose> poses, EntityId id)
+{
+	for (const RenderPose& pose : poses)
+	{
+		if (pose.entity == id)
+		{
+			return &pose;
+		}
+	}
+
+	return nullptr;
+}
+} // namespace
+
 DirectX::XMMATRIX World::GetWorldMatrix(EntityId id) const
+{
+	return GetWorldMatrix(id, {});
+}
+
+DirectX::XMMATRIX World::GetWorldMatrix(EntityId id, std::span<const RenderPose> poses) const
 {
 	std::array<DirectX::XMMATRIX, kMaxParentDepth> localMatrices{};
 	int count = 0;
@@ -236,7 +258,14 @@ DirectX::XMMATRIX World::GetWorldMatrix(EntityId id) const
 			break;
 		}
 
-		localMatrices[static_cast<size_t>(count)] = ToLocalMatrix(slot->actor.transform);
+		Transform local = slot->actor.transform;
+		if (const RenderPose* pose = FindRenderPose(poses, current))
+		{
+			local.position = pose->position;
+			local.rotation = pose->rotation;
+		}
+
+		localMatrices[static_cast<size_t>(count)] = ToLocalMatrix(local);
 		if (!slot->actor.parent.IsValid())
 		{
 			++count;
