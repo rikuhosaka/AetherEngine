@@ -1,5 +1,6 @@
 # === ビルド生成物 ===
 build/
+Intermediate/
 *.obj
 *.lib
 *.pdb

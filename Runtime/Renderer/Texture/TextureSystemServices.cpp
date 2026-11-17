@@ -2,8 +2,8 @@
 
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
+#include "Runtime/AssetSystem/Texture/Loader/CookedTexture.h"
 #include "Runtime/AssetSystem/Texture/Loader/TextureAssetPath.h"
-#include "Runtime/AssetSystem/Texture/Loader/TextureFileLoader.h"
 #include "Runtime/Renderer/Texture/Loader/TextureImageToUpload.h"
 #include "Runtime/RHI/Interface/RHICommandList.h"
 
@@ -80,17 +80,11 @@ Result<TextureHandle> TextureSystemServices::LoadTexture(
 			"Texture load requires a relative asset path");
 	}
 
-	auto pathResult = ResolveTexturePath(desc.relativePath);
-	if (!pathResult)
-	{
-		return MakeFail<TextureHandle>(pathResult.error.code, pathResult.error.message);
-	}
-
 	TextureFileLoadOptions options{};
 	options.colorSpace = desc.colorSpace;
 	options.generateMips = desc.generateMips;
 
-	auto imageResult = LoadTextureImageFromFile(pathResult.value, options);
+	auto imageResult = LoadTextureImage(m_assetsRoot, desc.relativePath, options);
 	if (!imageResult)
 	{
 		return MakeFail<TextureHandle>(imageResult.error.code, imageResult.error.message);

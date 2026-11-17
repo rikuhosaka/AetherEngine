@@ -1,9 +1,14 @@
 #include "Runtime/Renderer/Test/TextureFileLoaderTest.h"
 
 #include "Runtime/Core/Log/LogMacros.h"
+#include "Runtime/AssetSystem/Texture/Loader/CookedTexture.h"
 #include "Runtime/AssetSystem/Texture/Loader/TextureAssetPath.h"
 #include "Runtime/AssetSystem/Texture/Loader/TextureFileLoader.h"
 #include "Runtime/Renderer/Texture/Loader/TextureImageToUpload.h"
+
+#include <fstream>
+#include <iterator>
+#include <system_error>
 
 namespace
 {
@@ -193,6 +198,176 @@ namespace
 
 	return MakeOk();
 }
+
+[[nodiscard]] bool SameImage(const TextureImageData& left, const TextureImageData& right)
+{
+	if (left.sourcePath != right.sourcePath || left.width != right.width || left.height != right.height
+		|| left.mipCount != right.mipCount || left.format != right.format || left.mips.size() != right.mips.size())
+	{
+		return false;
+	}
+
+	for (size_t mipIndex = 0; mipIndex < left.mips.size(); ++mipIndex)
+	{
+		const TextureImageMip& leftMip = left.mips[mipIndex];
+		const TextureImageMip& rightMip = right.mips[mipIndex];
+		if (leftMip.width != rightMip.width || leftMip.height != rightMip.height || leftMip.rowPitch != rightMip.rowPitch
+			|| leftMip.pixels != rightMip.pixels)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+[[nodiscard]] bool CookedFileStartsWithMagic(const std::filesystem::path& path)
+{
+	std::ifstream file(path, std::ios::binary);
+	char magic[4] = {};
+	file.read(magic, 4);
+	return file.gcount() == 4 && magic[0] == 'A' && magic[1] == 'E' && magic[2] == 'T' && magic[3] == 'X';
+}
+
+[[nodiscard]] Result<void> TestCookedTextureCache(const std::filesystem::path& assetsRoot)
+{
+	const std::filesystem::path tempRoot = std::filesystem::temp_directory_path() / "AetherTextureCook" / "Assets";
+	std::error_code errorCode{};
+	std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+	std::filesystem::create_directories(tempRoot / "Textures", errorCode);
+	if (errorCode)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::FileNotFound,
+			"Cooked texture test directory could not be created");
+	}
+
+	{
+		std::ofstream badFile(tempRoot / "Textures" / "bad.png", std::ios::binary | std::ios::trunc);
+		if (!badFile)
+		{
+			std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+			return FailRuntime(
+				LogCategory::Asset,
+				ErrorCode::FileNotFound,
+				"Invalid texture test file could not be written");
+		}
+		badFile << "not a png";
+	}
+
+	TextureFileLoadOptions badOptions{};
+	const Result<TextureImageData> badLoad = LoadTextureImage(tempRoot, "Textures/bad.png", badOptions);
+	if (badLoad || std::filesystem::exists(CookedTexturePath(tempRoot, "Textures/bad.png", badOptions), errorCode))
+	{
+		std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			"An invalid texture should fail before a cooked texture is written");
+	}
+	std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+
+	constexpr const char* kRelativePath = "Textures/GameIcon.png";
+	const Result<std::filesystem::path> resolved = ResolveTextureAssetPath(assetsRoot, kRelativePath);
+	if (!resolved)
+	{
+		return MakeOk();
+	}
+
+	std::ifstream sourceFile(resolved.value, std::ios::binary);
+	if (!sourceFile)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::FileNotFound,
+			"Texture file could not be opened");
+	}
+	const std::string sourceBytes{
+		std::istreambuf_iterator<char>(sourceFile),
+		std::istreambuf_iterator<char>() };
+
+	TextureFileLoadOptions srgbOptions{};
+	srgbOptions.colorSpace = TextureColorSpace::Srgb;
+	srgbOptions.generateMips = true;
+	TextureFileLoadOptions linearOptions{};
+	linearOptions.colorSpace = TextureColorSpace::Linear;
+	linearOptions.generateMips = true;
+
+	const Result<TextureImageData> imported = LoadTextureImageFromFile(resolved.value, srgbOptions);
+	const Result<TextureImageData> cooked = imported ? LoadTextureImage(assetsRoot, kRelativePath, srgbOptions) : imported;
+	const Result<TextureImageData> cookedAgain = cooked
+		? LoadTextureImage(assetsRoot, kRelativePath, srgbOptions)
+		: cooked;
+	const Result<TextureImageData> linearCooked = cookedAgain
+		? LoadTextureImage(assetsRoot, kRelativePath, linearOptions)
+		: cookedAgain;
+	const std::filesystem::path srgbPath = CookedTexturePath(assetsRoot, kRelativePath, srgbOptions);
+	const std::filesystem::path linearPath = CookedTexturePath(assetsRoot, kRelativePath, linearOptions);
+	if (!imported || !cooked || !cookedAgain || !linearCooked || srgbPath == linearPath
+		|| !std::filesystem::exists(srgbPath, errorCode) || !std::filesystem::exists(linearPath, errorCode)
+		|| !SameImage(imported.value, cooked.value) || !SameImage(cooked.value, cookedAgain.value)
+		|| linearCooked.value.format != TextureImageFormat::R8G8B8A8_UNORM
+		|| cooked.value.format != TextureImageFormat::R8G8B8A8_UNORM_SRGB)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			imported && cooked && cookedAgain && linearCooked
+				? "Cooked textures should match the decode and keep separate color-space files"
+				: (imported
+					? (cooked ? (cookedAgain ? linearCooked.error.message : cookedAgain.error.message) : cooked.error.message)
+					: imported.error.message));
+	}
+
+	TextureImageData patched{};
+	const bool readPatched = TryReadCookedTexture(
+		srgbPath,
+		HashTextureSource(sourceBytes),
+		srgbOptions,
+		kRelativePath,
+		patched) && !patched.mips.empty() && !patched.mips.front().pixels.empty();
+	std::byte patchedByte{};
+	if (readPatched)
+	{
+		patched.mips.front().pixels.front() = static_cast<std::byte>(
+			static_cast<uint8_t>(patched.mips.front().pixels.front()) ^ 0x5Au);
+		patchedByte = patched.mips.front().pixels.front();
+	}
+	const Result<void> writtenPatch = readPatched
+		? WriteCookedTexture(srgbPath, HashTextureSource(sourceBytes), srgbOptions, kRelativePath, patched)
+		: FailRuntime(LogCategory::Asset, ErrorCode::InvalidArgument, "Cooked texture could not be read back");
+	const Result<TextureImageData> patchedLoad = writtenPatch
+		? LoadTextureImage(assetsRoot, kRelativePath, srgbOptions)
+		: MakeFail<TextureImageData>(writtenPatch.error.code, writtenPatch.error.message);
+	if (!writtenPatch || !patchedLoad || patchedLoad.value.mips.empty() || patchedLoad.value.mips.front().pixels.empty()
+		|| patchedLoad.value.mips.front().pixels.front() != patchedByte)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			writtenPatch && patchedLoad
+				? "A matching cooked texture should be reused"
+				: (writtenPatch ? patchedLoad.error.message : writtenPatch.error.message));
+	}
+
+	{
+		std::ofstream corrupt(srgbPath, std::ios::binary | std::ios::trunc);
+		corrupt << "XXXX";
+	}
+	const Result<TextureImageData> recovered = LoadTextureImage(assetsRoot, kRelativePath, srgbOptions);
+	if (!recovered || !SameImage(imported.value, recovered.value) || !CookedFileStartsWithMagic(srgbPath))
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			recovered
+				? "A corrupt cooked texture should be rebuilt from the source image"
+				: recovered.error.message);
+	}
+
+	return MakeOk();
+}
 } // namespace
 
 Result<void> RunTextureFileLoaderTests(const std::filesystem::path& assetsRoot)
@@ -208,6 +383,11 @@ Result<void> RunTextureFileLoaderTests(const std::filesystem::path& assetsRoot)
 	if (auto colorSpaceResult = RunColorSpaceViewTest(assetsRoot); !colorSpaceResult)
 	{
 		return colorSpaceResult;
+	}
+
+	if (auto cookedResult = TestCookedTextureCache(assetsRoot); !cookedResult)
+	{
+		return cookedResult;
 	}
 
 	if (auto gameIconResult = RunLoaderTestCase(

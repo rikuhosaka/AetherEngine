@@ -7,9 +7,7 @@
 #include "Runtime/Renderer/Material/MaterialTypes.h"
 #include "Runtime/Renderer/Mesh/MeshSystemServices.h"
 #include "Runtime/Renderer/Mesh/MeshUpload.h"
-#include "Runtime/AssetSystem/Model/Loader/FbxModelFileLoader.h"
-#include "Runtime/AssetSystem/Model/Loader/FbxSdkContext.h"
-#include "Runtime/AssetSystem/Model/Loader/ModelAssetPath.h"
+#include "Runtime/AssetSystem/Model/Loader/CookedModel.h"
 #include "Runtime/AssetSystem/Model/Loader/ModelLoadTypes.h"
 #include "Runtime/Renderer/Resource/RenderResourceServices.h"
 #include "Runtime/Renderer/Scene/RenderConstantsLayout.h"
@@ -273,23 +271,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 			"FbxSceneAssets requires valid shader and assets roots");
 	}
 
-	auto sdkResult = FbxSdkContext::Create();
-	if (!sdkResult)
-	{
-		return MakeFail(sdkResult.error.code, sdkResult.error.message);
-	}
-	m_fbxSdkContext = std::make_unique<FbxSdkContext>(std::move(sdkResult.value));
-
-	const Result<std::filesystem::path> resolveResult =
-		ResolveModelAssetPath(assetsRoot, modelRelativePath);
-	if (!resolveResult)
-	{
-		return MakeFail(resolveResult.error.code, resolveResult.error.message);
-	}
-
-	const Result<ModelAssetData> loadResult = LoadModelAssetDataFromFile(
-		resolveResult.value,
-		*m_fbxSdkContext);
+	const Result<ModelAssetData> loadResult = LoadModelAsset(assetsRoot, modelRelativePath);
 	if (!loadResult)
 	{
 		return MakeFail(loadResult.error.code, loadResult.error.message);

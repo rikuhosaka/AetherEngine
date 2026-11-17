@@ -1,5 +1,6 @@
 #include "Runtime/AssetSystem/AssetCache.h"
 
+#include "Runtime/AssetSystem/Mesh/PrimitiveMesh.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
@@ -398,17 +399,77 @@ using Json = nlohmann::json;
 	return MakeOk(std::move(asset));
 }
 
-[[nodiscard]] const MeshAsset* FindAsset(const std::vector<MeshAsset>& assets, std::string_view id)
+struct PendingMesh
 {
-	for (const MeshAsset& asset : assets)
+	std::filesystem::path fileName{};
+	uint64_t sourceHash = 0;
+	MeshAsset source{};
+};
+
+[[nodiscard]] bool ContainsId(const std::vector<PendingMesh>& pending, std::string_view id)
+{
+	for (const PendingMesh& mesh : pending)
 	{
-		if (asset.id == id)
+		if (mesh.source.id == id)
 		{
-			return &asset;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+[[nodiscard]] const CookedMesh* FindCooked(const std::vector<CookedMesh>& meshes, std::string_view id)
+{
+	for (const CookedMesh& mesh : meshes)
+	{
+		if (mesh.source.id == id)
+		{
+			return &mesh;
 		}
 	}
 
 	return nullptr;
+}
+
+[[nodiscard]] Result<std::string> ReadFileBytes(const std::filesystem::path& path)
+{
+	std::ifstream file(path, std::ios::binary);
+	if (!file)
+	{
+		return FailRuntime<std::string>(
+			LogCategory::Asset,
+			ErrorCode::FileNotFound,
+			"Mesh asset file could not be opened");
+	}
+
+	return MakeOk(std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() });
+}
+
+[[nodiscard]] Result<PrimitiveMeshData> GenerateMeshRender(const MeshAsset& asset)
+{
+	switch (asset.kind)
+	{
+	case MeshAssetKind::Box:
+		return GenerateCubeMesh({ asset.width, asset.height, asset.depth, false });
+	case MeshAssetKind::Sphere:
+		return GenerateSphereMesh({ asset.radius, asset.stacks, asset.slices });
+	case MeshAssetKind::Capsule:
+		return GenerateCapsuleMesh({
+			asset.radius,
+			asset.halfHeight,
+			asset.slices,
+			asset.hemisphereStacks });
+	case MeshAssetKind::ConvexHull:
+		return GenerateConvexHullMesh({ asset.points });
+	case MeshAssetKind::TriangleList:
+		return GenerateTriangleMesh({ asset.points, asset.indices });
+	default:
+		return FailRuntime<PrimitiveMeshData>(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			"Mesh asset kind is unsupported");
+	}
 }
 } // namespace
 
@@ -514,7 +575,7 @@ Result<void> AssetCache::LoadDirectory(const std::filesystem::path& assetsRoot)
 			"Mesh asset directory was not found");
 	}
 
-	std::vector<MeshAsset> loaded{};
+	std::vector<PendingMesh> pending{};
 	std::filesystem::directory_iterator iterator(meshesRoot, errorCode);
 	const std::filesystem::directory_iterator end{};
 	if (errorCode)
@@ -541,14 +602,19 @@ Result<void> AssetCache::LoadDirectory(const std::filesystem::path& assetsRoot)
 			continue;
 		}
 
-		const std::filesystem::path relativePath = std::filesystem::path("Meshes") / iterator->path().filename();
-		Result<MeshAsset> asset = LoadMeshAssetFile(assetsRoot, relativePath);
+		Result<std::string> bytes = ReadFileBytes(iterator->path());
+		if (!bytes)
+		{
+			return MakeFail(bytes.error.code, bytes.error.message);
+		}
+
+		Result<MeshAsset> asset = ReadMeshAsset(bytes.value);
 		if (!asset)
 		{
 			return MakeFail(asset.error.code, asset.error.message);
 		}
 
-		if (FindAsset(loaded, asset.value.id) != nullptr)
+		if (ContainsId(pending, asset.value.id))
 		{
 			return FailRuntime(
 				LogCategory::Asset,
@@ -556,15 +622,54 @@ Result<void> AssetCache::LoadDirectory(const std::filesystem::path& assetsRoot)
 				"Mesh asset id is already loaded: " + asset.value.id);
 		}
 
-		loaded.push_back(std::move(asset.value));
+		PendingMesh item{};
+		item.fileName = iterator->path().filename();
+		item.sourceHash = HashMeshSource(bytes.value);
+		item.source = std::move(asset.value);
+		pending.push_back(std::move(item));
 	}
 
-	m_assets = std::move(loaded);
+	std::vector<CookedMesh> loaded{};
+	loaded.reserve(pending.size());
+	for (PendingMesh& item : pending)
+	{
+		const std::filesystem::path cookedPath = CookedMeshPath(assetsRoot, item.fileName);
+		CookedMesh cooked{};
+		const bool reusable = TryReadCookedMesh(cookedPath, item.sourceHash, cooked)
+			&& cooked.source.id == item.source.id && cooked.source.kind == item.source.kind;
+		if (!reusable)
+		{
+			Result<PrimitiveMeshData> render = GenerateMeshRender(item.source);
+			if (!render)
+			{
+				return MakeFail(render.error.code, render.error.message);
+			}
+
+			cooked.source = std::move(item.source);
+			cooked.render = std::move(render.value);
+			Result<void> written = WriteCookedMesh(cookedPath, item.sourceHash, cooked);
+			if (!written)
+			{
+				return MakeFail(written.error.code, written.error.message);
+			}
+		}
+
+		loaded.push_back(std::move(cooked));
+	}
+
+	m_meshes = std::move(loaded);
 	m_loaded = true;
 	return MakeOk();
 }
 
 const MeshAsset* AssetCache::Find(std::string_view id) const
 {
-	return FindAsset(m_assets, id);
+	const CookedMesh* mesh = FindCooked(m_meshes, id);
+	return mesh == nullptr ? nullptr : &mesh->source;
+}
+
+const PrimitiveMeshData* AssetCache::FindRender(std::string_view id) const
+{
+	const CookedMesh* mesh = FindCooked(m_meshes, id);
+	return mesh == nullptr ? nullptr : &mesh->render;
 }

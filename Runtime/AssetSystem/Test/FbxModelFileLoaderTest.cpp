@@ -1,12 +1,16 @@
 #include "Runtime/AssetSystem/Test/FbxModelFileLoaderTest.h"
 
 #include "Runtime/Core/Log/LogMacros.h"
+#include "Runtime/AssetSystem/Model/Loader/CookedModel.h"
 #include "Runtime/AssetSystem/Model/Loader/FbxModelFileLoader.h"
 #include "Runtime/AssetSystem/Model/Loader/FbxSdkContext.h"
 #include "Runtime/AssetSystem/Model/Loader/ModelAssetPath.h"
 
 #include <cctype>
+#include <fstream>
+#include <iterator>
 #include <string>
+#include <system_error>
 
 namespace
 {
@@ -339,6 +343,244 @@ namespace
 
 	return MakeOk();
 }
+
+[[nodiscard]] bool SameFloats(const float* left, const float* right, size_t count)
+{
+	for (size_t index = 0; index < count; ++index)
+	{
+		if (left[index] != right[index])
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+[[nodiscard]] bool SameModel(const ModelAssetData& left, const ModelAssetData& right)
+{
+	if (left.sourcePath != right.sourcePath || left.rootNodeIndex != right.rootNodeIndex
+		|| left.meshes.size() != right.meshes.size() || left.materialSlots.size() != right.materialSlots.size()
+		|| left.nodes.size() != right.nodes.size())
+	{
+		return false;
+	}
+
+	for (size_t meshIndex = 0; meshIndex < left.meshes.size(); ++meshIndex)
+	{
+		const ModelMeshData& leftMesh = left.meshes[meshIndex];
+		const ModelMeshData& rightMesh = right.meshes[meshIndex];
+		if (leftMesh.name != rightMesh.name || leftMesh.indices != rightMesh.indices
+			|| leftMesh.vertices.size() != rightMesh.vertices.size()
+			|| leftMesh.submeshes.size() != rightMesh.submeshes.size()
+			|| leftMesh.bounds.minX != rightMesh.bounds.minX || leftMesh.bounds.minY != rightMesh.bounds.minY
+			|| leftMesh.bounds.minZ != rightMesh.bounds.minZ || leftMesh.bounds.maxX != rightMesh.bounds.maxX
+			|| leftMesh.bounds.maxY != rightMesh.bounds.maxY || leftMesh.bounds.maxZ != rightMesh.bounds.maxZ)
+		{
+			return false;
+		}
+
+		for (size_t vertexIndex = 0; vertexIndex < leftMesh.vertices.size(); ++vertexIndex)
+		{
+			const BasicVertex& leftVertex = leftMesh.vertices[vertexIndex];
+			const BasicVertex& rightVertex = rightMesh.vertices[vertexIndex];
+			if (!SameFloats(leftVertex.position, rightVertex.position, 4)
+				|| !SameFloats(leftVertex.uv, rightVertex.uv, 2)
+				|| !SameFloats(leftVertex.normal, rightVertex.normal, 3)
+				|| !SameFloats(leftVertex.tangent, rightVertex.tangent, 4))
+			{
+				return false;
+			}
+		}
+
+		for (size_t submeshIndex = 0; submeshIndex < leftMesh.submeshes.size(); ++submeshIndex)
+		{
+			const ModelSubMeshData& leftSubmesh = leftMesh.submeshes[submeshIndex];
+			const ModelSubMeshData& rightSubmesh = rightMesh.submeshes[submeshIndex];
+			if (leftSubmesh.indexStart != rightSubmesh.indexStart || leftSubmesh.indexCount != rightSubmesh.indexCount
+				|| leftSubmesh.materialSlot != rightSubmesh.materialSlot)
+			{
+				return false;
+			}
+		}
+	}
+
+	for (size_t slotIndex = 0; slotIndex < left.materialSlots.size(); ++slotIndex)
+	{
+		const ModelMaterialSlotData& leftSlot = left.materialSlots[slotIndex];
+		const ModelMaterialSlotData& rightSlot = right.materialSlots[slotIndex];
+		if (leftSlot.name != rightSlot.name || leftSlot.diffuseTexturePath != rightSlot.diffuseTexturePath
+			|| leftSlot.normalTexturePath != rightSlot.normalTexturePath)
+		{
+			return false;
+		}
+	}
+
+	for (size_t nodeIndex = 0; nodeIndex < left.nodes.size(); ++nodeIndex)
+	{
+		const ModelNodeData& leftNode = left.nodes[nodeIndex];
+		const ModelNodeData& rightNode = right.nodes[nodeIndex];
+		if (leftNode.name != rightNode.name || leftNode.parentIndex != rightNode.parentIndex
+			|| leftNode.meshIndex != rightNode.meshIndex || leftNode.childNodeIndices != rightNode.childNodeIndices
+			|| !SameFloats(leftNode.localTransform, rightNode.localTransform, 16))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+[[nodiscard]] bool CookedFileStartsWithMagic(const std::filesystem::path& path)
+{
+	std::ifstream file(path, std::ios::binary);
+	char magic[4] = {};
+	file.read(magic, 4);
+	return file.gcount() == 4 && magic[0] == 'A' && magic[1] == 'E' && magic[2] == 'M' && magic[3] == 'O';
+}
+
+[[nodiscard]] Result<void> TestCookedModelCache(
+	const std::filesystem::path& assetsRoot,
+	FbxSdkContext& sdkContext)
+{
+	const std::filesystem::path tempRoot = std::filesystem::temp_directory_path() / "AetherModelCook" / "Assets";
+	std::error_code errorCode{};
+	std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+	std::filesystem::create_directories(tempRoot / "Models", errorCode);
+	if (errorCode)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::FileNotFound,
+			"Cooked model test directory could not be created");
+	}
+
+	{
+		std::ofstream badFile(tempRoot / "Models" / "bad.fbx", std::ios::binary | std::ios::trunc);
+		if (!badFile)
+		{
+			std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+			return FailRuntime(
+				LogCategory::Asset,
+				ErrorCode::FileNotFound,
+				"Invalid FBX test file could not be written");
+		}
+		badFile << "not an fbx";
+	}
+	const Result<ModelAssetData> badLoad = LoadModelAsset(tempRoot, "Models/bad.fbx");
+	if (badLoad || std::filesystem::exists(CookedModelPath(tempRoot, "Models/bad.fbx"), errorCode))
+	{
+		std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			"An invalid FBX should fail before a cooked model is written");
+	}
+	std::filesystem::remove_all(tempRoot.parent_path(), errorCode);
+
+	const std::filesystem::path candidates[] = {
+		"Models/trangle.fbx",
+		"Models/Paladin J Nordstrom.fbx",
+	};
+	std::filesystem::path relativePath{};
+	Result<std::filesystem::path> resolved = FailRuntime<std::filesystem::path>(
+		LogCategory::Asset,
+		ErrorCode::FileNotFound,
+		"No FBX model is available for the cook test");
+	for (const std::filesystem::path& candidate : candidates)
+	{
+		resolved = ResolveModelAssetPath(assetsRoot, candidate);
+		if (resolved)
+		{
+			relativePath = candidate;
+			break;
+		}
+	}
+	if (!resolved)
+	{
+		return MakeOk();
+	}
+
+	const Result<std::string> sourceBytes = [&resolved]() -> Result<std::string> {
+		std::ifstream file(resolved.value, std::ios::binary);
+		if (!file)
+		{
+			return FailRuntime<std::string>(
+				LogCategory::Asset,
+				ErrorCode::FileNotFound,
+				"Model file could not be opened");
+		}
+
+		return MakeOk(std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() });
+	}();
+	const Result<ModelAssetData> imported = sourceBytes
+		? LoadModelAssetDataFromFile(resolved.value, sdkContext)
+		: MakeFail<ModelAssetData>(sourceBytes.error.code, sourceBytes.error.message);
+	const Result<ModelAssetData> cooked = imported ? LoadModelAsset(assetsRoot, relativePath) : imported;
+	const Result<ModelAssetData> cookedAgain = cooked ? LoadModelAsset(assetsRoot, relativePath) : cooked;
+	const std::filesystem::path cookedPath = CookedModelPath(assetsRoot, relativePath);
+	if (!sourceBytes || !imported || !cooked || !cookedAgain || !std::filesystem::exists(cookedPath, errorCode)
+		|| !SameModel(imported.value, cooked.value) || !SameModel(cooked.value, cookedAgain.value))
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			sourceBytes && imported && cooked && cookedAgain
+				? "Cooked model should match the FBX import and load again from disk"
+				: (sourceBytes
+					? (imported ? (cooked ? cookedAgain.error.message : cooked.error.message) : imported.error.message)
+					: sourceBytes.error.message));
+	}
+
+	const FbxModelLoadOptions options{};
+	ModelAssetData patched{};
+	const bool readPatched = TryReadCookedModel(
+		cookedPath,
+		HashModelSource(sourceBytes.value),
+		options,
+		assetsRoot,
+		relativePath,
+		patched) && !patched.meshes.empty() && !patched.meshes.front().vertices.empty();
+	if (readPatched)
+	{
+		patched.meshes.front().vertices.front().position[0] += 3.0f;
+	}
+	const float patchedPosition = readPatched ? patched.meshes.front().vertices.front().position[0] : 0.0f;
+	const Result<void> writtenPatch = readPatched
+		? WriteCookedModel(cookedPath, HashModelSource(sourceBytes.value), options, assetsRoot, relativePath, patched)
+		: FailRuntime(LogCategory::Asset, ErrorCode::InvalidArgument, "Cooked model could not be read back");
+	const Result<ModelAssetData> patchedLoad = writtenPatch
+		? LoadModelAsset(assetsRoot, relativePath)
+		: MakeFail<ModelAssetData>(writtenPatch.error.code, writtenPatch.error.message);
+	if (!writtenPatch || !patchedLoad || patchedLoad.value.meshes.empty()
+		|| patchedLoad.value.meshes.front().vertices.empty()
+		|| patchedLoad.value.meshes.front().vertices.front().position[0] != patchedPosition)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			writtenPatch && patchedLoad
+				? "A matching cooked model should be reused"
+				: (writtenPatch ? patchedLoad.error.message : writtenPatch.error.message));
+	}
+
+	{
+		std::ofstream corrupt(cookedPath, std::ios::binary | std::ios::trunc);
+		corrupt << "XXXX";
+	}
+	const Result<ModelAssetData> recovered = LoadModelAsset(assetsRoot, relativePath);
+	if (!recovered || !SameModel(imported.value, recovered.value) || !CookedFileStartsWithMagic(cookedPath))
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			recovered
+				? "A corrupt cooked model should be rebuilt from the FBX"
+				: recovered.error.message);
+	}
+
+	return MakeOk();
+}
 } // namespace
 
 Result<void> RunFbxModelFileLoaderTests(const std::filesystem::path& assetsRoot)
@@ -385,6 +627,11 @@ Result<void> RunFbxModelFileLoaderTests(const std::filesystem::path& assetsRoot)
 	if (auto paladinResult = RunPaladinLoaderTest(assetsRoot, sdkResult.value); !paladinResult)
 	{
 		return paladinResult;
+	}
+
+	if (auto cookedResult = TestCookedModelCache(assetsRoot, sdkResult.value); !cookedResult)
+	{
+		return cookedResult;
 	}
 
 	LOG_INFO(LogCategory::Asset, "FbxModelFileLoaderTests passed");

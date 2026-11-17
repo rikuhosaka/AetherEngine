@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/AssetSystem/MeshAsset.h"
+#include "Runtime/AssetSystem/Mesh/CookedMesh.h"
 #include "Runtime/Core/Log/Result.h"
 
 #include <filesystem>
@@ -12,15 +12,16 @@
 	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& relativePath);
 
-// Keeps mesh JSON in memory. LoadDirectory reads each id once.
+// Loads each mesh JSON once. Reuses a cooked render mesh when the source bytes still match.
 class AssetCache
 {
 public:
 	[[nodiscard]] Result<void> LoadDirectory(const std::filesystem::path& assetsRoot);
 
 	[[nodiscard]] const MeshAsset* Find(std::string_view id) const;
+	[[nodiscard]] const PrimitiveMeshData* FindRender(std::string_view id) const;
 
 private:
-	std::vector<MeshAsset> m_assets{};
+	std::vector<CookedMesh> m_meshes{};
 	bool m_loaded = false;
 };

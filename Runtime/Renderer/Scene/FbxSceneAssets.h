@@ -10,12 +10,10 @@
 #include "Runtime/Engine/World/Component/TransformComponent.h"
 
 #include <filesystem>
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
-class FbxSdkContext;
 class FrameContext;
 class RenderResourceServices;
 class RHICommandList;
@@ -87,5 +85,4 @@ private:
 	std::vector<TextureHandle> m_normalTextures{};
 	std::vector<FbxNodeSpawn> m_nodes{};
 	std::vector<FbxSubmeshSpawn> m_submeshes{};
-	std::unique_ptr<FbxSdkContext> m_fbxSdkContext{};
 };

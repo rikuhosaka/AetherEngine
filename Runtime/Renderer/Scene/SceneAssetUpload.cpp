@@ -31,32 +31,6 @@ namespace
 	return false;
 }
 
-[[nodiscard]] Result<PrimitiveMeshData> GenerateAssetMesh(const MeshAsset& asset)
-{
-	switch (asset.kind)
-	{
-	case MeshAssetKind::Box:
-		return GenerateCubeMesh({ asset.width, asset.height, asset.depth, false });
-	case MeshAssetKind::Sphere:
-		return GenerateSphereMesh({ asset.radius, asset.stacks, asset.slices });
-	case MeshAssetKind::Capsule:
-		return GenerateCapsuleMesh({
-			asset.radius,
-			asset.halfHeight,
-			asset.slices,
-			asset.hemisphereStacks });
-	case MeshAssetKind::ConvexHull:
-		return GenerateConvexHullMesh({ asset.points });
-	case MeshAssetKind::TriangleList:
-		return GenerateTriangleMesh({ asset.points, asset.indices });
-	default:
-		return FailInternal<PrimitiveMeshData>(
-			LogCategory::Asset,
-			ErrorCode::InvalidArgument,
-			"Scene asset mesh kind is unsupported");
-	}
-}
-
 [[nodiscard]] Result<MeshHandle> UploadPrimitive(
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
@@ -146,8 +120,8 @@ Result<UploadedSceneAssets> UploadSceneAssets(
 	assets.meshes.reserve(keys.size());
 	for (const std::string& key : keys)
 	{
-		const MeshAsset* asset = cache.Find(key);
-		if (asset == nullptr)
+		const PrimitiveMeshData* mesh = cache.FindRender(key);
+		if (mesh == nullptr)
 		{
 			return FailRuntime<UploadedSceneAssets>(
 				LogCategory::Asset,
@@ -155,14 +129,8 @@ Result<UploadedSceneAssets> UploadSceneAssets(
 				"Scene asset mesh was not found: " + key);
 		}
 
-		const Result<PrimitiveMeshData> mesh = GenerateAssetMesh(*asset);
-		if (!mesh)
-		{
-			return MakeFail<UploadedSceneAssets>(mesh.error.code, mesh.error.message);
-		}
-
 		const Result<MeshHandle> uploaded = UploadPrimitive(
-			resources, frameContext, commandList, mesh.value, key.c_str());
+			resources, frameContext, commandList, *mesh, key.c_str());
 		if (!uploaded)
 		{
 			return MakeFail<UploadedSceneAssets>(uploaded.error.code, uploaded.error.message);
