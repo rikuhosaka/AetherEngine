@@ -61,18 +61,18 @@ void ComputeNodeWorldMatrix(
 	Aether::Math::StoreMatrixForHlsl(outWorldMatrix, world);
 }
 
-[[nodiscard]] Result<Transform> TransformFromDxMatrix(DirectX::FXMMATRIX matrix)
+[[nodiscard]] Result<TransformComponent> TransformFromDxMatrix(DirectX::FXMMATRIX matrix)
 {
 	DirectX::XMVECTOR scale{};
 	DirectX::XMVECTOR rotation{};
 	DirectX::XMVECTOR translation{};
 	if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, matrix))
 	{
-		return FailInternal<Transform>(LogCategory::Asset, ErrorCode::InvalidArgument,
+		return FailInternal<TransformComponent>(LogCategory::Asset, ErrorCode::InvalidArgument,
 			"FBX node transform could not be decomposed into translation, rotation, and scale");
 	}
 
-	Transform transform{};
+	TransformComponent transform{};
 	DirectX::XMStoreFloat3(&transform.position, translation);
 	DirectX::XMStoreFloat4(&transform.rotation, rotation);
 	DirectX::XMStoreFloat3(&transform.scale, scale);
@@ -398,7 +398,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	m_nodes.reserve(assetData.nodes.size());
 	for (const ModelNodeData& node : assetData.nodes)
 	{
-		const Result<Transform> localResult = TransformFromDxMatrix(LoadFbxRowMajorMatrix(node.localTransform));
+		const Result<TransformComponent> localResult = TransformFromDxMatrix(LoadFbxRowMajorMatrix(node.localTransform));
 		if (!localResult)
 		{
 			return MakeFail(localResult.error.code, localResult.error.message);

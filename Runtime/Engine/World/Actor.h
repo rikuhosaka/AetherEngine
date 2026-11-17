@@ -2,7 +2,6 @@
 
 #include "Runtime/Engine/World/Component/Component.h"
 #include "Runtime/Engine/World/EntityId.h"
-#include "Runtime/Engine/World/Transform.h"
 
 #include <memory>
 #include <string>
@@ -13,7 +12,7 @@
 
 class World;
 
-// 責任: 1エンティティの名前、親、変換、コンポーネントを保持する。
+// 責任: 1エンティティの名前、親、コンポーネントを保持する。
 // 役割: World のスロットに入るシーンノード。生存と ID の世代はスロットが持つ。
 // 所有: World のスロットが値で持つ。コンポーネントはこのアクターが所有し、アクターのコピーと一緒に複製される。
 struct Actor
@@ -26,7 +25,6 @@ struct Actor
 
 	EntityId parent{};
 	std::string name{};
-	Transform transform{};
 
 private:
 	friend class World;
@@ -115,7 +113,6 @@ private:
 inline Actor::Actor(const Actor& other)
 	: parent(other.parent)
 	, name(other.name)
-	, transform(other.transform)
 {
 	for (const auto& entry : other.components)
 	{

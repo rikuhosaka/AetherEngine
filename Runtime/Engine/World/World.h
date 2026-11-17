@@ -6,7 +6,7 @@
 #include "Runtime/Engine/World/EntityId.h"
 #include "Runtime/Engine/World/Lighting.h"
 #include "Runtime/Engine/World/RenderPose.h"
-#include "Runtime/Engine/World/Transform.h"
+#include "Runtime/Engine/World/Component/TransformComponent.h"
 
 #include <DirectXMath.h>
 
@@ -21,7 +21,7 @@
 struct WorldSpawnDesc
 {
 	std::string name{};
-	Transform transform{};
+	TransformComponent transform{};
 	EntityId parent{};
 };
 
@@ -53,14 +53,14 @@ public:
 	[[nodiscard]] EntityId GetParent(EntityId id) const;
 	// Row-vector product local * parent * ... * root. A dead parent breaks the chain.
 	[[nodiscard]] DirectX::XMMATRIX GetWorldMatrix(EntityId id) const;
-	// poses に同じエンティティがあれば、その位置と回転でローカル行列を作る。スケールは Transform のまま。
+	// poses に同じエンティティがあれば、その位置と回転でローカル行列を作る。スケールは TransformComponent のまま。
 	[[nodiscard]] DirectX::XMMATRIX GetWorldMatrix(EntityId id, std::span<const RenderPose> poses) const;
 
 	[[nodiscard]] bool IsAlive(EntityId id) const;
 	// Empty when the entity is dead or was spawned without a name.
 	[[nodiscard]] std::string_view GetName(EntityId id) const;
-	[[nodiscard]] Transform* GetTransform(EntityId id);
-	[[nodiscard]] const Transform* GetTransform(EntityId id) const;
+	[[nodiscard]] TransformComponent* GetTransform(EntityId id);
+	[[nodiscard]] const TransformComponent* GetTransform(EntityId id) const;
 
 	// Fails when the entity is dead or already has this component.
 	// T must derive from Component and be copyable.
@@ -138,7 +138,7 @@ public:
 	[[nodiscard]] LightingSettings& GetLighting() { return m_document.lighting; }
 	[[nodiscard]] const LightingSettings& GetLighting() const { return m_document.lighting; }
 
-	// 文書だけを写した新しい World を返す。スロット、世代、親子、名前、変換、空き番号、コンポーネント、ライティング。
+	// 文書だけを写した新しい World を返す。スロット、世代、親子、名前、空き番号、コンポーネント、ライティング。
 	// 死んだスロットは死んだままなのでエンティティ ID は一致する。欠けているコンポーネントも欠けたまま。
 	// プレイセッションとサブシステムは写さない。複製先のサブシステムは空。
 	[[nodiscard]] World Clone() const;
@@ -190,7 +190,13 @@ public:
 			}
 
 			const EntityId id{ index, slot.generation };
-			fn(id, slot.actor.transform);
+			const TransformComponent* transform = slot.actor.Get<TransformComponent>();
+			if (transform == nullptr)
+			{
+				continue;
+			}
+
+			fn(id, *transform);
 		}
 	}
 

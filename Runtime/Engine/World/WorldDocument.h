@@ -3,7 +3,6 @@
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Engine/World/EntityId.h"
 #include "Runtime/Engine/World/Component/Renderable.h"
-#include "Runtime/Engine/World/Transform.h"
 
 #include <cstdint>
 #include <string>
@@ -16,7 +15,6 @@ struct WorldDocumentEntity
 	uint32_t id = 0;
 	uint32_t parent = 0;
 	std::string name{};
-	Transform transform{};
 	uint32_t submeshIndex = 0;
 	uint8_t layerMask = WorldLayer::Opaque;
 	bool visible = true;
@@ -36,7 +34,8 @@ struct WorldDocumentBinding
 class World;
 
 // Spawns every entity without a parent, then links parents from the document ids.
-// Each entity stores its document id. Mesh, material, and texture handles stay invalid.
+// Each entity stores its document id. Local transform stays at identity.
+// Mesh, material, and texture handles stay invalid.
 // A rejected document adds nothing.
 [[nodiscard]] Result<std::vector<WorldDocumentBinding>> Instantiate(
 	World& world,

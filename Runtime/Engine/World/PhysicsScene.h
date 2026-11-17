@@ -31,15 +31,15 @@ public:
 
 	[[nodiscard]] Result<void> Unbind(EntityId entity);
 
-	// Drops bodies whose entities are gone. A kinematic body then moves to its Transform.
+	// Drops bodies whose entities are gone. A kinematic body then moves to its TransformComponent.
 	// The step itself does not write transforms.
 	[[nodiscard]] Result<void> Step(World& world, float fixedDeltaSeconds);
 
-	// 最後のステップ後の位置と回転を Transform へ書く。スケールは変えない。
+	// 最後のステップ後の位置と回転を TransformComponent へ書く。スケールは変えない。
 	// エンティティが死んでいる束縛は外す。
 	void CommitTransforms(World& world);
 
-	// alpha 0 はステップ前、1 はステップ後。Transform も束縛も変えない。
+	// alpha 0 はステップ前、1 はステップ後。TransformComponent も束縛も変えない。
 	void SamplePoses(float alpha, std::vector<RenderPose>& out) const;
 
 	[[nodiscard]] PhysicsWorld& GetWorld();

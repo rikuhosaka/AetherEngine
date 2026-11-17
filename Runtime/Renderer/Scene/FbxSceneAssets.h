@@ -7,7 +7,7 @@
 #include "Runtime/AssetSystem/Texture/Loader/TextureLoadTypes.h"
 #include "Runtime/Renderer/Texture/TextureTypes.h"
 #include "Runtime/Engine/World/EntityId.h"
-#include "Runtime/Engine/World/Transform.h"
+#include "Runtime/Engine/World/Component/TransformComponent.h"
 
 #include <filesystem>
 #include <memory>
@@ -53,7 +53,7 @@ private:
 	struct FbxNodeSpawn
 	{
 		std::string name{};
-		Transform local{};
+		TransformComponent local{};
 		int32_t parentIndex = -1;
 	};
 

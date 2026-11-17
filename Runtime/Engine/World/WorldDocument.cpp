@@ -137,7 +137,6 @@ Result<std::vector<WorldDocumentBinding>> Instantiate(World& world, const WorldD
 	{
 		WorldSpawnDesc desc{};
 		desc.name = entity.name;
-		desc.transform = entity.transform;
 
 		const EntityId spawnedId = world.Spawn(std::move(desc));
 		spawned.push_back(spawnedId);

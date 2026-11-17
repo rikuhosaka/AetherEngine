@@ -64,7 +64,7 @@ Result<PhysicsBodyId> PhysicsScene::Bind(World& world, EntityId entity, PhysicsB
 			"PhysicsScene::Bind requires an unbound entity");
 	}
 
-	const Transform* transform = world.GetTransform(entity);
+	const TransformComponent* transform = world.GetTransform(entity);
 	if (transform == nullptr)
 	{
 		return FailRuntime<PhysicsBodyId>(
@@ -120,7 +120,7 @@ Result<void> PhysicsScene::Step(World& world, float fixedDeltaSeconds)
 			continue;
 		}
 
-		const Transform* transform = world.GetTransform(binding.entity);
+		const TransformComponent* transform = world.GetTransform(binding.entity);
 		if (transform == nullptr)
 		{
 			continue;
@@ -143,7 +143,7 @@ void PhysicsScene::CommitTransforms(World& world)
 	for (size_t index = 0; index < m_bindings.size();)
 	{
 		const Binding binding = m_bindings[index];
-		Transform* transform = world.GetTransform(binding.entity);
+		TransformComponent* transform = world.GetTransform(binding.entity);
 		if (transform == nullptr)
 		{
 			(void)m_physicsWorld.Destroy(binding.body);

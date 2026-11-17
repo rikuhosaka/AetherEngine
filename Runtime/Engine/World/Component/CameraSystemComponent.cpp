@@ -42,7 +42,7 @@ constexpr DirectX::XMFLOAT3 kPlayCameraFallbackForward{ 0.0f, 0.0f, 1.0f };
 	return stored;
 }
 
-void WriteCameraPose(Transform& transform, const CameraState& pose)
+void WriteCameraPose(TransformComponent& transform, const CameraState& pose)
 {
 	transform.position = pose.position;
 	transform.rotation = RotationFromPose(pose);
@@ -57,7 +57,7 @@ void CameraSystemComponent::ApplyControl(
 	bool useKeyboard)
 {
 	const EntityId owner = GetOwner();
-	Transform* transform = world.GetTransform(owner);
+	TransformComponent* transform = world.GetTransform(owner);
 	if (input == nullptr || transform == nullptr || world.Get<CameraComponent>(owner) == nullptr)
 	{
 		return;

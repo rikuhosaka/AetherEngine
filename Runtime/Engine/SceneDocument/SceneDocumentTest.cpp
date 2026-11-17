@@ -27,7 +27,7 @@ namespace
 [[nodiscard]] size_t CountAlive(const World& world)
 {
 	size_t count = 0;
-	world.ForEachAlive([&count](EntityId, const Transform&) {
+	world.ForEachAlive([&count](EntityId, const TransformComponent&) {
 		++count;
 	});
 	return count;
@@ -55,9 +55,9 @@ namespace
 	WorldDocumentEntity sphereWorld{};
 	sphereWorld.id = 1;
 	sphereWorld.name = "Sphere";
-	sphereWorld.transform.position = { 0.0f, 4.0f, 0.0f };
 	SceneEntity sphere{};
 	sphere.id = 1;
+	sphere.transform.position = { 0.0f, 4.0f, 0.0f };
 	sphere.mesh = "builtin:sphere";
 	sphere.tint[0] = 0.90f;
 	sphere.tint[1] = 0.35f;
@@ -73,9 +73,9 @@ namespace
 	WorldDocumentEntity hullWorld{};
 	hullWorld.id = 2;
 	hullWorld.name = "Hull";
-	hullWorld.transform.position = { 1.0f, 3.0f, -0.5f };
 	SceneEntity hull{};
 	hull.id = 2;
+	hull.transform.position = { 1.0f, 3.0f, -0.5f };
 	hull.mesh = "builtin:hull";
 	hull.tint[0] = 0.30f;
 	hull.tint[1] = 0.72f;
@@ -144,11 +144,6 @@ namespace
 {
 	const std::filesystem::path scenePath = assetsRoot / "Scenes" / "PhysicsDrop.json";
 	Result<SceneDocument> document = LoadSceneDocument(scenePath);
-	const WorldDocumentEntity* floor = document ? FindNamedWorld(document.value, "Floor") : nullptr;
-	const WorldDocumentEntity* box = document ? FindNamedWorld(document.value, "Box") : nullptr;
-	const WorldDocumentEntity* sphere = document ? FindNamedWorld(document.value, "Sphere") : nullptr;
-	const WorldDocumentEntity* capsule = document ? FindNamedWorld(document.value, "Capsule") : nullptr;
-	const WorldDocumentEntity* hull = document ? FindNamedWorld(document.value, "Hull") : nullptr;
 	const SceneEntity* floorEntity = document ? FindNamedEntity(document.value, "Floor") : nullptr;
 	const SceneEntity* boxEntity = document ? FindNamedEntity(document.value, "Box") : nullptr;
 	const SceneEntity* sphereEntity = document ? FindNamedEntity(document.value, "Sphere") : nullptr;
@@ -170,25 +165,26 @@ namespace
 		&& IsNearlyEqual(capsuleEntity->body->shape.halfHeight, 0.55f)
 		&& hullEntity->body->shape.type == PhysicsShapeType::ConvexHull
 		&& hullEntity->body->shape.mesh == "builtin:hull" && hullEntity->body->shape.points.empty();
-	const bool placed = floor != nullptr && box != nullptr && sphere != nullptr && capsule != nullptr && hull != nullptr
-		&& IsNearlyEqual(floor->transform.position.x, 0.0f) && IsNearlyEqual(box->transform.position.y, 0.5f)
-		&& IsNearlyEqual(sphere->transform.position.y, 4.0f) && IsNearlyEqual(capsule->transform.position.x, -1.15f)
-		&& IsNearlyEqual(capsule->transform.position.y, 4.4f) && IsNearlyEqual(capsule->transform.position.z, 0.85f)
-		&& IsNearlyEqual(hull->transform.position.x, 1.15f) && IsNearlyEqual(hull->transform.position.y, 3.6f)
-		&& IsNearlyEqual(hull->transform.position.z, -0.7f)
-		&& IsNearlyEqual(hull->transform.rotation.x, 0.264575481f)
-		&& IsNearlyEqual(hull->transform.rotation.y, 0.0840957165f)
-		&& IsNearlyEqual(hull->transform.rotation.z, 0.292659938f)
-		&& IsNearlyEqual(hull->transform.rotation.w, 0.91502887f);
+	const bool placed = floorEntity != nullptr && boxEntity != nullptr && sphereEntity != nullptr
+		&& capsuleEntity != nullptr && hullEntity != nullptr
+		&& IsNearlyEqual(floorEntity->transform.position.x, 0.0f) && IsNearlyEqual(boxEntity->transform.position.y, 0.5f)
+		&& IsNearlyEqual(sphereEntity->transform.position.y, 4.0f) && IsNearlyEqual(capsuleEntity->transform.position.x, -1.15f)
+		&& IsNearlyEqual(capsuleEntity->transform.position.y, 4.4f) && IsNearlyEqual(capsuleEntity->transform.position.z, 0.85f)
+		&& IsNearlyEqual(hullEntity->transform.position.x, 1.15f) && IsNearlyEqual(hullEntity->transform.position.y, 3.6f)
+		&& IsNearlyEqual(hullEntity->transform.position.z, -0.7f)
+		&& IsNearlyEqual(hullEntity->transform.rotation.x, 0.264575481f)
+		&& IsNearlyEqual(hullEntity->transform.rotation.y, 0.0840957165f)
+		&& IsNearlyEqual(hullEntity->transform.rotation.z, 0.292659938f)
+		&& IsNearlyEqual(hullEntity->transform.rotation.w, 0.91502887f);
 	const SceneEntity* paladinEntity = document ? FindNamedEntity(document.value, "Paladin") : nullptr;
 	const WorldDocumentEntity* paladin = document ? FindNamedWorld(document.value, "Paladin") : nullptr;
 	const bool paladinKept = paladinEntity != nullptr && paladin != nullptr
 		&& paladinEntity->model == "Models/Paladin J Nordstrom.fbx" && paladinEntity->mesh.empty()
 		&& !paladinEntity->body.has_value() && !paladin->hasRenderable
-		&& IsNearlyEqual(paladin->transform.position.x, 2.4992654f)
-		&& IsNearlyEqual(paladin->transform.position.y, 1.7999816f)
-		&& IsNearlyEqual(paladin->transform.position.z, 2.49905f)
-		&& IsNearlyEqual(paladin->transform.scale.x, 1.0432115f);
+		&& IsNearlyEqual(paladinEntity->transform.position.x, 2.4992654f)
+		&& IsNearlyEqual(paladinEntity->transform.position.y, 1.7999816f)
+		&& IsNearlyEqual(paladinEntity->transform.position.z, 2.49905f)
+		&& IsNearlyEqual(paladinEntity->transform.scale.x, 1.0432115f);
 	const Result<std::string> written = document ? WriteSceneDocument(document.value) : MakeFail<std::string>(ErrorCode::InvalidArgument, "Scene did not load");
 	const Result<SceneDocument> readBack = written
 		? ReadSceneDocument(written.value)
@@ -266,7 +262,7 @@ namespace
 	}
 
 	created.value.CommitTransforms(world);
-	const Transform* fallen = world.GetTransform(sphereBinding->entity);
+	const TransformComponent* fallen = world.GetTransform(sphereBinding->entity);
 	if (fallen == nullptr || !(fallen->position.y < 4.0f))
 	{
 		return FailRuntime(

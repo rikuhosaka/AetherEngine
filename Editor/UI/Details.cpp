@@ -1,7 +1,7 @@
 #include "Editor/UI/Details.h"
 
 #include "Editor/UI/WorldSelectionServices.h"
-#include "Runtime/Engine/World/Transform.h"
+#include "Runtime/Engine/World/Component/TransformComponent.h"
 #include "Runtime/Engine/World/World.h"
 
 #include "imgui.h"
@@ -77,7 +77,7 @@ void DrawDetails(World* world, WorldSelectionServices* selection, bool editable)
 	}
 
 	const EntityId id = selection->selected;
-	Transform* transform = world->GetTransform(id);
+	TransformComponent* transform = world->GetTransform(id);
 	if (transform == nullptr)
 	{
 		euler = {};

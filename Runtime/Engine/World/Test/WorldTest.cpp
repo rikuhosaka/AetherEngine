@@ -33,7 +33,7 @@ namespace
 [[nodiscard]] size_t CountAlive(const World& world)
 {
 	size_t count = 0;
-	world.ForEachAlive([&count](EntityId, const Transform&) {
+	world.ForEachAlive([&count](EntityId, const TransformComponent&) {
 		++count;
 	});
 	return count;
@@ -115,7 +115,7 @@ namespace
 	return true;
 }
 
-[[nodiscard]] DirectX::XMMATRIX ToMatrix(const Transform& transform)
+[[nodiscard]] DirectX::XMMATRIX ToMatrix(const TransformComponent& transform)
 {
 	return Aether::Math::TRS(
 		DirectX::XMLoadFloat3(&transform.position),
@@ -147,7 +147,7 @@ public:
 [[nodiscard]] bool HasNamedEntity(const World& world, std::string_view name)
 {
 	bool found = false;
-	world.ForEachAlive([&world, &found, name](EntityId id, const Transform&) {
+	world.ForEachAlive([&world, &found, name](EntityId id, const TransformComponent&) {
 		if (world.GetName(id) == name)
 		{
 			found = true;
@@ -159,16 +159,6 @@ public:
 [[nodiscard]] bool SameDocumentEntity(const WorldDocumentEntity& left, const WorldDocumentEntity& right)
 {
 	return left.id == right.id && left.parent == right.parent && left.name == right.name
-		&& IsNearlyEqual(left.transform.position.x, right.transform.position.x)
-		&& IsNearlyEqual(left.transform.position.y, right.transform.position.y)
-		&& IsNearlyEqual(left.transform.position.z, right.transform.position.z)
-		&& IsNearlyEqual(left.transform.rotation.x, right.transform.rotation.x)
-		&& IsNearlyEqual(left.transform.rotation.y, right.transform.rotation.y)
-		&& IsNearlyEqual(left.transform.rotation.z, right.transform.rotation.z)
-		&& IsNearlyEqual(left.transform.rotation.w, right.transform.rotation.w)
-		&& IsNearlyEqual(left.transform.scale.x, right.transform.scale.x)
-		&& IsNearlyEqual(left.transform.scale.y, right.transform.scale.y)
-		&& IsNearlyEqual(left.transform.scale.z, right.transform.scale.z)
 		&& left.submeshIndex == right.submeshIndex && left.layerMask == right.layerMask
 		&& left.visible == right.visible;
 }
@@ -193,7 +183,7 @@ Result<void> RunWorldTests()
 			"Spawn should produce a live entity");
 	}
 
-	const Transform* transform = world.GetTransform(first);
+	const TransformComponent* transform = world.GetTransform(first);
 	if (transform->position.x != 5.0f || transform->position.y != 2.0f || transform->position.z != -1.0f)
 	{
 		return FailRuntime(
@@ -264,7 +254,7 @@ Result<void> RunWorldTests()
 	}
 
 	bool sawSecond = false;
-	world.ForEachAlive([&](EntityId id, const Transform&) {
+	world.ForEachAlive([&](EntityId id, const TransformComponent&) {
 		sawSecond = id.Index == second.Index && id.Generation == second.Generation;
 	});
 	if (!sawSecond || CountAlive(world) != 1)
@@ -330,7 +320,7 @@ Result<void> RunWorldTests()
 			"Child world translation should add the parent translation");
 	}
 
-	const Transform childLocalBefore = *world.GetTransform(child);
+	const TransformComponent childLocalBefore = *world.GetTransform(child);
 	if (!world.SetParent(child, {}))
 	{
 		return FailRuntime(
@@ -391,8 +381,8 @@ Result<void> RunWorldTests()
 		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f),
 		DirectX::XM_PIDIV2);
 	DirectX::XMStoreFloat4(&world.GetTransform(parent)->rotation, yawRotation);
-	const Transform* parentTransform = world.GetTransform(parent);
-	const Transform* rotatedChild = world.GetTransform(child);
+	const TransformComponent* parentTransform = world.GetTransform(parent);
+	const TransformComponent* rotatedChild = world.GetTransform(child);
 	const DirectX::XMMATRIX expectedChildWorld = DirectX::XMMatrixMultiply(
 		ToMatrix(*rotatedChild),
 		ToMatrix(*parentTransform));
@@ -526,8 +516,8 @@ Result<void> RunWorldTests()
 	sourceLighting.mainLightDirection[2] = 0.6f;
 
 	World clone = cloneSource.Clone();
-	const Transform* clonedRootTransform = clone.GetTransform(cloneRoot);
-	const Transform* clonedChildTransform = clone.GetTransform(cloneChild);
+	const TransformComponent* clonedRootTransform = clone.GetTransform(cloneRoot);
+	const TransformComponent* clonedChildTransform = clone.GetTransform(cloneChild);
 	const Renderable* clonedRootRenderable = clone.Get<Renderable>(cloneRoot);
 	const Renderable* clonedChildRenderable = clone.Get<Renderable>(cloneChild);
 	const LightingSettings& clonedLighting = clone.GetLighting();
@@ -575,7 +565,7 @@ Result<void> RunWorldTests()
 
 	clone.GetTransform(cloneRoot)->position = { 9.0f, 9.0f, 9.0f };
 	clone.GetLighting().ambientIntensity = 9.0f;
-	const Transform* sourceRootTransform = cloneSource.GetTransform(cloneRoot);
+	const TransformComponent* sourceRootTransform = cloneSource.GetTransform(cloneRoot);
 	if (sourceRootTransform == nullptr ||
 		!IsNearlyEqual(sourceRootTransform->position.x, 1.0f) ||
 		!IsNearlyEqual(sourceRootTransform->position.y, 2.0f) ||
@@ -609,14 +599,12 @@ Result<void> RunWorldTests()
 	childEntity.id = 2;
 	childEntity.parent = 1;
 	childEntity.name = "Child";
-	childEntity.transform.position = { 1.0f, 2.0f, 3.0f };
 	childEntity.visible = false;
 	document.push_back(childEntity);
 
 	WorldDocumentEntity parentEntity{};
 	parentEntity.id = 1;
 	parentEntity.name = "Parent";
-	parentEntity.transform.position = { 10.0f, 0.0f, 0.0f };
 	parentEntity.submeshIndex = 2;
 	parentEntity.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
 	parentEntity.visible = true;
@@ -640,8 +628,8 @@ Result<void> RunWorldTests()
 		}
 	}
 
-	const Transform* documentParentTransform = documentWorld.GetTransform(documentParent);
-	const Transform* documentChildTransform = documentWorld.GetTransform(documentChild);
+	const TransformComponent* documentParentTransform = documentWorld.GetTransform(documentParent);
+	const TransformComponent* documentChildTransform = documentWorld.GetTransform(documentChild);
 	const Renderable* documentParentRenderable = documentWorld.Get<Renderable>(documentParent);
 	const Renderable* documentChildRenderable = documentWorld.Get<Renderable>(documentChild);
 	DirectX::XMFLOAT4X4 documentChildWorld{};
@@ -650,12 +638,12 @@ Result<void> RunWorldTests()
 		|| !documentWorld.IsAlive(documentChild) || documentWorld.GetParent(documentChild) != documentParent
 		|| documentWorld.GetParent(documentParent).IsValid() || documentWorld.GetName(documentParent) != "Parent"
 		|| documentWorld.GetName(documentChild) != "Child" || documentParentTransform == nullptr
-		|| documentChildTransform == nullptr || !IsNearlyEqual(documentParentTransform->position.x, 10.0f)
-		|| !IsNearlyEqual(documentChildTransform->position.x, 1.0f)
-		|| !IsNearlyEqual(documentChildTransform->position.y, 2.0f)
-		|| !IsNearlyEqual(documentChildTransform->position.z, 3.0f)
-		|| !IsNearlyEqual(documentChildWorld._41, 11.0f) || !IsNearlyEqual(documentChildWorld._42, 2.0f)
-		|| !IsNearlyEqual(documentChildWorld._43, 3.0f) || documentParentRenderable == nullptr
+		|| documentChildTransform == nullptr || !IsNearlyEqual(documentParentTransform->position.x, 0.0f)
+		|| !IsNearlyEqual(documentChildTransform->position.x, 0.0f)
+		|| !IsNearlyEqual(documentChildTransform->position.y, 0.0f)
+		|| !IsNearlyEqual(documentChildTransform->position.z, 0.0f)
+		|| !IsNearlyEqual(documentChildWorld._41, 0.0f) || !IsNearlyEqual(documentChildWorld._42, 0.0f)
+		|| !IsNearlyEqual(documentChildWorld._43, 0.0f) || documentParentRenderable == nullptr
 		|| documentChildRenderable == nullptr || !documentParentRenderable->visible || documentChildRenderable->visible
 		|| documentParentRenderable->submeshIndex != 2
 		|| documentParentRenderable->layerMask != (WorldLayer::Opaque | WorldLayer::Shadow)
@@ -665,7 +653,7 @@ Result<void> RunWorldTests()
 		return FailRuntime(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
-			"Instantiate should restore hierarchy, transforms, names, and visibility");
+			"Instantiate should restore hierarchy, names, and visibility");
 	}
 
 	const size_t aliveBeforeReject = CountAlive(documentWorld);
@@ -716,8 +704,6 @@ Result<void> RunWorldTests()
 	WorldDocument encoded{};
 	WorldDocumentEntity encodedChild = childEntity;
 	encodedChild.name = "Child \"A\"";
-	encodedChild.transform.rotation = { 0.1f, 0.2f, 0.3f, 0.9f };
-	encodedChild.transform.scale = { 2.0f, 3.0f, 4.0f };
 	encoded.push_back(encodedChild);
 	encoded.push_back(parentEntity);
 
@@ -829,7 +815,7 @@ Result<void> RunWorldTests()
 	}
 
 	const EntityId spawnedCamera = SpawnCamera(cameraWorld, nullptr, nullptr);
-	const Transform* spawnedTransform = cameraWorld.GetTransform(spawnedCamera);
+	const TransformComponent* spawnedTransform = cameraWorld.GetTransform(spawnedCamera);
 	const CameraComponent* spawnedLens = cameraWorld.Get<CameraComponent>(spawnedCamera);
 	const DirectX::XMFLOAT3 spawnedForward = spawnedTransform != nullptr
 		? ForwardFromRotation(spawnedTransform->rotation)
@@ -856,7 +842,7 @@ Result<void> RunWorldTests()
 	const DirectX::XMFLOAT3 posedPosition{ 4.0f, 5.0f, 6.0f };
 	const DirectX::XMFLOAT3 posedForward{ 1.0f, 0.0f, 0.0f };
 	const EntityId posedCamera = SpawnCamera(cameraWorld, &posedPosition, &posedForward);
-	const Transform* posedTransform = cameraWorld.GetTransform(posedCamera);
+	const TransformComponent* posedTransform = cameraWorld.GetTransform(posedCamera);
 	const DirectX::XMFLOAT3 posedAxis = posedTransform != nullptr
 		? ForwardFromRotation(posedTransform->rotation)
 		: DirectX::XMFLOAT3{};
@@ -935,7 +921,7 @@ Result<void> RunWorldTests()
 	}
 
 	World cameraClone = cameraWorld.Clone();
-	const Transform* clonedCameraTransform = cameraClone.GetTransform(spawnedCamera);
+	const TransformComponent* clonedCameraTransform = cameraClone.GetTransform(spawnedCamera);
 	if (FindCamera(cameraClone) != spawnedCamera || clonedCameraTransform == nullptr
 		|| !IsNearlyEqual(clonedCameraTransform->position.y, 1.6f)
 		|| cameraClone.Get<CameraComponent>(spawnedCamera) == nullptr
@@ -987,7 +973,7 @@ Result<void> RunWorldTests()
 	}
 
 	const EntityId playCamera = FindCamera(sessionWorld);
-	const Transform* playCameraTransform = sessionWorld.GetTransform(playCamera);
+	const TransformComponent* playCameraTransform = sessionWorld.GetTransform(playCamera);
 	if (!sessionWorld.IsPlaying() || playCamera == sessionBody || playCameraTransform == nullptr
 		|| !IsNearlyEqual(playCameraTransform->position.x, 2.0f)
 		|| !IsNearlyEqual(playCameraTransform->position.y, 3.0f)
@@ -1017,7 +1003,7 @@ Result<void> RunWorldTests()
 	DebugStatsServices stats{};
 	std::vector<WorldExtractedObject> extracted{};
 	Extract(sessionWorld, extracted, {}, stats);
-	const Transform* fallen = sessionWorld.GetTransform(sessionBody);
+	const TransformComponent* fallen = sessionWorld.GetTransform(sessionBody);
 	if (fallen == nullptr || !(fallen->position.y < 3.5f) || !IsNearlyEqual(fallen->scale.x, 2.0f)
 		|| !IsNearlyEqual(fallen->scale.y, 3.0f) || !IsNearlyEqual(fallen->scale.z, 4.0f)
 		|| stats.extractedObjectCount != 1 || extracted.size() != 1
@@ -1087,7 +1073,7 @@ Result<void> RunWorldTests()
 	}
 
 	sessionWorld.EndPlay();
-	const Transform* closed = sessionWorld.GetTransform(sessionBody);
+	const TransformComponent* closed = sessionWorld.GetTransform(sessionBody);
 	ExtractedView closedView{};
 	closedView.viewportWidth = 7;
 	ExtractView(sessionWorld, closedView, 640, 480);

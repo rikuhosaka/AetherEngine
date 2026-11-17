@@ -29,9 +29,9 @@ namespace
 	WorldDocumentEntity sphereWorld{};
 	sphereWorld.id = 1;
 	sphereWorld.name = "Sphere";
-	sphereWorld.transform.position = { 0.0f, 4.0f, 0.0f };
 	SceneEntity sphere{};
 	sphere.id = 1;
+	sphere.transform.position = { 0.0f, 4.0f, 0.0f };
 	sphere.mesh = "builtin:sphere";
 	sphere.tint[0] = 0.90f;
 	sphere.tint[1] = 0.35f;
@@ -47,9 +47,9 @@ namespace
 	WorldDocumentEntity hullWorld{};
 	hullWorld.id = 2;
 	hullWorld.name = "Hull";
-	hullWorld.transform.position = { 1.0f, 3.0f, -0.5f };
 	SceneEntity hull{};
 	hull.id = 2;
+	hull.transform.position = { 1.0f, 3.0f, -0.5f };
 	hull.mesh = "builtin:hull";
 	hull.tint[0] = 0.30f;
 	hull.tint[1] = 0.72f;
@@ -121,12 +121,12 @@ namespace
 
 	WorldSpawnDesc sphereDesc{};
 	sphereDesc.name = "Sphere";
-	sphereDesc.transform = source.world[0].transform;
+	sphereDesc.transform = source.entities[0].transform;
 	const EntityId sphere = world.Spawn(std::move(sphereDesc));
 
 	WorldSpawnDesc hullDesc{};
 	hullDesc.name = "Hull";
-	hullDesc.transform = source.world[1].transform;
+	hullDesc.transform = source.entities[1].transform;
 	const EntityId hull = world.Spawn(std::move(hullDesc));
 
 	WorldSpawnDesc markerDesc{};
@@ -147,7 +147,7 @@ namespace
 			ErrorCode::InvalidArgument,
 			"Scene capture test should add renderables and rigid bodies");
 	}
-	Transform* sphereTransform = world.GetTransform(sphere);
+	TransformComponent* sphereTransform = world.GetTransform(sphere);
 	if (!sphere.IsValid() || !hull.IsValid() || !marker.IsValid() || sphereTransform == nullptr
 		|| !world.SetParent(marker, sphere))
 	{
@@ -159,7 +159,7 @@ namespace
 
 	sphereTransform->position = { 9.0f, 8.0f, 7.0f };
 	const Result<SceneDocument> captured = CaptureScene(world, source);
-	const WorldDocumentEntity* capturedSphere = captured ? FindNamedWorld(captured.value, "Sphere") : nullptr;
+	const SceneEntity* capturedSphere = captured ? FindNamedEntity(captured.value, "Sphere") : nullptr;
 	const WorldDocumentEntity* capturedMarker = captured ? FindNamedWorld(captured.value, "Marker") : nullptr;
 	const SceneEntity* capturedHull = captured ? FindNamedEntity(captured.value, "Hull") : nullptr;
 	const bool hullKept = capturedHull != nullptr && capturedHull->mesh == "builtin:hull" && capturedHull->body.has_value()

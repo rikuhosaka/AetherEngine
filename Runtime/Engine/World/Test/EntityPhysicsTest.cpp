@@ -59,7 +59,7 @@ namespace
 	}
 
 	simulation.CommitTransforms(world);
-	const Transform* transform = world.GetTransform(entity);
+	const TransformComponent* transform = world.GetTransform(entity);
 	if (transform == nullptr
 		|| !(transform->position.y < 3.5f)
 		|| !IsNearlyEqual(transform->scale.x, 2.0f, 0.0001f)
@@ -143,7 +143,7 @@ namespace
 	}
 
 	simulation.CommitTransforms(world);
-	const Transform* transform = world.GetTransform(parent);
+	const TransformComponent* transform = world.GetTransform(parent);
 	if (transform == nullptr)
 	{
 		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
@@ -153,7 +153,7 @@ namespace
 	const float simulatedY = transform->position.y;
 	std::vector<RenderPose> previous{};
 	simulation.SamplePoses(0.0f, previous);
-	const Transform* afterSample = world.GetTransform(parent);
+	const TransformComponent* afterSample = world.GetTransform(parent);
 	if (previous.size() != 1 || afterSample == nullptr
 		|| !IsNearlyEqual(afterSample->position.y, simulatedY, 0.0001f)
 		|| !(std::fabs(previous[0].position.y - simulatedY) > 0.01f))
@@ -171,7 +171,7 @@ namespace
 	ExtractWorld(world, extracted);
 	const WorldExtractedObject* simulatedChild = FindExtracted(extracted, child);
 	const float simulatedChildY = simulatedChild == nullptr ? 0.0f : ExtractedTranslationY(*simulatedChild);
-	const Transform* afterExtract = world.GetTransform(parent);
+	const TransformComponent* afterExtract = world.GetTransform(parent);
 	if (!foundVisual || simulatedChild == nullptr || afterExtract == nullptr
 		|| !IsNearlyEqual(afterExtract->position.y, simulatedY, 0.0001f)
 		|| !IsNearlyEqual(visualY, previous[0].position.y + 1.0f, 0.001f)
@@ -214,7 +214,7 @@ namespace
 	}
 
 	simulation.CommitTransforms(world);
-	Transform* transform = world.GetTransform(entity);
+	TransformComponent* transform = world.GetTransform(entity);
 	if (transform == nullptr || !IsNearlyEqual(transform->position.y, 3.0f, 0.02f))
 	{
 		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
@@ -228,7 +228,7 @@ namespace
 	}
 
 	simulation.CommitTransforms(world);
-	const Transform* committed = world.GetTransform(entity);
+	const TransformComponent* committed = world.GetTransform(entity);
 	if (committed == nullptr || !IsNearlyEqual(committed->position.y, 6.0f, 0.02f))
 	{
 		return FailInternal(LogCategory::Physics, ErrorCode::RuntimeError,
@@ -238,7 +238,7 @@ namespace
 	const float movedY = committed->position.y;
 	std::vector<RenderPose> previous{};
 	simulation.SamplePoses(0.0f, previous);
-	const Transform* afterSample = world.GetTransform(entity);
+	const TransformComponent* afterSample = world.GetTransform(entity);
 	if (afterSample == nullptr || previous.size() != 1
 		|| !IsNearlyEqual(afterSample->position.y, movedY, 0.0001f)
 		|| !IsNearlyEqual(previous[0].position.y, 3.0f, 0.02f))

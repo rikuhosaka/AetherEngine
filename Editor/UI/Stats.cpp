@@ -4,7 +4,7 @@
 #include "Runtime/Engine/Application/Subsystem/SubsystemRegistry.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/Engine.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/WindowSubsystem.h"
-#include "Runtime/Engine/World/Transform.h"
+#include "Runtime/Engine/World/Component/TransformComponent.h"
 #include "Runtime/Engine/World/World.h"
 
 #include "imgui.h"
@@ -25,7 +25,7 @@ void DrawStats(SubsystemContext& ctx)
 	uint32_t entityCount = 0;
 	if (world != nullptr)
 	{
-		world->ForEachAlive([&entityCount](EntityId, const Transform&) {
+		world->ForEachAlive([&entityCount](EntityId, const TransformComponent&) {
 			++entityCount;
 		});
 	}

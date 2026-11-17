@@ -28,10 +28,10 @@ void ExtractCameraView(
 	std::span<const RenderPose> poses = {});
 
 // プレイ中の PhysicsSubsystem から、alpha の補間姿勢を集める。無ければ out を空にする。
-// alpha 0 はステップ前、1 はステップ後。Transform は変えない。
+// alpha 0 はステップ前、1 はステップ後。TransformComponent は変えない。
 void SampleRenderPoses(const World& world, float alpha, std::vector<RenderPose>& out);
 
-// 描画用の抽出。poses の位置と回転でワールド行列を作る。Transform は変えない。
+// 描画用の抽出。poses の位置と回転でワールド行列を作る。TransformComponent は変えない。
 void Extract(
 	const World& world,
 	std::vector<WorldExtractedObject>& outObjects,

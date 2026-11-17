@@ -37,7 +37,7 @@ Result<void> RunEngineSessionTests()
 	SubsystemContext context{};
 	Engine engine{ EngineConfig{} };
 	const EntityId editorCamera = FindCamera(engine.GetWorld());
-	Transform* editorCameraTransform = engine.GetWorld().GetTransform(editorCamera);
+	TransformComponent* editorCameraTransform = engine.GetWorld().GetTransform(editorCamera);
 	if (!editorCamera.IsValid() || editorCameraTransform == nullptr)
 	{
 		return FailRuntime(
@@ -114,7 +114,7 @@ Result<void> RunEngineSessionTests()
 	session->requestMode = SessionMode::Playing;
 	engine.Tick(context, 0.016f);
 	const EntityId camera = FindCamera(engine.GetWorld());
-	const Transform* cameraTransform = engine.GetWorld().GetTransform(camera);
+	const TransformComponent* cameraTransform = engine.GetWorld().GetTransform(camera);
 	if (!engine.GetWorld().IsPlaying() || session->mode != SessionMode::Playing
 		|| published->world == editorWorld || editorWorld->IsPlaying()
 		|| published->generation != 2 || camera == body || cameraTransform == nullptr
@@ -166,7 +166,7 @@ Result<void> RunEngineSessionTests()
 
 	session->requestMode = SessionMode::Editor;
 	engine.Tick(context, 0.016f);
-	const Transform* restored = editorWorld->GetTransform(body);
+	const TransformComponent* restored = editorWorld->GetTransform(body);
 	if (engine.GetWorld().IsPlaying() || session->mode != SessionMode::Editor
 		|| published->world != editorWorld || published->generation != 3
 		|| restored == nullptr || !IsNearlyEqual(restored->position.y, 4.0f))

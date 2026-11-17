@@ -33,9 +33,9 @@ namespace
 	WorldDocumentEntity sphereWorld{};
 	sphereWorld.id = 1;
 	sphereWorld.name = "Sphere";
-	sphereWorld.transform.position = { 0.0f, 4.0f, 0.0f };
 	SceneEntity sphere{};
 	sphere.id = 1;
+	sphere.transform.position = { 0.0f, 4.0f, 0.0f };
 	sphere.mesh = "builtin:sphere";
 	sphere.tint[0] = 0.90f;
 	sphere.tint[1] = 0.35f;
@@ -103,7 +103,7 @@ namespace
 		&& readAgain.value.entities[1].body->shape.points.empty()
 		&& readAgain.value.entities[1].mesh == "builtin:hull"
 		&& RoundTripNearlyEqual(readAgain.value.entities[0].tint[0], 0.90f)
-		&& RoundTripNearlyEqual(readAgain.value.world[0].transform.position.y, 4.0f)
+		&& RoundTripNearlyEqual(readAgain.value.entities[0].transform.position.y, 4.0f)
 		&& readAgain.value.entities[0].camera.has_value()
 		&& RoundTripNearlyEqual(readAgain.value.entities[0].camera->fovYDegrees, 50.0f)
 		&& RoundTripNearlyEqual(readAgain.value.entities[0].camera->nearPlane, 0.2f)

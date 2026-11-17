@@ -53,7 +53,7 @@ World::~World() = default;
 
 namespace
 {
-[[nodiscard]] DirectX::XMMATRIX ToLocalMatrix(const Transform& transform)
+[[nodiscard]] DirectX::XMMATRIX ToLocalMatrix(const TransformComponent& transform)
 {
 	return Aether::Math::TRS(
 		DirectX::XMLoadFloat3(&transform.position),
@@ -103,8 +103,15 @@ EntityId World::Spawn(WorldSpawnDesc desc)
 	slot.alive = true;
 	slot.actor.parent = desc.parent;
 	slot.actor.name = std::move(desc.name);
-	slot.actor.transform = desc.transform;
-	return EntityId{ index, slot.generation };
+	const EntityId id{ index, slot.generation };
+	if (!slot.actor.Add(std::move(desc.transform)))
+	{
+		ReleaseSlot(id);
+		return {};
+	}
+
+	slot.actor.Get<TransformComponent>()->BindOwner(id);
+	return id;
 }
 
 bool World::IsUnder(EntityId entity, EntityId ancestor) const
@@ -258,7 +265,8 @@ DirectX::XMMATRIX World::GetWorldMatrix(EntityId id, std::span<const RenderPose>
 			break;
 		}
 
-		Transform local = slot->actor.transform;
+		const TransformComponent* stored = slot->actor.Get<TransformComponent>();
+		TransformComponent local = stored != nullptr ? *stored : TransformComponent{};
 		if (const RenderPose* pose = FindRenderPose(poses, current))
 		{
 			local.position = pose->position;
@@ -295,16 +303,16 @@ std::string_view World::GetName(EntityId id) const
 	return slot == nullptr ? std::string_view{} : std::string_view{ slot->actor.name };
 }
 
-Transform* World::GetTransform(EntityId id)
+TransformComponent* World::GetTransform(EntityId id)
 {
 	Slot* slot = FindSlot(id);
-	return slot == nullptr ? nullptr : &slot->actor.transform;
+	return slot == nullptr ? nullptr : slot->actor.Get<TransformComponent>();
 }
 
-const Transform* World::GetTransform(EntityId id) const
+const TransformComponent* World::GetTransform(EntityId id) const
 {
 	const Slot* slot = FindSlot(id);
-	return slot == nullptr ? nullptr : &slot->actor.transform;
+	return slot == nullptr ? nullptr : slot->actor.Get<TransformComponent>();
 }
 
 bool World::AddSubsystem(std::unique_ptr<IWorldSubsystem> subsystem)

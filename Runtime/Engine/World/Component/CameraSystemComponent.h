@@ -11,7 +11,7 @@ class InputState;
 class World;
 
 // 責任: 付いているアクターの視点を自由飛行させる。
-// 役割: PlayerController が渡した入力で自分の Transform を進める。Tick 自体は入力を見ない。
+// 役割: PlayerController が渡した入力で自分の TransformComponent を進める。Tick 自体は入力を見ない。
 //       レンズは同じアクターの CameraComponent が持つ。
 // 所有: 付いている Actor がコンポーネントとして持つ。コントローラと作業用の姿勢はメンバ。
 //       編集用 World は起動時に1つ作る。プレイ開始時は、写した先頭の CameraComponent へ足す。無ければ作る。

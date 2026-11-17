@@ -66,7 +66,7 @@ Result<SceneDocument> CaptureScene(const World& world, const SceneDocument& auth
 		}
 
 		const bool model = !authored.entities[index].model.empty();
-		const Transform* transform = world.GetTransform(entity);
+		const TransformComponent* transform = world.GetTransform(entity);
 		const Renderable* renderable = world.Get<Renderable>(entity);
 		if (transform == nullptr || (!model && renderable == nullptr) || (model && renderable != nullptr))
 		{
@@ -78,7 +78,6 @@ Result<SceneDocument> CaptureScene(const World& world, const SceneDocument& auth
 
 		WorldDocumentEntity capturedWorld = authoredWorld;
 		capturedWorld.name = std::string(world.GetName(entity));
-		capturedWorld.transform = *transform;
 		capturedWorld.hasRenderable = !model;
 		if (!model)
 		{
@@ -107,6 +106,7 @@ Result<SceneDocument> CaptureScene(const World& world, const SceneDocument& auth
 		}
 
 		SceneEntity capturedEntity = authored.entities[index];
+		capturedEntity.transform = *transform;
 		if (const RigidBody* body = world.Get<RigidBody>(entity))
 		{
 			capturedEntity.body = *body;
