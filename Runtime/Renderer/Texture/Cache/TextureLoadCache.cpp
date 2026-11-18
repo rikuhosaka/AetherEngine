@@ -1,31 +1,13 @@
 #include "Runtime/Renderer/Texture/Cache/TextureLoadCache.h"
 
-#include <string>
-
-namespace
-{
-[[nodiscard]] std::uint64_t Fnv1a64(std::uint64_t hash, unsigned char byte)
-{
-	hash ^= static_cast<std::uint64_t>(byte);
-	return hash * 1099511628211ULL;
-}
-
-[[nodiscard]] std::uint64_t Fnv1a64(std::uint64_t hash, std::string_view text)
-{
-	for (const char ch : text)
-	{
-		hash = Fnv1a64(hash, static_cast<unsigned char>(ch));
-	}
-	return hash;
-}
-} // namespace
+#include "Runtime/Core/Hash/Fnv.h"
 
 std::size_t TextureLoadCacheKeyHash::operator()(const TextureLoadCacheKey& key) const
 {
-	std::uint64_t hash = 14695981039346656037ULL;
-	hash = Fnv1a64(hash, key.path.generic_string());
-	hash = Fnv1a64(hash, static_cast<unsigned char>(key.colorSpace));
-	hash = Fnv1a64(hash, key.generateMips ? 1 : 0);
+	std::uint64_t hash = kFnv1a64OffsetBasis;
+	hash = Fnv1a64Append(hash, key.path.generic_string());
+	hash = Fnv1a64Append(hash, static_cast<uint8_t>(key.colorSpace));
+	hash = Fnv1a64Append(hash, key.generateMips ? uint8_t{ 1 } : uint8_t{ 0 });
 	return static_cast<std::size_t>(hash);
 }
 

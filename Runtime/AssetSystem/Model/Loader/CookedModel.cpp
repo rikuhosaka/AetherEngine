@@ -1,14 +1,20 @@
 #include "Runtime/AssetSystem/Model/Loader/CookedModel.h"
 
+#include "Runtime/Core/Hash/Fnv.h"
 #include "Runtime/Core/IO/BinaryCursor.h"
+#include "Runtime/Core/IO/BinaryFile.h"
+#include "Runtime/Core/IO/Path.h"
 #include "Runtime/AssetSystem/Model/Loader/FbxModelFileLoader.h"
 #include "Runtime/AssetSystem/Model/Loader/FbxSdkContext.h"
+#include "Runtime/AssetSystem/Model/Loader/GltfModelFileLoader.h"
 #include "Runtime/AssetSystem/Model/Loader/ModelAssetPath.h"
 #include "Runtime/Core/Log/LogMacros.h"
 
+#include <cctype>
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <string>
 #include <system_error>
 #include <vector>
 
@@ -21,54 +27,20 @@ constexpr uint8_t kPathEmpty = 0;
 constexpr uint8_t kPathAssetsRelative = 1;
 constexpr uint8_t kPathAbsolute = 2;
 
-[[nodiscard]] std::filesystem::path AssetRoot(const std::filesystem::path& assetsRoot)
-{
-	std::filesystem::path root = assetsRoot.lexically_normal();
-	if (root.filename().empty())
-	{
-		root = root.parent_path();
-	}
-
-	std::error_code errorCode{};
-	const std::filesystem::path canonical = std::filesystem::weakly_canonical(root, errorCode);
-	return errorCode ? root : canonical;
-}
-
-[[nodiscard]] std::string ToUtf8(const std::filesystem::path& path)
-{
-	const std::u8string text = path.generic_u8string();
-	return std::string(reinterpret_cast<const char*>(text.data()), text.size());
-}
-
-[[nodiscard]] std::filesystem::path FromUtf8(std::string_view text)
-{
-	const std::u8string bytes(reinterpret_cast<const char8_t*>(text.data()), text.size());
-	return std::filesystem::path(bytes);
-}
-
-[[nodiscard]] std::filesystem::path CanonicalizeIfPossible(const std::filesystem::path& path)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path canonical = std::filesystem::weakly_canonical(path, errorCode);
-	return errorCode ? path : canonical;
-}
-
-[[nodiscard]] bool ContainsParentReference(const std::filesystem::path& path)
-{
-	for (const std::filesystem::path& part : path)
-	{
-		if (part == "..")
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 [[nodiscard]] bool FitsCount(size_t count)
 {
 	return count <= kMaxCookedCount;
+}
+
+[[nodiscard]] bool HasModelExtension(const std::filesystem::path& path, const char* extension)
+{
+	std::string pathExtension = path.extension().string();
+	for (char& character : pathExtension)
+	{
+		character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+	}
+
+	return pathExtension == extension;
 }
 
 void WriteVertex(BinaryWriter& writer, const BasicVertex& vertex)
@@ -130,12 +102,12 @@ void WriteStoredPath(
 	if (!errorCode && !relative.empty() && !ContainsParentReference(relative))
 	{
 		writer.U8(kPathAssetsRelative);
-		writer.String(ToUtf8(relative));
+		writer.String(PathToUtf8(relative));
 		return;
 	}
 
 	writer.U8(kPathAbsolute);
-	writer.String(ToUtf8(path));
+	writer.String(PathToUtf8(path));
 }
 
 [[nodiscard]] std::filesystem::path ReadStoredPath(BinaryReader& reader, const std::filesystem::path& assetsRoot)
@@ -152,7 +124,7 @@ void WriteStoredPath(
 		return {};
 	}
 
-	const std::filesystem::path parsed = FromUtf8(text);
+	const std::filesystem::path parsed = PathFromUtf8(text);
 	if (parsed.empty() || ContainsParentReference(parsed))
 	{
 		reader.Fail();
@@ -188,7 +160,7 @@ void WriteModel(
 	writer.U8(options.generateNormalsIfMissing ? 1 : 0);
 	writer.U8(options.convertAxisToDirectX ? 1 : 0);
 	writer.U8(options.convertUnitsToMeters ? 1 : 0);
-	writer.String(ToUtf8(relativePath.lexically_normal()));
+	writer.String(PathToUtf8(relativePath.lexically_normal()));
 
 	writer.U32(model.rootNodeIndex);
 	writer.U32(static_cast<uint32_t>(model.meshes.size()));
@@ -279,7 +251,7 @@ void WriteModel(
 	}
 
 	const std::string storedRelative = reader.String(kMaxStringBytes);
-	if (!reader.Reading() || storedRelative != ToUtf8(relativePath.lexically_normal()))
+	if (!reader.Reading() || storedRelative != PathToUtf8(relativePath.lexically_normal()))
 	{
 		return false;
 	}
@@ -465,20 +437,6 @@ void WriteModel(
 
 	return true;
 }
-
-[[nodiscard]] Result<std::string> ReadFileBytes(const std::filesystem::path& path)
-{
-	std::ifstream file(path, std::ios::binary);
-	if (!file)
-	{
-		return FailRuntime<std::string>(
-			LogCategory::Asset,
-			ErrorCode::FileNotFound,
-			"Model file could not be opened");
-	}
-
-	return MakeOk(std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() });
-}
 } // namespace
 
 std::filesystem::path CookedModelPath(
@@ -487,19 +445,7 @@ std::filesystem::path CookedModelPath(
 {
 	std::filesystem::path cookedRelative = relativePath.lexically_normal();
 	cookedRelative.replace_extension(".aemodel");
-	return AssetRoot(assetsRoot).parent_path() / "Intermediate" / "Cooked" / "Models" / cookedRelative;
-}
-
-uint64_t HashModelSource(std::string_view bytes)
-{
-	uint64_t hash = 14695981039346656037ull;
-	for (const char character : bytes)
-	{
-		hash ^= static_cast<uint8_t>(character);
-		hash *= 1099511628211ull;
-	}
-
-	return hash;
+	return CanonicalDirectory(assetsRoot).parent_path() / "Intermediate" / "Cooked" / "Models" / cookedRelative;
 }
 
 bool TryReadCookedModel(
@@ -525,7 +471,7 @@ bool TryReadCookedModel(
 	}
 
 	BinaryReader reader(bytes.data(), bytes.size());
-	return ReadModel(reader, sourceHash, options, AssetRoot(assetsRoot), relativePath, outModel);
+	return ReadModel(reader, sourceHash, options, CanonicalDirectory(assetsRoot), relativePath, outModel);
 }
 
 Result<void> WriteCookedModel(
@@ -555,7 +501,7 @@ Result<void> WriteCookedModel(
 	}
 
 	BinaryWriter writer{};
-	WriteModel(writer, sourceHash, options, AssetRoot(assetsRoot), relativePath, model);
+	WriteModel(writer, sourceHash, options, CanonicalDirectory(assetsRoot), relativePath, model);
 
 	std::ofstream file(path, std::ios::binary | std::ios::trunc);
 	if (!file)
@@ -591,13 +537,31 @@ Result<ModelAssetData> LoadModelAsset(
 		return MakeFail<ModelAssetData>(resolved.error.code, resolved.error.message);
 	}
 
-	const Result<std::string> bytes = ReadFileBytes(resolved.value);
+	const Result<std::string> bytes = ReadBinaryFile(resolved.value);
 	if (!bytes)
 	{
-		return MakeFail<ModelAssetData>(bytes.error.code, bytes.error.message);
+		return FailRuntime<ModelAssetData>(
+			LogCategory::Asset,
+			ErrorCode::FileNotFound,
+			"Model file could not be opened");
 	}
 
-	const uint64_t sourceHash = HashModelSource(bytes.value);
+	const bool gltf = HasModelExtension(resolved.value, ".gltf") || HasModelExtension(resolved.value, ".glb");
+	uint64_t sourceHash = 0;
+	if (gltf)
+	{
+		const Result<uint64_t> hashed = HashGltfModelSource(resolved.value, bytes.value);
+		if (!hashed)
+		{
+			return MakeFail<ModelAssetData>(hashed.error.code, hashed.error.message);
+		}
+		sourceHash = hashed.value;
+	}
+	else
+	{
+		sourceHash = Fnv1a64(bytes.value);
+	}
+
 	const std::filesystem::path cookedPath = CookedModelPath(assetsRoot, relativePath);
 	ModelAssetData cooked{};
 	if (TryReadCookedModel(cookedPath, sourceHash, options, assetsRoot, relativePath, cooked))
@@ -606,13 +570,21 @@ Result<ModelAssetData> LoadModelAsset(
 		return MakeOk(std::move(cooked));
 	}
 
-	Result<FbxSdkContext> sdk = FbxSdkContext::Create();
-	if (!sdk)
+	Result<ModelAssetData> loaded = MakeFail<ModelAssetData>(ErrorCode::InvalidArgument, {});
+	if (gltf)
 	{
-		return MakeFail<ModelAssetData>(sdk.error.code, sdk.error.message);
+		loaded = LoadGltfModelAssetDataFromFile(resolved.value, options);
 	}
+	else
+	{
+		Result<FbxSdkContext> sdk = FbxSdkContext::Create();
+		if (!sdk)
+		{
+			return MakeFail<ModelAssetData>(sdk.error.code, sdk.error.message);
+		}
 
-	Result<ModelAssetData> loaded = LoadModelAssetDataFromFile(resolved.value, sdk.value, options);
+		loaded = LoadModelAssetDataFromFile(resolved.value, sdk.value, options);
+	}
 	if (!loaded)
 	{
 		return MakeFail<ModelAssetData>(loaded.error.code, loaded.error.message);

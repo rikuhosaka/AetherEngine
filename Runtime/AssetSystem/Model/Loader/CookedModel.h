@@ -5,17 +5,14 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <string_view>
 
-// Bump when ModelAssetData, BasicVertex, or the FBX import options change shape.
+// Bump when ModelAssetData, BasicVertex, or the import options change shape.
 constexpr uint32_t kCookedModelVersion = 1;
 
-// Cooked file for one FBX. relativePath is relative to assetsRoot, including its extension.
+// Cooked file for one model. relativePath is relative to assetsRoot, including its extension.
 [[nodiscard]] std::filesystem::path CookedModelPath(
 	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& relativePath);
-
-[[nodiscard]] uint64_t HashModelSource(std::string_view bytes);
 
 // False when the file is missing, stale, or incomplete. Texture paths are restored under assetsRoot.
 [[nodiscard]] bool TryReadCookedModel(
@@ -34,7 +31,7 @@ constexpr uint32_t kCookedModelVersion = 1;
 	const std::filesystem::path& relativePath,
 	const ModelAssetData& model);
 
-// Reads a cooked model when the FBX bytes and import options still match. Otherwise imports and writes the cook.
+// Reads a cooked model when the source bytes and import options still match. Otherwise imports and writes the cook.
 [[nodiscard]] Result<ModelAssetData> LoadModelAsset(
 	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& relativePath,

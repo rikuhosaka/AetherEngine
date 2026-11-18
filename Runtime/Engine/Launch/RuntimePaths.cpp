@@ -1,5 +1,7 @@
 #include "Runtime/Engine/Launch/RuntimePaths.h"
 
+#include "Runtime/Core/IO/Path.h"
+
 #include <Windows.h>
 
 namespace
@@ -32,13 +34,6 @@ namespace
 	}
 
 	return {};
-}
-
-[[nodiscard]] std::filesystem::path CanonicalizeIfPossible(const std::filesystem::path& path)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, errorCode);
-	return errorCode ? path : canonicalPath;
 }
 }
 

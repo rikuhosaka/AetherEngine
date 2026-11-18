@@ -1,6 +1,6 @@
 #include "Runtime/Engine/SceneDocument/Serializer/TransformSerializer.h"
 
-#include "Runtime/Engine/SceneDocument/Serializer/JsonFields.h"
+#include "Runtime/Core/Json/JsonFields.h"
 
 namespace
 {
@@ -17,14 +17,14 @@ Result<TransformComponent> TransformSerializer::Read(const nlohmann::json& value
 			"Scene document transform is missing a field");
 	}
 
-	const Json* position = SceneJson::FindField(value, "position");
-	const Json* rotation = SceneJson::FindField(value, "rotation");
-	const Json* scale = SceneJson::FindField(value, "scale");
+	const Json* position = JsonFields::FindField(value, "position");
+	const Json* rotation = JsonFields::FindField(value, "rotation");
+	const Json* scale = JsonFields::FindField(value, "scale");
 	TransformComponent transform{};
 	if (position == nullptr || rotation == nullptr || scale == nullptr
-		|| !SceneJson::ReadFloats(*position, &transform.position.x, 3)
-		|| !SceneJson::ReadFloats(*rotation, &transform.rotation.x, 4)
-		|| !SceneJson::ReadFloats(*scale, &transform.scale.x, 3))
+		|| !JsonFields::ReadFloats(*position, &transform.position.x, 3)
+		|| !JsonFields::ReadFloats(*rotation, &transform.rotation.x, 4)
+		|| !JsonFields::ReadFloats(*scale, &transform.scale.x, 3))
 	{
 		return FailRuntime<TransformComponent>(
 			LogCategory::ECS,

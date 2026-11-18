@@ -1,7 +1,7 @@
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 
 #include "Runtime/Engine/SceneDocument/Serializer/CameraComponentSerializer.h"
-#include "Runtime/Engine/SceneDocument/Serializer/JsonFields.h"
+#include "Runtime/Core/Json/JsonFields.h"
 #include "Runtime/Engine/SceneDocument/Serializer/LightComponentSerializer.h"
 #include "Runtime/Engine/SceneDocument/Serializer/RigidBodySerializer.h"
 #include "Runtime/Engine/SceneDocument/Serializer/TransformSerializer.h"
@@ -19,7 +19,7 @@ namespace
 {
 using Json = nlohmann::json;
 
-[[nodiscard]] bool IsFbxModelPath(const std::filesystem::path& path)
+[[nodiscard]] bool IsModelAssetPath(const std::filesystem::path& path)
 {
 	if (path.empty() || path.is_absolute())
 	{
@@ -40,7 +40,7 @@ using Json = nlohmann::json;
 		character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
 	}
 
-	return extension == ".fbx";
+	return extension == ".fbx" || extension == ".gltf" || extension == ".glb";
 }
 
 [[nodiscard]] bool SameIds(const SceneDocument& document)
@@ -71,11 +71,11 @@ using Json = nlohmann::json;
 			"Scene document entity must be an object");
 	}
 
-	const Json* renderable = SceneJson::FindField(value, "renderable");
-	const Json* model = SceneJson::FindField(value, "model");
+	const Json* renderable = JsonFields::FindField(value, "renderable");
+	const Json* model = JsonFields::FindField(value, "model");
 	SceneEntity entity{};
 	entity.id = worldEntity.id;
-	const Json* transformValue = SceneJson::FindField(value, TransformSerializer::kKey);
+	const Json* transformValue = JsonFields::FindField(value, TransformSerializer::kKey);
 	if (transformValue == nullptr)
 	{
 		return FailRuntime<SceneEntity>(
@@ -93,17 +93,17 @@ using Json = nlohmann::json;
 	entity.transform = std::move(transform.value);
 	if (model != nullptr)
 	{
-		if (!model->is_string() || !IsFbxModelPath(model->get<std::string>()) || renderable != nullptr
+		if (!model->is_string() || !IsModelAssetPath(model->get<std::string>()) || renderable != nullptr
 			|| worldEntity.hasRenderable)
 		{
 			return FailRuntime<SceneEntity>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
-				"Scene document model must be an FBX path without a renderable");
+				"Scene document model must be an FBX, glTF, or GLB path without a renderable");
 		}
 
 		entity.model = model->get<std::string>();
-		if (SceneJson::FindField(value, RigidBodySerializer::kKey) != nullptr)
+		if (JsonFields::FindField(value, RigidBodySerializer::kKey) != nullptr)
 		{
 			return FailRuntime<SceneEntity>(
 				LogCategory::ECS,
@@ -121,10 +121,10 @@ using Json = nlohmann::json;
 				"Scene document renderable is missing");
 		}
 
-		const Json* mesh = SceneJson::FindField(*renderable, "mesh");
-		const Json* tint = SceneJson::FindField(*renderable, "tint");
+		const Json* mesh = JsonFields::FindField(*renderable, "mesh");
+		const Json* tint = JsonFields::FindField(*renderable, "tint");
 		if (mesh == nullptr || !mesh->is_string() || mesh->get<std::string>().empty() || tint == nullptr
-			|| !SceneJson::ReadFloats(*tint, entity.tint, 4))
+			|| !JsonFields::ReadFloats(*tint, entity.tint, 4))
 		{
 			return FailRuntime<SceneEntity>(
 				LogCategory::ECS,
@@ -134,7 +134,7 @@ using Json = nlohmann::json;
 
 		entity.mesh = mesh->get<std::string>();
 	}
-	if (const Json* physics = SceneJson::FindField(value, RigidBodySerializer::kKey))
+	if (const Json* physics = JsonFields::FindField(value, RigidBodySerializer::kKey))
 	{
 		if (worldEntity.parent != 0)
 		{
@@ -153,7 +153,7 @@ using Json = nlohmann::json;
 		entity.body = std::move(body.value);
 	}
 
-	if (const Json* camera = SceneJson::FindField(value, CameraComponentSerializer::kKey))
+	if (const Json* camera = JsonFields::FindField(value, CameraComponentSerializer::kKey))
 	{
 		Result<CameraComponent> component = CameraComponentSerializer::Read(*camera);
 		if (!component)
@@ -164,7 +164,7 @@ using Json = nlohmann::json;
 		entity.camera = std::move(component.value);
 	}
 
-	if (const Json* light = SceneJson::FindField(value, LightComponentSerializer::kKey))
+	if (const Json* light = JsonFields::FindField(value, LightComponentSerializer::kKey))
 	{
 		Result<LightComponent> component = LightComponentSerializer::Read(*light);
 		if (!component)
@@ -187,7 +187,7 @@ using Json = nlohmann::json;
 	}
 
 	const Json root = Json::parse(text.begin(), text.end(), nullptr, false);
-	const Json* entities = root.is_discarded() ? nullptr : SceneJson::FindField(root, "entities");
+	const Json* entities = root.is_discarded() ? nullptr : JsonFields::FindField(root, "entities");
 	if (entities == nullptr || !entities->is_array() || entities->size() != world.value.size())
 	{
 		return FailRuntime<SceneDocument>(

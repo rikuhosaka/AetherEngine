@@ -1,5 +1,6 @@
 #include "Runtime/Renderer/Scene/FbxSceneAssets.h"
 
+#include "Runtime/Core/IO/Path.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Core/Math/Matrix.h"
@@ -154,17 +155,9 @@ void ComputeNodeWorldMatrix(
 
 	const std::filesystem::path relativePath =
 		std::filesystem::relative(texturePath, canonicalRoot, errorCode);
-	if (errorCode || relativePath.empty())
+	if (errorCode || relativePath.empty() || ContainsParentReference(relativePath))
 	{
 		return {};
-	}
-
-	for (const std::filesystem::path& part : relativePath)
-	{
-		if (part == "..")
-		{
-			return {};
-		}
 	}
 
 	return relativePath;
@@ -189,7 +182,7 @@ Result<void> FbxSceneAssets::LoadTextureForSlot(
 	if (!texturePath.empty() && relativePath.empty())
 	{
 		LOG_WARN_F(LogCategory::Asset,
-			"FBX texture is outside Assets/, using white fallback: {}", texturePath.string());
+			"Model texture is outside Assets/, using white fallback: {}", texturePath.string());
 	}
 
 	if (!relativePath.empty())
@@ -211,7 +204,7 @@ Result<void> FbxSceneAssets::LoadTextureForSlot(
 		}
 
 		LOG_WARN_F(LogCategory::Asset,
-			"FBX texture load failed for {}: {}",
+			"Model texture load failed for {}: {}",
 			relativePath.string(),
 			textureResult.error.message);
 	}
@@ -464,7 +457,7 @@ Result<void> FbxSceneAssets::SpawnUnder(World& world, EntityId parent)
 	for (const FbxNodeSpawn& node : m_nodes)
 	{
 		WorldSpawnDesc desc{};
-		desc.name = node.name.empty() ? "PaladinNode" : node.name;
+		desc.name = node.name.empty() ? "ModelNode" : node.name;
 		desc.transform = node.local;
 		nodeEntities.push_back(world.Spawn(std::move(desc)));
 	}
@@ -475,7 +468,7 @@ Result<void> FbxSceneAssets::SpawnUnder(World& world, EntityId parent)
 		if (parentIndex >= 0 && static_cast<size_t>(parentIndex) >= nodeEntities.size())
 		{
 			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"FBX node parent could not be attached");
+				"Model node parent could not be attached");
 		}
 
 		const EntityId nodeParent = parentIndex < 0
@@ -484,7 +477,7 @@ Result<void> FbxSceneAssets::SpawnUnder(World& world, EntityId parent)
 		if (!world.SetParent(nodeEntities[nodeIndex], nodeParent))
 		{
 			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"FBX node parent could not be attached");
+				"Model node parent could not be attached");
 		}
 	}
 
@@ -494,7 +487,7 @@ Result<void> FbxSceneAssets::SpawnUnder(World& world, EntityId parent)
 		if (submesh.nodeIndex >= nodeEntities.size())
 		{
 			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"FBX submesh node index is out of range");
+				"Model submesh node index is out of range");
 		}
 
 		WorldSpawnDesc desc{};
@@ -522,7 +515,7 @@ Result<void> FbxSceneAssets::SpawnUnder(World& world, EntityId parent)
 		if (!world.Add<Renderable>(submeshEntity, std::move(renderable)))
 		{
 			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"FBX submesh renderable was rejected");
+				"Model submesh renderable was rejected");
 		}
 
 		const DirectX::XMMATRIX resolved = world.GetWorldMatrix(submeshEntity);
@@ -532,7 +525,7 @@ Result<void> FbxSceneAssets::SpawnUnder(World& world, EntityId parent)
 		if (!MatricesNearlyEqual(resolved, baked))
 		{
 			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"FBX hierarchy world matrix does not match the baked node transform");
+				"Model hierarchy world matrix does not match the baked node transform");
 		}
 	}
 

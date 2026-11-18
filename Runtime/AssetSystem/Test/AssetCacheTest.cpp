@@ -3,6 +3,7 @@
 #include "Runtime/AssetSystem/AssetCache.h"
 #include "Runtime/AssetSystem/Mesh/CookedMesh.h"
 #include "Runtime/AssetSystem/Mesh/PrimitiveMesh.h"
+#include "Runtime/Core/Hash/Fnv.h"
 #include "Runtime/Core/Log/LogMacros.h"
 
 #include <fstream>
@@ -284,7 +285,7 @@ namespace
 	}
 
 	CookedMesh patched{};
-	const bool readPatched = TryReadCookedMesh(cookedPath, HashMeshSource(boxJson), patched)
+	const bool readPatched = TryReadCookedMesh(cookedPath, Fnv1a64(boxJson), patched)
 		&& !patched.render.vertices.empty();
 	if (readPatched)
 	{
@@ -292,7 +293,7 @@ namespace
 	}
 	const float patchedPosition = readPatched ? patched.render.vertices[0].position[0] : 0.0f;
 	const Result<void> writtenPatch = readPatched
-		? WriteCookedMesh(cookedPath, HashMeshSource(boxJson), patched)
+		? WriteCookedMesh(cookedPath, Fnv1a64(boxJson), patched)
 		: FailRuntime(LogCategory::Asset, ErrorCode::InvalidArgument, "Cooked mesh could not be read back");
 	AssetCache patchedCache{};
 	const Result<void> patchedLoad = writtenPatch ? patchedCache.LoadDirectory(cookRoot) : writtenPatch;

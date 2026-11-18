@@ -1,6 +1,9 @@
 #include "Runtime/AssetSystem/Texture/Loader/CookedTexture.h"
 
+#include "Runtime/Core/Hash/Fnv.h"
 #include "Runtime/Core/IO/BinaryCursor.h"
+#include "Runtime/Core/IO/BinaryFile.h"
+#include "Runtime/Core/IO/Path.h"
 #include "Runtime/AssetSystem/Texture/Loader/TextureAssetPath.h"
 #include "Runtime/Core/Log/LogMacros.h"
 
@@ -16,38 +19,6 @@ constexpr uint32_t kMaxMipCount = 16;
 constexpr uint32_t kMaxMipBytes = 64u * 1024u * 1024u;
 constexpr uint32_t kMaxStringBytes = 65536;
 constexpr char kMagic[4] = { 'A', 'E', 'T', 'X' };
-
-[[nodiscard]] std::filesystem::path AssetRoot(const std::filesystem::path& assetsRoot)
-{
-	std::filesystem::path root = assetsRoot.lexically_normal();
-	if (root.filename().empty())
-	{
-		root = root.parent_path();
-	}
-
-	std::error_code errorCode{};
-	const std::filesystem::path canonical = std::filesystem::weakly_canonical(root, errorCode);
-	return errorCode ? root : canonical;
-}
-
-[[nodiscard]] std::string ToUtf8(const std::filesystem::path& path)
-{
-	const std::u8string text = path.generic_u8string();
-	return std::string(reinterpret_cast<const char*>(text.data()), text.size());
-}
-
-[[nodiscard]] bool ContainsParentReference(const std::filesystem::path& path)
-{
-	for (const std::filesystem::path& part : path)
-	{
-		if (part == "..")
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
 
 [[nodiscard]] bool IsColorSpace(uint8_t value)
 {
@@ -126,7 +97,7 @@ void WriteImage(
 	writer.U64(sourceHash);
 	writer.U8(static_cast<uint8_t>(options.colorSpace));
 	writer.U8(options.generateMips ? 1 : 0);
-	writer.String(ToUtf8(relativePath.lexically_normal()));
+	writer.String(PathToUtf8(relativePath.lexically_normal()));
 	writer.U32(image.width);
 	writer.U32(image.height);
 	writer.U32(image.mipCount);
@@ -169,7 +140,7 @@ void WriteImage(
 	}
 
 	const std::string storedRelative = reader.String(kMaxStringBytes);
-	if (!reader.Reading() || storedRelative != ToUtf8(relativePath.lexically_normal()))
+	if (!reader.Reading() || storedRelative != PathToUtf8(relativePath.lexically_normal()))
 	{
 		return false;
 	}
@@ -208,20 +179,6 @@ void WriteImage(
 	outImage = std::move(image);
 	return true;
 }
-
-[[nodiscard]] Result<std::string> ReadFileBytes(const std::filesystem::path& path)
-{
-	std::ifstream file(path, std::ios::binary);
-	if (!file)
-	{
-		return FailRuntime<std::string>(
-			LogCategory::Asset,
-			ErrorCode::FileNotFound,
-			"Texture file could not be opened");
-	}
-
-	return MakeOk(std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() });
-}
 } // namespace
 
 std::filesystem::path CookedTexturePath(
@@ -233,19 +190,7 @@ std::filesystem::path CookedTexturePath(
 		+ (options.generateMips ? ".mips" : ".nomips") + ".aetex";
 	std::filesystem::path cookedRelative = relativePath.lexically_normal();
 	cookedRelative.replace_extension(extension);
-	return AssetRoot(assetsRoot).parent_path() / "Intermediate" / "Cooked" / "Textures" / cookedRelative;
-}
-
-uint64_t HashTextureSource(std::string_view bytes)
-{
-	uint64_t hash = 14695981039346656037ull;
-	for (const char character : bytes)
-	{
-		hash ^= static_cast<uint8_t>(character);
-		hash *= 1099511628211ull;
-	}
-
-	return hash;
+	return CanonicalDirectory(assetsRoot).parent_path() / "Intermediate" / "Cooked" / "Textures" / cookedRelative;
 }
 
 bool TryReadCookedTexture(
@@ -336,13 +281,16 @@ Result<TextureImageData> LoadTextureImage(
 		return MakeFail<TextureImageData>(resolved.error.code, resolved.error.message);
 	}
 
-	const Result<std::string> bytes = ReadFileBytes(resolved.value);
+	const Result<std::string> bytes = ReadBinaryFile(resolved.value);
 	if (!bytes)
 	{
-		return MakeFail<TextureImageData>(bytes.error.code, bytes.error.message);
+		return FailRuntime<TextureImageData>(
+			LogCategory::Asset,
+			ErrorCode::FileNotFound,
+			"Texture file could not be opened");
 	}
 
-	const uint64_t sourceHash = HashTextureSource(bytes.value);
+	const uint64_t sourceHash = Fnv1a64(bytes.value);
 	const std::filesystem::path cookedPath = CookedTexturePath(assetsRoot, relativePath, options);
 	TextureImageData cooked{};
 	if (TryReadCookedTexture(cookedPath, sourceHash, options, relativePath, cooked))

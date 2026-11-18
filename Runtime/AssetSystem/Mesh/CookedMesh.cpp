@@ -242,18 +242,6 @@ std::filesystem::path CookedMeshPath(
 	return root.parent_path() / "Intermediate" / "Cooked" / "Meshes" / fileName;
 }
 
-uint64_t HashMeshSource(std::string_view bytes)
-{
-	uint64_t hash = 14695981039346656037ull;
-	for (const char character : bytes)
-	{
-		hash ^= static_cast<uint8_t>(character);
-		hash *= 1099511628211ull;
-	}
-
-	return hash;
-}
-
 bool TryReadCookedMesh(
 	const std::filesystem::path& path,
 	uint64_t sourceHash,

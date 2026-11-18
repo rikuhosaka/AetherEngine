@@ -1,6 +1,6 @@
 #include "Runtime/Engine/SceneDocument/Serializer/RigidBodySerializer.h"
 
-#include "Runtime/Engine/SceneDocument/Serializer/JsonFields.h"
+#include "Runtime/Core/Json/JsonFields.h"
 
 #include <string>
 #include <utility>
@@ -46,7 +46,7 @@ using Json = nlohmann::json;
 			"Scene document shape must be an object");
 	}
 
-	const Json* typeValue = SceneJson::FindField(value, "type");
+	const Json* typeValue = JsonFields::FindField(value, "type");
 	if (typeValue == nullptr || !typeValue->is_string())
 	{
 		return FailRuntime<RigidBodyShape>(
@@ -60,8 +60,8 @@ using Json = nlohmann::json;
 	if (type == "box")
 	{
 		shape.type = PhysicsShapeType::Box;
-		const Json* halfExtent = SceneJson::FindField(value, "halfExtent");
-		if (halfExtent == nullptr || !SceneJson::ReadFloats(*halfExtent, &shape.halfExtent.x, 3))
+		const Json* halfExtent = JsonFields::FindField(value, "halfExtent");
+		if (halfExtent == nullptr || !JsonFields::ReadFloats(*halfExtent, &shape.halfExtent.x, 3))
 		{
 			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
@@ -72,8 +72,8 @@ using Json = nlohmann::json;
 	else if (type == "sphere")
 	{
 		shape.type = PhysicsShapeType::Sphere;
-		const Json* radius = SceneJson::FindField(value, "radius");
-		if (radius == nullptr || !SceneJson::ReadFloat(*radius, shape.radius))
+		const Json* radius = JsonFields::FindField(value, "radius");
+		if (radius == nullptr || !JsonFields::ReadFloat(*radius, shape.radius))
 		{
 			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
@@ -84,10 +84,10 @@ using Json = nlohmann::json;
 	else if (type == "capsule")
 	{
 		shape.type = PhysicsShapeType::Capsule;
-		const Json* radius = SceneJson::FindField(value, "radius");
-		const Json* halfHeight = SceneJson::FindField(value, "halfHeight");
-		if (radius == nullptr || halfHeight == nullptr || !SceneJson::ReadFloat(*radius, shape.radius)
-			|| !SceneJson::ReadFloat(*halfHeight, shape.halfHeight))
+		const Json* radius = JsonFields::FindField(value, "radius");
+		const Json* halfHeight = JsonFields::FindField(value, "halfHeight");
+		if (radius == nullptr || halfHeight == nullptr || !JsonFields::ReadFloat(*radius, shape.radius)
+			|| !JsonFields::ReadFloat(*halfHeight, shape.halfHeight))
 		{
 			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
@@ -98,7 +98,7 @@ using Json = nlohmann::json;
 	else if (type == "convexHull" || type == "mesh")
 	{
 		shape.type = type == "convexHull" ? PhysicsShapeType::ConvexHull : PhysicsShapeType::Mesh;
-		if (SceneJson::FindField(value, "points") != nullptr || SceneJson::FindField(value, "indices") != nullptr)
+		if (JsonFields::FindField(value, "points") != nullptr || JsonFields::FindField(value, "indices") != nullptr)
 		{
 			return FailRuntime<RigidBodyShape>(
 				LogCategory::ECS,
@@ -106,7 +106,7 @@ using Json = nlohmann::json;
 				"Scene document mesh asset must not embed points or indices");
 		}
 
-		const Json* mesh = SceneJson::FindField(value, "mesh");
+		const Json* mesh = JsonFields::FindField(value, "mesh");
 		if (mesh == nullptr || !mesh->is_string() || mesh->get<std::string>().empty())
 		{
 			return FailRuntime<RigidBodyShape>(
@@ -200,11 +200,11 @@ Result<RigidBody> RigidBodySerializer::Read(const nlohmann::json& value)
 			"Scene document physics must be an object");
 	}
 
-	const nlohmann::json* motion = SceneJson::FindField(value, "motion");
-	const nlohmann::json* friction = SceneJson::FindField(value, "friction");
-	const nlohmann::json* restitution = SceneJson::FindField(value, "restitution");
-	const nlohmann::json* mass = SceneJson::FindField(value, "mass");
-	const nlohmann::json* shape = SceneJson::FindField(value, "shape");
+	const nlohmann::json* motion = JsonFields::FindField(value, "motion");
+	const nlohmann::json* friction = JsonFields::FindField(value, "friction");
+	const nlohmann::json* restitution = JsonFields::FindField(value, "restitution");
+	const nlohmann::json* mass = JsonFields::FindField(value, "mass");
+	const nlohmann::json* shape = JsonFields::FindField(value, "shape");
 	RigidBody body{};
 	if (motion == nullptr || !ReadMotion(*motion, body.motion))
 	{
@@ -217,8 +217,8 @@ Result<RigidBody> RigidBodySerializer::Read(const nlohmann::json& value)
 	}
 
 	if (friction == nullptr || restitution == nullptr || mass == nullptr || shape == nullptr
-		|| !SceneJson::ReadFloat(*friction, body.friction) || !SceneJson::ReadFloat(*restitution, body.restitution)
-		|| !SceneJson::ReadFloat(*mass, body.mass))
+		|| !JsonFields::ReadFloat(*friction, body.friction) || !JsonFields::ReadFloat(*restitution, body.restitution)
+		|| !JsonFields::ReadFloat(*mass, body.mass))
 	{
 		return FailRuntime<RigidBody>(
 			LogCategory::ECS,

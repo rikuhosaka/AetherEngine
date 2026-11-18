@@ -1,11 +1,14 @@
 #include "Runtime/AssetSystem/AssetCache.h"
 
 #include "Runtime/AssetSystem/Mesh/PrimitiveMesh.h"
+#include "Runtime/Core/Hash/Fnv.h"
+#include "Runtime/Core/IO/BinaryFile.h"
+#include "Runtime/Core/IO/Path.h"
+#include "Runtime/Core/Json/JsonFields.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
 #include <cctype>
-#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <system_error>
@@ -14,40 +17,6 @@
 namespace
 {
 using Json = nlohmann::json;
-
-[[nodiscard]] std::filesystem::path CanonicalizeIfPossible(const std::filesystem::path& path)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, errorCode);
-	return errorCode ? path : canonicalPath;
-}
-
-[[nodiscard]] bool ContainsParentReference(const std::filesystem::path& path)
-{
-	for (const std::filesystem::path& part : path)
-	{
-		if (part == "..")
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-[[nodiscard]] bool IsPathUnderRoot(
-	const std::filesystem::path& candidate,
-	const std::filesystem::path& root)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path relative = std::filesystem::relative(candidate, root, errorCode);
-	if (errorCode || relative.empty())
-	{
-		return candidate == root;
-	}
-
-	return !ContainsParentReference(relative);
-}
 
 [[nodiscard]] bool HasJsonExtension(const std::filesystem::path& path)
 {
@@ -73,68 +42,6 @@ using Json = nlohmann::json;
 	return next != path.end();
 }
 
-[[nodiscard]] const Json* FindField(const Json& object, const char* key)
-{
-	if (!object.is_object())
-	{
-		return nullptr;
-	}
-
-	const Json::const_iterator field = object.find(key);
-	if (field == object.end())
-	{
-		return nullptr;
-	}
-
-	return &(*field);
-}
-
-[[nodiscard]] bool ReadUint32(const Json& value, uint32_t& out)
-{
-	if (!value.is_number_unsigned())
-	{
-		return false;
-	}
-
-	const uint64_t number = value.get<uint64_t>();
-	if (number > UINT32_MAX)
-	{
-		return false;
-	}
-
-	out = static_cast<uint32_t>(number);
-	return true;
-}
-
-[[nodiscard]] bool ReadFloat(const Json& value, float& out)
-{
-	if (!value.is_number())
-	{
-		return false;
-	}
-
-	out = value.get<float>();
-	return std::isfinite(out);
-}
-
-[[nodiscard]] bool ReadFloats(const Json& value, float* out, size_t count)
-{
-	if (!value.is_array() || value.size() != count)
-	{
-		return false;
-	}
-
-	for (size_t index = 0; index < count; ++index)
-	{
-		if (!ReadFloat(value[index], out[index]))
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
 [[nodiscard]] Result<std::vector<DirectX::XMFLOAT3>> ReadPoints(const Json& value)
 {
 	if (!value.is_array() || value.empty())
@@ -150,7 +57,7 @@ using Json = nlohmann::json;
 	for (const Json& pointValue : value)
 	{
 		DirectX::XMFLOAT3 point{};
-		if (!ReadFloats(pointValue, &point.x, 3))
+		if (!JsonFields::ReadFloats(pointValue, &point.x, 3))
 		{
 			return FailRuntime<std::vector<DirectX::XMFLOAT3>>(
 				LogCategory::Asset,
@@ -179,7 +86,7 @@ using Json = nlohmann::json;
 	for (const Json& indexValue : value)
 	{
 		uint32_t index = 0;
-		if (!ReadUint32(indexValue, index) || index >= pointCount)
+		if (!JsonFields::ReadUint32(indexValue, index) || index >= pointCount)
 		{
 			return FailRuntime<std::vector<uint32_t>>(
 				LogCategory::Asset,
@@ -253,8 +160,8 @@ using Json = nlohmann::json;
 			"Mesh asset must be an object");
 	}
 
-	const Json* id = FindField(json, "id");
-	const Json* kindValue = FindField(json, "kind");
+	const Json* id = JsonFields::FindField(json, "id");
+	const Json* kindValue = JsonFields::FindField(json, "kind");
 	if (id == nullptr || !id->is_string() || id->get<std::string>().empty())
 	{
 		return FailRuntime<MeshAsset>(
@@ -285,8 +192,8 @@ using Json = nlohmann::json;
 	{
 	case MeshAssetKind::TriangleList:
 	{
-		const Json* points = FindField(json, "points");
-		const Json* indices = FindField(json, "indices");
+		const Json* points = JsonFields::FindField(json, "points");
+		const Json* indices = JsonFields::FindField(json, "indices");
 		if (points == nullptr || indices == nullptr)
 		{
 			return FailRuntime<MeshAsset>(
@@ -313,7 +220,7 @@ using Json = nlohmann::json;
 	}
 	case MeshAssetKind::ConvexHull:
 	{
-		const Json* points = FindField(json, "points");
+		const Json* points = JsonFields::FindField(json, "points");
 		if (points == nullptr)
 		{
 			return FailRuntime<MeshAsset>(
@@ -341,11 +248,11 @@ using Json = nlohmann::json;
 	}
 	case MeshAssetKind::Box:
 	{
-		const Json* width = FindField(json, "width");
-		const Json* height = FindField(json, "height");
-		const Json* depth = FindField(json, "depth");
-		if (width == nullptr || height == nullptr || depth == nullptr || !ReadFloat(*width, asset.width)
-			|| !ReadFloat(*height, asset.height) || !ReadFloat(*depth, asset.depth) || asset.width <= 0.0f
+		const Json* width = JsonFields::FindField(json, "width");
+		const Json* height = JsonFields::FindField(json, "height");
+		const Json* depth = JsonFields::FindField(json, "depth");
+		if (width == nullptr || height == nullptr || depth == nullptr || !JsonFields::ReadFloat(*width, asset.width)
+			|| !JsonFields::ReadFloat(*height, asset.height) || !JsonFields::ReadFloat(*depth, asset.depth) || asset.width <= 0.0f
 			|| asset.height <= 0.0f || asset.depth <= 0.0f)
 		{
 			return FailRuntime<MeshAsset>(
@@ -357,11 +264,11 @@ using Json = nlohmann::json;
 	}
 	case MeshAssetKind::Sphere:
 	{
-		const Json* radius = FindField(json, "radius");
-		const Json* stacks = FindField(json, "stacks");
-		const Json* slices = FindField(json, "slices");
-		if (radius == nullptr || stacks == nullptr || slices == nullptr || !ReadFloat(*radius, asset.radius)
-			|| !ReadUint32(*stacks, asset.stacks) || !ReadUint32(*slices, asset.slices) || asset.radius <= 0.0f
+		const Json* radius = JsonFields::FindField(json, "radius");
+		const Json* stacks = JsonFields::FindField(json, "stacks");
+		const Json* slices = JsonFields::FindField(json, "slices");
+		if (radius == nullptr || stacks == nullptr || slices == nullptr || !JsonFields::ReadFloat(*radius, asset.radius)
+			|| !JsonFields::ReadUint32(*stacks, asset.stacks) || !JsonFields::ReadUint32(*slices, asset.slices) || asset.radius <= 0.0f
 			|| asset.stacks < 2 || asset.slices < 3)
 		{
 			return FailRuntime<MeshAsset>(
@@ -373,13 +280,13 @@ using Json = nlohmann::json;
 	}
 	case MeshAssetKind::Capsule:
 	{
-		const Json* radius = FindField(json, "radius");
-		const Json* halfHeight = FindField(json, "halfHeight");
-		const Json* slices = FindField(json, "slices");
-		const Json* hemisphereStacks = FindField(json, "hemisphereStacks");
+		const Json* radius = JsonFields::FindField(json, "radius");
+		const Json* halfHeight = JsonFields::FindField(json, "halfHeight");
+		const Json* slices = JsonFields::FindField(json, "slices");
+		const Json* hemisphereStacks = JsonFields::FindField(json, "hemisphereStacks");
 		if (radius == nullptr || halfHeight == nullptr || slices == nullptr || hemisphereStacks == nullptr
-			|| !ReadFloat(*radius, asset.radius) || !ReadFloat(*halfHeight, asset.halfHeight)
-			|| !ReadUint32(*slices, asset.slices) || !ReadUint32(*hemisphereStacks, asset.hemisphereStacks)
+			|| !JsonFields::ReadFloat(*radius, asset.radius) || !JsonFields::ReadFloat(*halfHeight, asset.halfHeight)
+			|| !JsonFields::ReadUint32(*slices, asset.slices) || !JsonFields::ReadUint32(*hemisphereStacks, asset.hemisphereStacks)
 			|| asset.radius <= 0.0f || asset.halfHeight <= 0.0f || asset.slices < 3 || asset.hemisphereStacks < 1)
 		{
 			return FailRuntime<MeshAsset>(
@@ -430,20 +337,6 @@ struct PendingMesh
 	}
 
 	return nullptr;
-}
-
-[[nodiscard]] Result<std::string> ReadFileBytes(const std::filesystem::path& path)
-{
-	std::ifstream file(path, std::ios::binary);
-	if (!file)
-	{
-		return FailRuntime<std::string>(
-			LogCategory::Asset,
-			ErrorCode::FileNotFound,
-			"Mesh asset file could not be opened");
-	}
-
-	return MakeOk(std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() });
 }
 
 [[nodiscard]] Result<PrimitiveMeshData> GenerateMeshRender(const MeshAsset& asset)
@@ -602,10 +495,13 @@ Result<void> AssetCache::LoadDirectory(const std::filesystem::path& assetsRoot)
 			continue;
 		}
 
-		Result<std::string> bytes = ReadFileBytes(iterator->path());
+		Result<std::string> bytes = ReadBinaryFile(iterator->path());
 		if (!bytes)
 		{
-			return MakeFail(bytes.error.code, bytes.error.message);
+			return FailRuntime(
+				LogCategory::Asset,
+				ErrorCode::FileNotFound,
+				"Mesh asset file could not be opened");
 		}
 
 		Result<MeshAsset> asset = ReadMeshAsset(bytes.value);
@@ -624,7 +520,7 @@ Result<void> AssetCache::LoadDirectory(const std::filesystem::path& assetsRoot)
 
 		PendingMesh item{};
 		item.fileName = iterator->path().filename();
-		item.sourceHash = HashMeshSource(bytes.value);
+		item.sourceHash = Fnv1a64(bytes.value);
 		item.source = std::move(asset.value);
 		pending.push_back(std::move(item));
 	}

@@ -1,37 +1,10 @@
 #include "Runtime/Renderer/ShaderSystem/Cache/ShaderCacheHash.h"
 
+#include "Runtime/Core/Hash/Fnv.h"
 #include "Runtime/Core/Hash/HashCombine.h"
+#include "Runtime/Core/IO/BinaryFile.h"
 
 #include <algorithm>
-#include <fstream>
-
-namespace
-{
-	[[nodiscard]] std::uint64_t Fnv1a64(std::uint64_t hash, std::byte byte)
-	{
-		hash ^= static_cast<std::uint64_t>(byte);
-		return hash * 1099511628211ULL;
-	}
-
-	[[nodiscard]] std::uint64_t Fnv1a64(std::uint64_t hash, std::span<const std::byte> bytes)
-	{
-		for (const std::byte byte : bytes)
-		{
-			hash = Fnv1a64(hash, byte);
-		}
-		return hash;
-	}
-
-	[[nodiscard]] std::uint64_t Fnv1a64(std::string_view text)
-	{
-		std::uint64_t hash = 14695981039346656037ULL;
-		for (const char ch : text)
-		{
-			hash = Fnv1a64(hash, static_cast<std::byte>(ch));
-		}
-		return hash;
-	}
-}
 
 std::uint64_t HashFileContentFingerprint(const std::filesystem::path& filePath)
 {
@@ -40,28 +13,13 @@ std::uint64_t HashFileContentFingerprint(const std::filesystem::path& filePath)
 		return 0;
 	}
 
-	std::ifstream stream(filePath, std::ios::binary);
-	if (!stream)
+	const Result<std::string> bytes = ReadBinaryFile(filePath);
+	if (!bytes || bytes.value.empty())
 	{
 		return 0;
 	}
 
-	stream.seekg(0, std::ios::end);
-	const std::streamoff size = stream.tellg();
-	if (size <= 0)
-	{
-		return 0;
-	}
-
-	std::vector<std::byte> bytes(static_cast<std::size_t>(size));
-	stream.seekg(0, std::ios::beg);
-	stream.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-	if (!stream)
-	{
-		return 0;
-	}
-
-	return Fnv1a64(14695981039346656037ULL, std::span<const std::byte>(bytes));
+	return Fnv1a64(bytes.value);
 }
 
 std::uint64_t HashShaderCompileDesc(const ShaderCompileDesc& desc)
@@ -116,7 +74,7 @@ std::uint64_t HashShaderCompileCacheLookupKey(const ShaderCompileCacheKey& key)
 
 std::uint64_t HashBytecodeFingerprint(const ShaderBytecode& bytecode)
 {
-	return Fnv1a64(14695981039346656037ULL, std::span<const std::byte>(bytecode.Data));
+	return Fnv1a64(std::span<const std::byte>(bytecode.Data));
 }
 
 ShaderReflectionCacheKey BuildShaderReflectionCacheKey(

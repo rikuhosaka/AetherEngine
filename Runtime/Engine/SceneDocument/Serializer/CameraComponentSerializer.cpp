@@ -1,6 +1,6 @@
 #include "Runtime/Engine/SceneDocument/Serializer/CameraComponentSerializer.h"
 
-#include "Runtime/Engine/SceneDocument/Serializer/JsonFields.h"
+#include "Runtime/Core/Json/JsonFields.h"
 
 namespace
 {
@@ -17,13 +17,13 @@ Result<CameraComponent> CameraComponentSerializer::Read(const nlohmann::json& va
 			"Scene document camera is invalid");
 	}
 
-	const Json* fovY = SceneJson::FindField(value, "fovY");
-	const Json* nearPlane = SceneJson::FindField(value, "near");
-	const Json* farPlane = SceneJson::FindField(value, "far");
+	const Json* fovY = JsonFields::FindField(value, "fovY");
+	const Json* nearPlane = JsonFields::FindField(value, "near");
+	const Json* farPlane = JsonFields::FindField(value, "far");
 	CameraComponent component{};
 	if (fovY == nullptr || nearPlane == nullptr || farPlane == nullptr
-		|| !SceneJson::ReadFloat(*fovY, component.fovYDegrees) || !SceneJson::ReadFloat(*nearPlane, component.nearPlane)
-		|| !SceneJson::ReadFloat(*farPlane, component.farPlane))
+		|| !JsonFields::ReadFloat(*fovY, component.fovYDegrees) || !JsonFields::ReadFloat(*nearPlane, component.nearPlane)
+		|| !JsonFields::ReadFloat(*farPlane, component.farPlane))
 	{
 		return FailRuntime<CameraComponent>(
 			LogCategory::ECS,

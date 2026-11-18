@@ -253,6 +253,30 @@
           1.0432115
         ]
       }
+    },
+    {
+      "id": 7,
+      "name": "PocketWatch",
+      "parent": null,
+      "model": "Models/pocket_watch_4k.gltf/pocket_watch_4k.gltf",
+      "transform": {
+        "position": [
+          -2.5,
+          1.2,
+          2.5
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          10.0,
+          10.0,
+          10.0
+        ]
+      }
     }
   ],
   "version": 1

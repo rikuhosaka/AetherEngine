@@ -1,47 +1,10 @@
 #include "Runtime/AssetSystem/Texture/Loader/TextureAssetPath.h"
 
+#include "Runtime/Core/IO/Path.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
 
 #include <system_error>
-
-namespace
-{
-[[nodiscard]] std::filesystem::path CanonicalizeIfPossible(const std::filesystem::path& path)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, errorCode);
-	return errorCode ? path : canonicalPath;
-}
-
-[[nodiscard]] bool ContainsParentReference(const std::filesystem::path& path)
-{
-	for (const std::filesystem::path& part : path)
-	{
-		if (part == "..")
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-[[nodiscard]] bool IsPathUnderRoot(
-	const std::filesystem::path& candidate,
-	const std::filesystem::path& root)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path relative =
-		std::filesystem::relative(candidate, root, errorCode);
-	if (errorCode || relative.empty())
-	{
-		return candidate == root;
-	}
-
-	return !ContainsParentReference(relative);
-}
-} // namespace
 
 Result<std::filesystem::path> ResolveTextureAssetPath(
 	const std::filesystem::path& assetsRoot,

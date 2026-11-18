@@ -64,7 +64,7 @@ float4 LitBasicPS(PSIn input) : SV_Target
     float3 albedo = albedoSample.rgb * tint.rgb;
 
     float3 vertexNormal = normalize(input.normalW);
-    float3 tangent = normalize(input.tangentW);
+    float3 tangent = normalize(input.tangentW - vertexNormal * dot(vertexNormal, input.tangentW));
     float3 bitangent = normalize(cross(vertexNormal, tangent) * input.tangentSign);
     float3 tangentNormal = normalMap.Sample(g_sampler, input.uv).xyz * 2.0 - 1.0;
     float3 normal = normalize(tangentNormal.x * tangent + tangentNormal.y * bitangent + tangentNormal.z * vertexNormal);

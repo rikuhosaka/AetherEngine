@@ -6,7 +6,6 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <string_view>
 
 // Bump when BasicVertex, MeshAsset fields, or primitive generation change.
 constexpr uint32_t kCookedMeshVersion = 1;
@@ -22,8 +21,6 @@ struct CookedMesh
 [[nodiscard]] std::filesystem::path CookedMeshPath(
 	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& jsonFileName);
-
-[[nodiscard]] uint64_t HashMeshSource(std::string_view bytes);
 
 // False when the file is missing, stale, or incomplete. The caller then cooks again.
 [[nodiscard]] bool TryReadCookedMesh(

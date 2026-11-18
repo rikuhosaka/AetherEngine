@@ -1,5 +1,6 @@
 #include "Runtime/AssetSystem/Model/Loader/FbxModelFileLoader.h"
 
+#include "Runtime/Core/IO/Path.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/AssetSystem/Model/VertexTangents.h"
@@ -19,13 +20,6 @@
 
 namespace
 {
-[[nodiscard]] std::filesystem::path CanonicalizeIfPossible(const std::filesystem::path& path)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, errorCode);
-	return errorCode ? path : canonicalPath;
-}
-
 void CopyMatrixFromFbx(float* destination, const FbxAMatrix& source)
 {
 	for (int row = 0; row < 4; ++row)

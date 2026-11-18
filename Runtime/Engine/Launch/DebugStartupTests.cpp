@@ -4,6 +4,7 @@
 #include "Runtime/AssetSystem/Test/AssetCacheTest.h"
 #include "Runtime/Engine/Application/Test/SubsystemOrderTest.h"
 #include "Runtime/AssetSystem/Test/FbxModelFileLoaderTest.h"
+#include "Runtime/AssetSystem/Test/GltfModelFileLoaderTest.h"
 #include "Runtime/Engine/EngineInstance/RendererDebugTests.h"
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 #include "Runtime/Engine/SceneDocument/SceneDocumentTest.h"
@@ -136,6 +137,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunFbxModelFileLoaderTests(assetsRoot); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunGltfModelFileLoaderTests(); !result)
 	{
 		return result;
 	}

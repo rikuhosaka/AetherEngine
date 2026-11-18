@@ -1,5 +1,6 @@
 #include "Runtime/Engine/World/WorldDocument.h"
 
+#include "Runtime/Core/Json/JsonFields.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
 #include <cstdint>
@@ -11,39 +12,6 @@ namespace
 {
 using Json = nlohmann::json;
 
-[[nodiscard]] const Json* FindField(const Json& object, const char* key)
-{
-	if (!object.is_object())
-	{
-		return nullptr;
-	}
-
-	const Json::const_iterator field = object.find(key);
-	if (field == object.end())
-	{
-		return nullptr;
-	}
-
-	return &(*field);
-}
-
-[[nodiscard]] bool ReadUint32(const Json& value, uint32_t& out)
-{
-	if (!value.is_number_unsigned())
-	{
-		return false;
-	}
-
-	const uint64_t number = value.get<uint64_t>();
-	if (number > UINT32_MAX)
-	{
-		return false;
-	}
-
-	out = static_cast<uint32_t>(number);
-	return true;
-}
-
 [[nodiscard]] Result<WorldDocumentEntity> ReadEntity(const Json& value)
 {
 	if (!value.is_object())
@@ -54,10 +22,10 @@ using Json = nlohmann::json;
 			"World document entity must be an object");
 	}
 
-	const Json* id = FindField(value, "id");
-	const Json* name = FindField(value, "name");
-	const Json* parent = FindField(value, "parent");
-	const Json* renderable = FindField(value, "renderable");
+	const Json* id = JsonFields::FindField(value, "id");
+	const Json* name = JsonFields::FindField(value, "name");
+	const Json* parent = JsonFields::FindField(value, "parent");
+	const Json* renderable = JsonFields::FindField(value, "renderable");
 	if (id == nullptr || name == nullptr || parent == nullptr || !name->is_string()
 		|| (renderable != nullptr && !renderable->is_object()))
 	{
@@ -68,7 +36,7 @@ using Json = nlohmann::json;
 	}
 
 	WorldDocumentEntity entity{};
-	if (!ReadUint32(*id, entity.id))
+	if (!JsonFields::ReadUint32(*id, entity.id))
 	{
 		return FailRuntime<WorldDocumentEntity>(
 			LogCategory::ECS,
@@ -81,7 +49,7 @@ using Json = nlohmann::json;
 	{
 		entity.parent = 0;
 	}
-	else if (!ReadUint32(*parent, entity.parent))
+	else if (!JsonFields::ReadUint32(*parent, entity.parent))
 	{
 		return FailRuntime<WorldDocumentEntity>(
 			LogCategory::ECS,
@@ -95,12 +63,12 @@ using Json = nlohmann::json;
 		return MakeOk(std::move(entity));
 	}
 
-	const Json* submesh = FindField(*renderable, "submesh");
-	const Json* layerMask = FindField(*renderable, "layerMask");
-	const Json* visible = FindField(*renderable, "visible");
+	const Json* submesh = JsonFields::FindField(*renderable, "submesh");
+	const Json* layerMask = JsonFields::FindField(*renderable, "layerMask");
+	const Json* visible = JsonFields::FindField(*renderable, "visible");
 	uint32_t layerValue = 0;
 	if (submesh == nullptr || layerMask == nullptr || visible == nullptr || !visible->is_boolean()
-		|| !ReadUint32(*submesh, entity.submeshIndex) || !ReadUint32(*layerMask, layerValue) || layerValue > 255u)
+		|| !JsonFields::ReadUint32(*submesh, entity.submeshIndex) || !JsonFields::ReadUint32(*layerMask, layerValue) || layerValue > 255u)
 	{
 		return FailRuntime<WorldDocumentEntity>(
 			LogCategory::ECS,
@@ -124,10 +92,10 @@ using Json = nlohmann::json;
 			"World document JSON is invalid");
 	}
 
-	const Json* version = FindField(root, "version");
-	const Json* entities = FindField(root, "entities");
+	const Json* version = JsonFields::FindField(root, "version");
+	const Json* entities = JsonFields::FindField(root, "entities");
 	uint32_t versionValue = 0;
-	if (version == nullptr || entities == nullptr || !entities->is_array() || !ReadUint32(*version, versionValue))
+	if (version == nullptr || entities == nullptr || !entities->is_array() || !JsonFields::ReadUint32(*version, versionValue))
 	{
 		return FailRuntime<WorldDocument>(
 			LogCategory::ECS,

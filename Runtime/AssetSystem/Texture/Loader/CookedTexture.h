@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <string_view>
 
 // Bump when TextureImageData or the decode options change shape.
 constexpr uint32_t kCookedTextureVersion = 1;
@@ -15,8 +14,6 @@ constexpr uint32_t kCookedTextureVersion = 1;
 	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& relativePath,
 	const TextureFileLoadOptions& options);
-
-[[nodiscard]] uint64_t HashTextureSource(std::string_view bytes);
 
 // False when the file is missing, stale, or incomplete.
 [[nodiscard]] bool TryReadCookedTexture(

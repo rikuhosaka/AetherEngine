@@ -1,5 +1,7 @@
 #include "Runtime/AssetSystem/Test/FbxModelFileLoaderTest.h"
 
+#include "Runtime/Core/Hash/Fnv.h"
+#include "Runtime/Core/IO/BinaryFile.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/AssetSystem/Model/Loader/CookedModel.h"
 #include "Runtime/AssetSystem/Model/Loader/FbxModelFileLoader.h"
@@ -8,7 +10,6 @@
 
 #include <cctype>
 #include <fstream>
-#include <iterator>
 #include <string>
 #include <system_error>
 
@@ -501,18 +502,14 @@ namespace
 		return MakeOk();
 	}
 
-	const Result<std::string> sourceBytes = [&resolved]() -> Result<std::string> {
-		std::ifstream file(resolved.value, std::ios::binary);
-		if (!file)
-		{
-			return FailRuntime<std::string>(
-				LogCategory::Asset,
-				ErrorCode::FileNotFound,
-				"Model file could not be opened");
-		}
-
-		return MakeOk(std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() });
-	}();
+	const Result<std::string> sourceBytes = ReadBinaryFile(resolved.value);
+	if (!sourceBytes)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::FileNotFound,
+			"Model file could not be opened");
+	}
 	const Result<ModelAssetData> imported = sourceBytes
 		? LoadModelAssetDataFromFile(resolved.value, sdkContext)
 		: MakeFail<ModelAssetData>(sourceBytes.error.code, sourceBytes.error.message);
@@ -536,7 +533,7 @@ namespace
 	ModelAssetData patched{};
 	const bool readPatched = TryReadCookedModel(
 		cookedPath,
-		HashModelSource(sourceBytes.value),
+		Fnv1a64(sourceBytes.value),
 		options,
 		assetsRoot,
 		relativePath,
@@ -547,7 +544,7 @@ namespace
 	}
 	const float patchedPosition = readPatched ? patched.meshes.front().vertices.front().position[0] : 0.0f;
 	const Result<void> writtenPatch = readPatched
-		? WriteCookedModel(cookedPath, HashModelSource(sourceBytes.value), options, assetsRoot, relativePath, patched)
+		? WriteCookedModel(cookedPath, Fnv1a64(sourceBytes.value), options, assetsRoot, relativePath, patched)
 		: FailRuntime(LogCategory::Asset, ErrorCode::InvalidArgument, "Cooked model could not be read back");
 	const Result<ModelAssetData> patchedLoad = writtenPatch
 		? LoadModelAsset(assetsRoot, relativePath)
@@ -606,7 +603,7 @@ Result<void> RunFbxModelFileLoaderTests(const std::filesystem::path& assetsRoot)
 		return FailRuntime(
 			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
-			"ResolveModelAssetPath should reject non-fbx extensions");
+			"ResolveModelAssetPath should reject unsupported model extensions");
 	}
 
 	auto sdkResult = FbxSdkContext::Create();

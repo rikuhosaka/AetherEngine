@@ -1,6 +1,8 @@
 #include "Runtime/Renderer/ShaderSystem/Loader/ShaderBytecodeFileLoader.h"
 
-#include <fstream>
+#include "Runtime/Core/IO/BinaryFile.h"
+
+#include <cstring>
 
 Result<ShaderBytecode> LoadShaderBytecodeFromFile(const std::filesystem::path& filePath)
 {
@@ -12,8 +14,8 @@ Result<ShaderBytecode> LoadShaderBytecodeFromFile(const std::filesystem::path& f
 			"Shader bytecode file path is empty.");
 	}
 
-	std::ifstream stream(filePath, std::ios::binary | std::ios::ate);
-	if (!stream)
+	const Result<std::string> bytes = ReadBinaryFile(filePath);
+	if (!bytes)
 	{
 		return FailRuntime<ShaderBytecode>(
 			LogCategory::Asset,
@@ -21,8 +23,7 @@ Result<ShaderBytecode> LoadShaderBytecodeFromFile(const std::filesystem::path& f
 			"Failed to open shader bytecode file: " + filePath.string());
 	}
 
-	const std::streamsize fileSize = stream.tellg();
-	if (fileSize <= 0)
+	if (bytes.value.empty())
 	{
 		return FailRuntime<ShaderBytecode>(
 			LogCategory::Asset,
@@ -31,17 +32,7 @@ Result<ShaderBytecode> LoadShaderBytecodeFromFile(const std::filesystem::path& f
 	}
 
 	ShaderBytecode bytecode{};
-	bytecode.Data.resize(static_cast<std::size_t>(fileSize));
-
-	stream.seekg(0, std::ios::beg);
-	stream.read(reinterpret_cast<char*>(bytecode.Data.data()), fileSize);
-	if (!stream)
-	{
-		return FailRuntime<ShaderBytecode>(
-			LogCategory::Asset,
-			ErrorCode::ShaderCompileFailed,
-			"Failed to read shader bytecode file: " + filePath.string());
-	}
-
+	bytecode.Data.resize(bytes.value.size());
+	std::memcpy(bytecode.Data.data(), bytes.value.data(), bytes.value.size());
 	return MakeOk(std::move(bytecode));
 }

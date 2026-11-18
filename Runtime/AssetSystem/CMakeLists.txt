@@ -32,5 +32,16 @@ target_link_libraries(AssetSystem
 
 target_compile_definitions(AssetSystem PRIVATE NOMINMAX)
 
+target_sources(AssetSystem PRIVATE
+    ${CMAKE_SOURCE_DIR}/ThirdParty/cgltf/cgltf.c
+)
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/ThirdParty/cgltf/cgltf.c
+    PROPERTIES
+        LANGUAGE C
+        SKIP_PRECOMPILE_HEADERS ON
+        COMPILE_OPTIONS "/w"
+)
+
 target_precompile_headers(AssetSystem PRIVATE "${CMAKE_SOURCE_DIR}/Runtime/Core/pch.h")
 set_target_properties(AssetSystem PROPERTIES FOLDER "Runtime/AssetSystem")

@@ -1,5 +1,7 @@
 #include "Runtime/Renderer/Test/TextureFileLoaderTest.h"
 
+#include "Runtime/Core/Hash/Fnv.h"
+#include "Runtime/Core/IO/BinaryFile.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/AssetSystem/Texture/Loader/CookedTexture.h"
 #include "Runtime/AssetSystem/Texture/Loader/TextureAssetPath.h"
@@ -7,7 +9,6 @@
 #include "Runtime/Renderer/Texture/Loader/TextureImageToUpload.h"
 
 #include <fstream>
-#include <iterator>
 #include <system_error>
 
 namespace
@@ -275,17 +276,14 @@ namespace
 		return MakeOk();
 	}
 
-	std::ifstream sourceFile(resolved.value, std::ios::binary);
-	if (!sourceFile)
+	const Result<std::string> sourceBytes = ReadBinaryFile(resolved.value);
+	if (!sourceBytes)
 	{
 		return FailRuntime(
 			LogCategory::Asset,
 			ErrorCode::FileNotFound,
 			"Texture file could not be opened");
 	}
-	const std::string sourceBytes{
-		std::istreambuf_iterator<char>(sourceFile),
-		std::istreambuf_iterator<char>() };
 
 	TextureFileLoadOptions srgbOptions{};
 	srgbOptions.colorSpace = TextureColorSpace::Srgb;
@@ -323,7 +321,7 @@ namespace
 	TextureImageData patched{};
 	const bool readPatched = TryReadCookedTexture(
 		srgbPath,
-		HashTextureSource(sourceBytes),
+		Fnv1a64(sourceBytes.value),
 		srgbOptions,
 		kRelativePath,
 		patched) && !patched.mips.empty() && !patched.mips.front().pixels.empty();
@@ -335,7 +333,7 @@ namespace
 		patchedByte = patched.mips.front().pixels.front();
 	}
 	const Result<void> writtenPatch = readPatched
-		? WriteCookedTexture(srgbPath, HashTextureSource(sourceBytes), srgbOptions, kRelativePath, patched)
+		? WriteCookedTexture(srgbPath, Fnv1a64(sourceBytes.value), srgbOptions, kRelativePath, patched)
 		: FailRuntime(LogCategory::Asset, ErrorCode::InvalidArgument, "Cooked texture could not be read back");
 	const Result<TextureImageData> patchedLoad = writtenPatch
 		? LoadTextureImage(assetsRoot, kRelativePath, srgbOptions)

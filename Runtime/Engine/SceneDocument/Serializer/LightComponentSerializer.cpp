@@ -1,6 +1,6 @@
 #include "Runtime/Engine/SceneDocument/Serializer/LightComponentSerializer.h"
 
-#include "Runtime/Engine/SceneDocument/Serializer/JsonFields.h"
+#include "Runtime/Core/Json/JsonFields.h"
 
 namespace
 {
@@ -17,11 +17,11 @@ Result<LightComponent> LightComponentSerializer::Read(const nlohmann::json& valu
 			"Scene document light is invalid");
 	}
 
-	const Json* color = SceneJson::FindField(value, "color");
-	const Json* intensity = SceneJson::FindField(value, "intensity");
+	const Json* color = JsonFields::FindField(value, "color");
+	const Json* intensity = JsonFields::FindField(value, "intensity");
 	LightComponent component{};
-	if (color == nullptr || intensity == nullptr || !SceneJson::ReadFloats(*color, component.color, 3)
-		|| !SceneJson::ReadFloat(*intensity, component.intensity))
+	if (color == nullptr || intensity == nullptr || !JsonFields::ReadFloats(*color, component.color, 3)
+		|| !JsonFields::ReadFloat(*intensity, component.intensity))
 	{
 		return FailRuntime<LightComponent>(
 			LogCategory::ECS,

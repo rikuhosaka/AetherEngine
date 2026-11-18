@@ -1,5 +1,6 @@
 #include "Runtime/AssetSystem/Model/Loader/ModelAssetPath.h"
 
+#include "Runtime/Core/IO/Path.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
 
@@ -8,42 +9,7 @@
 
 namespace
 {
-[[nodiscard]] std::filesystem::path CanonicalizeIfPossible(const std::filesystem::path& path)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, errorCode);
-	return errorCode ? path : canonicalPath;
-}
-
-[[nodiscard]] bool ContainsParentReference(const std::filesystem::path& path)
-{
-	for (const std::filesystem::path& part : path)
-	{
-		if (part == "..")
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-[[nodiscard]] bool IsPathUnderRoot(
-	const std::filesystem::path& candidate,
-	const std::filesystem::path& root)
-{
-	std::error_code errorCode{};
-	const std::filesystem::path relative =
-		std::filesystem::relative(candidate, root, errorCode);
-	if (errorCode || relative.empty())
-	{
-		return candidate == root;
-	}
-
-	return !ContainsParentReference(relative);
-}
-
-[[nodiscard]] bool HasFbxExtension(const std::filesystem::path& path)
+[[nodiscard]] bool HasModelExtension(const std::filesystem::path& path)
 {
 	std::string extension = path.extension().string();
 	for (char& character : extension)
@@ -51,7 +17,7 @@ namespace
 		character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
 	}
 
-	return extension == ".fbx";
+	return extension == ".fbx" || extension == ".gltf" || extension == ".glb";
 }
 } // namespace
 
@@ -91,12 +57,12 @@ Result<std::filesystem::path> ResolveModelAssetPath(
 			"Model path must not traverse outside Assets/: " + relativePath.string());
 	}
 
-	if (!HasFbxExtension(relativePath))
+	if (!HasModelExtension(relativePath))
 	{
 		return FailRuntime<std::filesystem::path>(
 			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
-			"Model path must use the .fbx extension: " + relativePath.string());
+			"Model path must use the .fbx, .gltf, or .glb extension: " + relativePath.string());
 	}
 
 	const std::filesystem::path canonicalRoot = CanonicalizeIfPossible(assetsRoot);

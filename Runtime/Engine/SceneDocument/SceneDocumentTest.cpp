@@ -13,6 +13,7 @@
 #include "Runtime/Engine/World/World.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -190,10 +191,19 @@ namespace
 		? ReadSceneDocument(written.value)
 		: MakeFail<SceneDocument>(written.error.code, written.error.message);
 	const SceneEntity* writtenPaladin = readBack ? FindNamedEntity(readBack.value, "Paladin") : nullptr;
-	const bool modelRoundTrip = written && readBack && paladinEntity != nullptr && readBack.value.entities.size() == 6
+	const SceneEntity* watchEntity = document ? FindNamedEntity(document.value, "PocketWatch") : nullptr;
+	const WorldDocumentEntity* watch = document ? FindNamedWorld(document.value, "PocketWatch") : nullptr;
+	const bool watchKept = watchEntity != nullptr && watch != nullptr
+		&& watchEntity->model == "Models/pocket_watch_4k.gltf/pocket_watch_4k.gltf"
+		&& watchEntity->mesh.empty() && !watchEntity->body.has_value() && !watch->hasRenderable
+		&& IsNearlyEqual(watchEntity->transform.position.x, -2.5f)
+		&& IsNearlyEqual(watchEntity->transform.scale.x, 10.0f);
+	const bool modelRoundTrip = written && readBack && paladinEntity != nullptr && readBack.value.entities.size() == 7
 		&& writtenPaladin != nullptr && writtenPaladin->model == paladinEntity->model
-		&& written.value.find("Paladin J Nordstrom.fbx") != std::string::npos;
-	if (!document || document.value.entities.size() != 6 || !shapesMatch || !placed || !paladinKept || !modelRoundTrip)
+		&& written.value.find("Paladin J Nordstrom.fbx") != std::string::npos
+		&& written.value.find("pocket_watch_4k.gltf") != std::string::npos;
+	if (!document || document.value.entities.size() != 7 || !shapesMatch || !placed || !paladinKept || !watchKept
+		|| !modelRoundTrip)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -201,16 +211,15 @@ namespace
 			"Physics drop scene document should keep the five shapes and positions");
 	}
 
-	for (size_t index = 0; index < document.value.entities.size(); ++index)
+	for (size_t index = document.value.entities.size(); index > 0; --index)
 	{
-		if (document.value.entities[index].model.empty())
+		if (document.value.entities[index - 1].model.empty())
 		{
 			continue;
 		}
 
-		document.value.entities.erase(document.value.entities.begin() + index);
-		document.value.world.erase(document.value.world.begin() + index);
-		break;
+		document.value.entities.erase(document.value.entities.begin() + static_cast<std::ptrdiff_t>(index - 1));
+		document.value.world.erase(document.value.world.begin() + static_cast<std::ptrdiff_t>(index - 1));
 	}
 
 	AssetCache cache{};
@@ -528,7 +537,7 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	EditorSceneServices stillPublished{};
 	fresh.Publish(stillPublished);
 	if (fresh.HasPending() || !fresh.HasDocument() || failedPublished
-		|| published.document == nullptr || published.document->entities.size() != 6
+		|| published.document == nullptr || published.document->entities.size() != 7
 		|| published.path != scenePath || stillPublished.document != published.document
 		|| stillPublished.path != scenePath)
 	{
