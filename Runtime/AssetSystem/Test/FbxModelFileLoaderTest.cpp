@@ -15,13 +15,6 @@
 
 namespace
 {
-[[nodiscard]] bool BoundsAreValid(const MeshBounds& bounds)
-{
-	return bounds.minX <= bounds.maxX &&
-		bounds.minY <= bounds.maxY &&
-		bounds.minZ <= bounds.maxZ;
-}
-
 [[nodiscard]] Result<void> ValidateNodeHierarchy(const ModelAssetData& assetData)
 {
 	if (assetData.nodes.empty())

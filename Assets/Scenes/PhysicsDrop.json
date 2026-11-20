@@ -258,7 +258,7 @@
       "id": 7,
       "name": "PocketWatch",
       "parent": null,
-      "model": "Models/pocket_watch_4k.gltf/pocket_watch_4k.gltf",
+      "model": "Models/pocket_watch_2k.gltf/pocket_watch_2k.gltf",
       "transform": {
         "position": [
           -2.5,
@@ -272,9 +272,9 @@
           1.0
         ],
         "scale": [
-          10.0,
-          10.0,
-          10.0
+          50.0,
+          50.0,
+          50.0
         ]
       }
     }

@@ -2,6 +2,7 @@
 
 #include "Runtime/AssetSystem/Model/VertexTangents.h"
 #include "Runtime/Core/Hash/Fnv.h"
+#include "Runtime/Core/Math/Matrix.h"
 #include "Runtime/Core/IO/BinaryFile.h"
 #include "Runtime/Core/IO/Path.h"
 #include "Runtime/Core/Log/LogMacros.h"
@@ -11,7 +12,6 @@
 
 #include <cmath>
 #include <cstdlib>
-#include <cstring>
 #include <fstream>
 #include <limits>
 #include <string>
@@ -197,15 +197,6 @@ struct GltfData
 		|| extension == ".dds";
 }
 
-void MakeIdentityMatrix(float* destination)
-{
-	std::memset(destination, 0, sizeof(float) * 16);
-	destination[0] = 1.0f;
-	destination[5] = 1.0f;
-	destination[10] = 1.0f;
-	destination[15] = 1.0f;
-}
-
 // glTF writes column-major column-vector matrices. That memory is already the transpose, which is
 // the row-vector layout used by the FBX importer. Negate the Z row and Z column, except the ZZ
 // element, to mirror the right-handed scene into DirectX.
@@ -223,23 +214,6 @@ void StoreEngineMatrix(float destination[16], const float columnMajor[16], bool 
 			destination[(row * 4) + column] = value;
 		}
 	}
-}
-
-void ResetBounds(MeshBounds& bounds)
-{
-	const float maxValue = (std::numeric_limits<float>::max)();
-	bounds.minX = bounds.minY = bounds.minZ = maxValue;
-	bounds.maxX = bounds.maxY = bounds.maxZ = std::numeric_limits<float>::lowest();
-}
-
-void ExpandBounds(MeshBounds& bounds, const float position[3])
-{
-	bounds.minX = (std::min)(bounds.minX, position[0]);
-	bounds.minY = (std::min)(bounds.minY, position[1]);
-	bounds.minZ = (std::min)(bounds.minZ, position[2]);
-	bounds.maxX = (std::max)(bounds.maxX, position[0]);
-	bounds.maxY = (std::max)(bounds.maxY, position[1]);
-	bounds.maxZ = (std::max)(bounds.maxZ, position[2]);
 }
 
 [[nodiscard]] bool IsFiniteVector(const float* values, size_t count)
@@ -436,7 +410,7 @@ struct GltfImporter
 		asset.sourcePath = absolutePath;
 		ModelNodeData rootNode{};
 		rootNode.name = "Root";
-		MakeIdentityMatrix(rootNode.localTransform);
+		Aether::Math::MakeIdentityMatrix(rootNode.localTransform);
 		asset.rootNodeIndex = 0;
 		asset.nodes.push_back(std::move(rootNode));
 

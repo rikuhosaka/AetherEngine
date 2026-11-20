@@ -31,7 +31,8 @@
 
 namespace
 {
-constexpr size_t kUploadBufferCapacityBytes = 64 * 1024 * 1024;
+// Scene load records every mesh and texture mip chain into one upload buffer before it resets.
+constexpr size_t kUploadBufferCapacityBytes = 256 * 1024 * 1024;
 constexpr uint32_t kTransientDescriptorCount = 2048;
 constexpr uint32_t kPersistentDescriptorCount = 4096;
 } // namespace

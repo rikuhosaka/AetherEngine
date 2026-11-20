@@ -6,6 +6,15 @@ namespace Aether::Math
 {
 using namespace DirectX;
 
+void MakeIdentityMatrix(float destination[16])
+{
+	std::memset(destination, 0, sizeof(float) * 16);
+	destination[0] = 1.0f;
+	destination[5] = 1.0f;
+	destination[10] = 1.0f;
+	destination[15] = 1.0f;
+}
+
 void StoreMatrixForHlsl(float outMatrix4x4[16], FXMMATRIX matrix)
 {
 	XMFLOAT4X4 transposed{};

@@ -4,6 +4,9 @@
 
 namespace Aether::Math
 {
+// Writes a 4x4 identity into row-major float[16] storage.
+void MakeIdentityMatrix(float destination[16]);
+
 // Stores a matrix for HLSL `mul(matrix, float4)` (column-major constant buffer layout).
 void StoreMatrixForHlsl(float outMatrix4x4[16], DirectX::FXMMATRIX matrix);
 

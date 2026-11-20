@@ -449,12 +449,7 @@ void ExpandWorldBounds(const ModelMeshData& mesh, const float world[16], MeshBou
 
 		float point[3]{};
 		TransformPoint(world, mesh.vertices[index].position, point);
-		bounds.minX = (std::min)(bounds.minX, point[0]);
-		bounds.minY = (std::min)(bounds.minY, point[1]);
-		bounds.minZ = (std::min)(bounds.minZ, point[2]);
-		bounds.maxX = (std::max)(bounds.maxX, point[0]);
-		bounds.maxY = (std::max)(bounds.maxY, point[1]);
-		bounds.maxZ = (std::max)(bounds.maxZ, point[2]);
+		ExpandBounds(bounds, point);
 	}
 }
 

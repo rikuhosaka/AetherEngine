@@ -7,28 +7,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <limits>
 #include <utility>
 
 namespace
 {
-void ExpandBounds(MeshBounds& bounds, const float position[3])
-{
-	bounds.minX = (std::min)(bounds.minX, position[0]);
-	bounds.minY = (std::min)(bounds.minY, position[1]);
-	bounds.minZ = (std::min)(bounds.minZ, position[2]);
-	bounds.maxX = (std::max)(bounds.maxX, position[0]);
-	bounds.maxY = (std::max)(bounds.maxY, position[1]);
-	bounds.maxZ = (std::max)(bounds.maxZ, position[2]);
-}
-
-void ResetBounds(MeshBounds& bounds)
-{
-	const float maxValue = (std::numeric_limits<float>::max)();
-	bounds.minX = bounds.minY = bounds.minZ = maxValue;
-	bounds.maxX = bounds.maxY = bounds.maxZ = std::numeric_limits<float>::lowest();
-}
-
 // u and v are half-extent vectors spanning the face. Triangles are clockwise as seen from the
 // side the normal points to, matching D3D's default front-face convention.
 void AddFace(

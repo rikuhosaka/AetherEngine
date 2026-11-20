@@ -4,8 +4,6 @@
 
 #include <DirectXMath.h>
 
-#include <algorithm>
-#include <cfloat>
 #include <cmath>
 
 namespace
@@ -64,7 +62,7 @@ void StorePlane(float destination[4], DirectX::FXMVECTOR row)
 
 bool AreBoundsCullable(const MeshBounds& bounds)
 {
-	return bounds.minX <= bounds.maxX && bounds.minY <= bounds.maxY && bounds.minZ <= bounds.maxZ;
+	return BoundsAreValid(bounds);
 }
 
 ViewFrustum MakeViewFrustum(const float viewProjectionMatrix[16])
@@ -103,18 +101,13 @@ bool IntersectsViewFrustum(
 	};
 
 	MeshBounds worldBounds{};
-	worldBounds.minX = worldBounds.minY = worldBounds.minZ = FLT_MAX;
-	worldBounds.maxX = worldBounds.maxY = worldBounds.maxZ = -FLT_MAX;
+	ResetBounds(worldBounds);
 	for (const XMVECTOR corner : corners)
 	{
 		XMFLOAT3 transformed{};
 		XMStoreFloat3(&transformed, XMVector3TransformCoord(corner, world));
-		worldBounds.minX = (std::min)(worldBounds.minX, transformed.x);
-		worldBounds.minY = (std::min)(worldBounds.minY, transformed.y);
-		worldBounds.minZ = (std::min)(worldBounds.minZ, transformed.z);
-		worldBounds.maxX = (std::max)(worldBounds.maxX, transformed.x);
-		worldBounds.maxY = (std::max)(worldBounds.maxY, transformed.y);
-		worldBounds.maxZ = (std::max)(worldBounds.maxZ, transformed.z);
+		const float position[3] = { transformed.x, transformed.y, transformed.z };
+		ExpandBounds(worldBounds, position);
 	}
 
 	for (const float (&storedPlane)[4] : frustum.planes)

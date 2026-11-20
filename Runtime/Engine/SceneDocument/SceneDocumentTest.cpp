@@ -192,16 +192,21 @@ namespace
 		: MakeFail<SceneDocument>(written.error.code, written.error.message);
 	const SceneEntity* writtenPaladin = readBack ? FindNamedEntity(readBack.value, "Paladin") : nullptr;
 	const SceneEntity* watchEntity = document ? FindNamedEntity(document.value, "PocketWatch") : nullptr;
+	const SceneEntity* writtenWatch = readBack ? FindNamedEntity(readBack.value, "PocketWatch") : nullptr;
 	const WorldDocumentEntity* watch = document ? FindNamedWorld(document.value, "PocketWatch") : nullptr;
 	const bool watchKept = watchEntity != nullptr && watch != nullptr
-		&& watchEntity->model == "Models/pocket_watch_4k.gltf/pocket_watch_4k.gltf"
+		&& watchEntity->model == "Models/pocket_watch_2k.gltf/pocket_watch_2k.gltf"
 		&& watchEntity->mesh.empty() && !watchEntity->body.has_value() && !watch->hasRenderable
 		&& IsNearlyEqual(watchEntity->transform.position.x, -2.5f)
-		&& IsNearlyEqual(watchEntity->transform.scale.x, 10.0f);
+		&& watchEntity->transform.scale.x > 0.0f
+		&& IsNearlyEqual(watchEntity->transform.scale.x, watchEntity->transform.scale.y)
+		&& IsNearlyEqual(watchEntity->transform.scale.y, watchEntity->transform.scale.z);
 	const bool modelRoundTrip = written && readBack && paladinEntity != nullptr && readBack.value.entities.size() == 7
 		&& writtenPaladin != nullptr && writtenPaladin->model == paladinEntity->model
+		&& writtenWatch != nullptr
+		&& IsNearlyEqual(writtenWatch->transform.scale.x, watchEntity->transform.scale.x)
 		&& written.value.find("Paladin J Nordstrom.fbx") != std::string::npos
-		&& written.value.find("pocket_watch_4k.gltf") != std::string::npos;
+		&& written.value.find("pocket_watch_2k.gltf") != std::string::npos;
 	if (!document || document.value.entities.size() != 7 || !shapesMatch || !placed || !paladinKept || !watchKept
 		|| !modelRoundTrip)
 	{

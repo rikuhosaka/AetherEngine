@@ -1,6 +1,7 @@
 #include "Runtime/AssetSystem/Model/Loader/FbxModelFileLoader.h"
 
 #include "Runtime/Core/IO/Path.h"
+#include "Runtime/Core/Math/Matrix.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/AssetSystem/Model/VertexTangents.h"
@@ -14,7 +15,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <limits>
 #include <system_error>
 #include <unordered_map>
 
@@ -29,37 +29,6 @@ void CopyMatrixFromFbx(float* destination, const FbxAMatrix& source)
 			destination[(row * 4) + column] = static_cast<float>(source.Get(row, column));
 		}
 	}
-}
-
-void MakeIdentityMatrix(float* destination)
-{
-	std::memset(destination, 0, sizeof(float) * 16);
-	destination[0] = 1.0f;
-	destination[5] = 1.0f;
-	destination[10] = 1.0f;
-	destination[15] = 1.0f;
-}
-
-void ExpandBounds(MeshBounds& bounds, const float position[3])
-{
-	bounds.minX = (std::min)(bounds.minX, position[0]);
-	bounds.minY = (std::min)(bounds.minY, position[1]);
-	bounds.minZ = (std::min)(bounds.minZ, position[2]);
-	bounds.maxX = (std::max)(bounds.maxX, position[0]);
-	bounds.maxY = (std::max)(bounds.maxY, position[1]);
-	bounds.maxZ = (std::max)(bounds.maxZ, position[2]);
-}
-
-void ResetBounds(MeshBounds& bounds)
-{
-	const float maxValue = (std::numeric_limits<float>::max)();
-	bounds.minX = bounds.minY = bounds.minZ = maxValue;
-	bounds.maxX = bounds.maxY = bounds.maxZ = std::numeric_limits<float>::lowest();
-}
-
-[[nodiscard]] bool BoundsAreValid(const MeshBounds& bounds)
-{
-	return bounds.minX <= bounds.maxX && bounds.minY <= bounds.maxY && bounds.minZ <= bounds.maxZ;
 }
 
 [[nodiscard]] std::filesystem::path ResolveDiffuseTexturePath(
@@ -793,7 +762,7 @@ Result<ModelAssetData> LoadModelAssetDataFromFile(
 
 	ModelNodeData rootNode{};
 	rootNode.name = "Root";
-	MakeIdentityMatrix(rootNode.localTransform);
+	Aether::Math::MakeIdentityMatrix(rootNode.localTransform);
 	assetData.rootNodeIndex = 0;
 	assetData.nodes.push_back(std::move(rootNode));
 

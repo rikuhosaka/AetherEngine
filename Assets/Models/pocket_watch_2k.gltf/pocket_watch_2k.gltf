@@ -226,22 +226,22 @@
     {
       "mimeType": "image/jpeg",
       "name": "pocket_watch_nor_gl",
-      "uri": "textures/pocket_watch_nor_gl_4k.jpg"
+      "uri": "textures/pocket_watch_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "pocket_watch_diff",
-      "uri": "textures/pocket_watch_diff_4k.jpg"
+      "uri": "textures/pocket_watch_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "pocket_watch_metal-pocket_watch_rough",
-      "uri": "textures/pocket_watch_arm_4k.jpg"
+      "uri": "textures/pocket_watch_arm_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "pocket_watch_glass_rough",
-      "uri": "textures/pocket_watch_glass_rough_4k.jpg"
+      "uri": "textures/pocket_watch_glass_rough_2k.jpg"
     }
   ],
   "accessors": [

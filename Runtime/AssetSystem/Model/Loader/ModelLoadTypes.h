@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/AssetSystem/MeshBounds.h"
+#include "Runtime/Core/Math/MeshBounds.h"
 
 #include <cstdint>
 #include <filesystem>
