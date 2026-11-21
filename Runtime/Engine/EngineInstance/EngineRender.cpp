@@ -5,8 +5,11 @@
 #include "Runtime/Renderer/Resource/FrameContext.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
 #include "Runtime/Engine/World/World.h"
+#include "Runtime/Engine/EngineInstance/ModelSceneSpawn.h"
+#include "Runtime/Engine/EngineInstance/SceneGpuUpload.h"
+#include "Runtime/Engine/EngineInstance/WorldRenderBridge.h"
+#include "Runtime/Engine/SceneDocument/SceneDocument.h"
 #include "Runtime/Renderer/RenderSystem.h"
-#include "Runtime/Renderer/Scene/WorldRenderBridge.h"
 
 #include <utility>
 #include <vector>
@@ -48,7 +51,7 @@ Result<void> EngineRender::Render(
 	uint32_t viewportWidth,
 	uint32_t viewportHeight,
 	const ExtractedView& view,
-	const ExtractedLighting& lighting,
+	const WorldExtractedLighting& lighting,
 	std::span<const WorldExtractedObject> objects)
 {
 	std::vector<ExtractedObject> renderObjects{};
@@ -58,7 +61,8 @@ Result<void> EngineRender::Render(
 		renderObjects.push_back(ToExtractedObject(object));
 	}
 
-	return m_impl->render.Render(viewportWidth, viewportHeight, view, lighting, renderObjects);
+	const ExtractedLighting renderLighting = ToExtractedLighting(lighting);
+	return m_impl->render.Render(viewportWidth, viewportHeight, view, renderLighting, renderObjects);
 }
 
 bool EngineRender::BeginUiFrame()
@@ -107,28 +111,56 @@ Result<std::vector<WorldDocumentBinding>> EngineRender::UploadPendingScene(
 			"EngineRender::UploadPendingScene requires BeginRecording");
 	}
 
-	auto uploaded = m_impl->render.UploadScene(
-		scene.GetPendingDocument(),
-		scene.GetAssetCache(),
-		*m_impl->recording);
+	SceneGpuUploadSources sources{};
+	if (auto built = BuildSceneGpuUpload(
+			scene.GetPendingDocument(),
+			scene.GetAssetCache(),
+			scene.GetAssetsRoot(),
+			sources);
+		!built)
+	{
+		return MakeFail<std::vector<WorldDocumentBinding>>(built.error.code, built.error.message);
+	}
+
+	auto uploaded = m_impl->render.UploadScene(sources.upload, *m_impl->recording);
 	if (!uploaded)
 	{
 		return MakeFail<std::vector<WorldDocumentBinding>>(uploaded.error.code, uploaded.error.message);
 	}
 
-	std::vector<SceneModelRef> modelRefs{};
-	modelRefs.reserve(uploaded.value.models.size());
-	for (const SceneModelAsset& model : uploaded.value.models)
+	std::vector<SceneMeshRef> meshes{};
+	meshes.reserve(uploaded.value.meshes.size());
+	for (const UploadedMeshRef& mesh : uploaded.value.meshes)
 	{
-		modelRefs.push_back(SceneModelRef{ model.documentId, model.assets.get() });
+		meshes.push_back(SceneMeshRef{ mesh.key, ToWorldMeshId(mesh.mesh) });
 	}
 
-	return InstantiateScene(
+	SceneRenderResources render{};
+	render.material = ToWorldMaterialId(uploaded.value.render.material);
+	render.baseColor = ToWorldTextureId(uploaded.value.render.baseColor);
+	render.materialConstantsSlot = uploaded.value.render.materialConstantsSlot;
+
+	auto instantiated = InstantiateScene(
 		world,
 		scene.GetPendingDocument(),
-		uploaded.value.meshes,
-		uploaded.value.render,
-		modelRefs);
+		meshes,
+		render);
+	if (!instantiated)
+	{
+		return instantiated;
+	}
+
+	if (auto spawned = SpawnUploadedModels(world, instantiated.value, uploaded.value.models); !spawned)
+	{
+		for (const WorldDocumentBinding& binding : instantiated.value)
+		{
+			world.Destroy(binding.entity);
+		}
+
+		return MakeFail<std::vector<WorldDocumentBinding>>(spawned.error.code, spawned.error.message);
+	}
+
+	return instantiated;
 }
 
 uint32_t EngineRender::GetFrameSlot() const

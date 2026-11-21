@@ -40,7 +40,7 @@ public:
 		uint32_t viewportWidth,
 		uint32_t viewportHeight,
 		const ExtractedView& view,
-		const ExtractedLighting& lighting,
+		const WorldExtractedLighting& lighting,
 		std::span<const WorldExtractedObject> objects);
 
 	[[nodiscard]] bool BeginUiFrame();

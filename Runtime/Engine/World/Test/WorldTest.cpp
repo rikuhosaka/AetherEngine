@@ -1061,7 +1061,7 @@ Result<void> RunWorldTests()
 
 	ExtractedView sessionView{};
 	ExtractView(sessionWorld, sessionView, 640, 480);
-	ExtractedLighting sessionLighting{};
+	WorldExtractedLighting sessionLighting{};
 	sessionWorld.GetLighting().ambientIntensity = 0.35f;
 	ExtractLighting(sessionWorld, sessionLighting);
 	if (sessionView.viewportWidth != 640 || !IsNearlyEqual(sessionLighting.ambientIntensity, 0.35f))

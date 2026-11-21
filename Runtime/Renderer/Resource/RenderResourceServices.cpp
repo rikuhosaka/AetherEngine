@@ -32,8 +32,7 @@ Result<std::unique_ptr<RenderResourceServices>> RenderResourceServices::Create(
 
 	auto textureServicesResult = TextureSystemServices::Create(
 		device,
-		descriptorAllocator,
-		rendererConfig.assetsRoot);
+		descriptorAllocator);
 	if (!textureServicesResult)
 	{
 		return MakeFail<std::unique_ptr<RenderResourceServices>>(

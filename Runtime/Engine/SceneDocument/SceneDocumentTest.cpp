@@ -353,7 +353,7 @@ namespace
 {
 	World empty{};
 	const LightingSettings& settings = empty.GetLighting();
-	ExtractedLighting fallback{};
+	WorldExtractedLighting fallback{};
 	BuildExtractedLighting(empty, fallback);
 	if (!IsNearlyEqual(fallback.mainLightDirection[0], settings.mainLightDirection[0])
 		|| !IsNearlyEqual(fallback.mainLightDirection[1], settings.mainLightDirection[1])
@@ -381,7 +381,7 @@ namespace
 			"Light extract test should add a light");
 	}
 
-	ExtractedLighting extracted{};
+	WorldExtractedLighting extracted{};
 	BuildExtractedLighting(world, extracted);
 	if (!IsNearlyEqual(extracted.mainLightColor[0], 0.2f) || !IsNearlyEqual(extracted.mainLightColor[1], 0.4f)
 		|| !IsNearlyEqual(extracted.mainLightColor[2], 0.6f) || !IsNearlyEqual(extracted.mainLightIntensity, 3.5f)

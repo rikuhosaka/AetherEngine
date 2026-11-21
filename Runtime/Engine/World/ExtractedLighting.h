@@ -1,6 +1,6 @@
 #pragma once
 
-struct ExtractedLighting
+struct WorldExtractedLighting
 {
 	float ambientColor[3]{ 0.15f, 0.15f, 0.18f };
 	float ambientIntensity = 1.0f;

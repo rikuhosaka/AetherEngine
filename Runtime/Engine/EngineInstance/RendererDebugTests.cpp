@@ -1,11 +1,11 @@
 #include "Runtime/Engine/EngineInstance/RendererDebugTests.h"
 
+#include "Runtime/AssetSystem/Test/PrimitiveMeshTest.h"
+#include "Runtime/Engine/EngineInstance/TextureFileLoaderTest.h"
 #include "Runtime/Renderer/Test/FrustumCullTest.h"
-#include "Runtime/Renderer/Test/PrimitiveMeshTest.h"
 #include "Runtime/Renderer/Test/RendererResourceSmokeTest.h"
 #include "Runtime/Renderer/Test/ShaderBytecodeLoaderTest.h"
 #include "Runtime/Renderer/Test/ShadowMapTest.h"
-#include "Runtime/Renderer/Test/TextureFileLoaderTest.h"
 
 Result<void> RunRendererDebugTests(
 	const std::filesystem::path& compiledShaderRoot,

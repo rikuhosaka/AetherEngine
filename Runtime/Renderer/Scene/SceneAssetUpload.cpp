@@ -1,49 +1,18 @@
 #include "Runtime/Renderer/Scene/SceneAssetUpload.h"
 
-#include "Runtime/AssetSystem/AssetCache.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Renderer/Material/MaterialSystemServices.h"
 #include "Runtime/Renderer/Mesh/MeshSystemServices.h"
-#include "Runtime/Renderer/Mesh/PrimitiveMesh.h"
 #include "Runtime/Renderer/Resource/RenderResourceServices.h"
 #include "Runtime/Renderer/Scene/RenderConstantsLayout.h"
 #include "Runtime/Renderer/Texture/TextureSystemServices.h"
 #include "Runtime/RHI/Interface/RHICommandList.h"
-#include "Runtime/Renderer/Scene/WorldRenderBridge.h"
 
 #include <array>
-#include <string>
-#include <string_view>
 #include <utility>
 
 namespace
 {
-[[nodiscard]] bool ContainsKey(const std::vector<std::string>& keys, std::string_view key)
-{
-	for (const std::string& existing : keys)
-	{
-		if (existing == key)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-[[nodiscard]] Result<MeshHandle> UploadPrimitive(
-	RenderResourceServices& resources,
-	FrameContext& frameContext,
-	RHICommandList* commandList,
-	const PrimitiveMeshData& mesh,
-	const char* debugName)
-{
-	return resources.GetMeshServices().UploadMesh(
-		MakePrimitiveMeshUploadDesc(mesh, debugName),
-		frameContext,
-		commandList);
-}
-
 [[nodiscard]] Result<TextureHandle> UploadWhiteTexture(
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
@@ -70,12 +39,10 @@ namespace
 } // namespace
 
 Result<UploadedSceneAssets> UploadSceneAssets(
-	const SceneDocument& document,
-	const AssetCache& cache,
+	const SceneGpuUpload& upload,
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
-	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& shaderRoot)
 {
 	if (commandList == nullptr)
@@ -86,80 +53,63 @@ Result<UploadedSceneAssets> UploadSceneAssets(
 			"UploadSceneAssets requires a valid command list");
 	}
 
-	if (shaderRoot.empty() || assetsRoot.empty())
+	if (shaderRoot.empty())
 	{
 		return FailInternal<UploadedSceneAssets>(
 			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
-			"UploadSceneAssets requires valid shader and assets roots");
-	}
-
-	std::vector<std::string> keys{};
-	for (const SceneEntity& entity : document.entities)
-	{
-		if (!entity.model.empty())
-		{
-			continue;
-		}
-
-		if (entity.mesh.empty())
-		{
-			return FailInternal<UploadedSceneAssets>(
-				LogCategory::Asset,
-				ErrorCode::InvalidArgument,
-				"Scene asset mesh key is empty");
-		}
-
-		if (!ContainsKey(keys, entity.mesh))
-		{
-			keys.push_back(entity.mesh);
-		}
+			"UploadSceneAssets requires a valid shader root");
 	}
 
 	UploadedSceneAssets assets{};
-	assets.meshes.reserve(keys.size());
-	for (const std::string& key : keys)
+	assets.meshes.reserve(upload.meshes.size());
+	for (const SceneMeshUpload& mesh : upload.meshes)
 	{
-		const PrimitiveMeshData* mesh = cache.FindRender(key);
-		if (mesh == nullptr)
-		{
-			return FailRuntime<UploadedSceneAssets>(
-				LogCategory::Asset,
-				ErrorCode::InvalidArgument,
-				"Scene asset mesh was not found: " + key);
-		}
-
-		const Result<MeshHandle> uploaded = UploadPrimitive(
-			resources, frameContext, commandList, *mesh, key.c_str());
+		const Result<MeshHandle> uploaded = resources.GetMeshServices().UploadMesh(
+			mesh.mesh,
+			frameContext,
+			commandList);
 		if (!uploaded)
 		{
 			return MakeFail<UploadedSceneAssets>(uploaded.error.code, uploaded.error.message);
 		}
 
-		assets.meshes.push_back(SceneMeshRef{ key, ToWorldMeshId(uploaded.value) });
+		assets.meshes.push_back(UploadedMeshRef{ mesh.key, uploaded.value });
 	}
 
-	for (const SceneEntity& entity : document.entities)
+	std::vector<TextureHandle> textures{};
+	textures.reserve(upload.textures.size());
+	for (const SceneTextureUpload& texture : upload.textures)
 	{
-		if (entity.model.empty())
+		const Result<TextureHandle> uploaded = resources.GetTextureServices().UploadTexture(
+			texture.image,
+			frameContext,
+			commandList,
+			texture.cacheKey);
+		if (!uploaded)
 		{
-			continue;
+			return MakeFail<UploadedSceneAssets>(uploaded.error.code, uploaded.error.message);
 		}
 
-		auto model = std::make_unique<FbxSceneAssets>();
-		const Result<void> loaded = model->EnsureInitialized(
+		textures.push_back(uploaded.value);
+	}
+
+	for (const SceneModelUpload& model : upload.models)
+	{
+		auto assetsModel = std::make_unique<FbxSceneAssets>();
+		const Result<void> loaded = assetsModel->EnsureInitialized(
 			resources,
 			frameContext,
 			commandList,
 			shaderRoot,
-			assetsRoot,
-			entity.model);
+			model,
+			textures);
 		if (!loaded)
 		{
 			return MakeFail<UploadedSceneAssets>(loaded.error.code, loaded.error.message);
 		}
 
-		assets.models.push_back(SceneModelAsset{ entity.id, std::move(model) });
+		assets.models.push_back(SceneModelAsset{ model.documentId, std::move(assetsModel) });
 	}
 
 	const Result<TextureHandle> texture = UploadWhiteTexture(resources, frameContext, commandList);
@@ -191,8 +141,8 @@ Result<UploadedSceneAssets> UploadSceneAssets(
 			"UploadSceneAssets failed to resolve created material");
 	}
 
-	assets.render.material = ToWorldMaterialId(material.value);
-	assets.render.baseColor = ToWorldTextureId(texture.value);
+	assets.render.material = material.value;
+	assets.render.baseColor = texture.value;
 	for (uint32_t layoutIndex = 0; layoutIndex < createdMaterial->constantLayout.size(); ++layoutIndex)
 	{
 		const ShaderConstantBuffer& layout = createdMaterial->constantLayout[layoutIndex];

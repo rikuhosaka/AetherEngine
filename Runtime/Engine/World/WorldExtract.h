@@ -9,7 +9,7 @@
 #include <vector>
 
 struct DebugStatsServices;
-struct ExtractedLighting;
+struct WorldExtractedLighting;
 struct ExtractedView;
 class World;
 
@@ -44,4 +44,4 @@ void ExtractView(
 	uint32_t viewportWidth,
 	uint32_t viewportHeight,
 	std::span<const RenderPose> poses = {});
-void ExtractLighting(const World& world, ExtractedLighting& outLighting);
+void ExtractLighting(const World& world, WorldExtractedLighting& outLighting);

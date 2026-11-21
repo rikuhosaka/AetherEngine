@@ -319,25 +319,11 @@ Result<SceneDocument> LoadSceneDocument(const std::filesystem::path& path)
 	return ReadSceneDocument(text);
 }
 
-[[nodiscard]] const SceneModelRef* FindModel(std::span<const SceneModelRef> models, uint32_t documentId)
-{
-	for (const SceneModelRef& model : models)
-	{
-		if (model.documentId == documentId)
-		{
-			return &model;
-		}
-	}
-
-	return nullptr;
-}
-
 Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 	World& world,
 	const SceneDocument& document,
 	std::span<const SceneMeshRef> meshes,
-	const SceneRenderResources& render,
-	std::span<const SceneModelRef> models)
+	const SceneRenderResources& render)
 {
 	if (!SameIds(document))
 	{
@@ -372,21 +358,13 @@ Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 		liveTransform->scale = entity.transform.scale;
 		if (!entity.model.empty())
 		{
-			const SceneModelRef* model = FindModel(models, entity.id);
-			if (binding == nullptr || model == nullptr || model->assets == nullptr
-				|| world.Get<Renderable>(binding->entity) != nullptr)
+			if (world.Get<Renderable>(binding->entity) != nullptr)
 			{
 				Rollback(world, spawned.value);
 				return FailRuntime<std::vector<WorldDocumentBinding>>(
 					LogCategory::ECS,
 					ErrorCode::InvalidArgument,
 					"Scene document model was not loaded");
-			}
-
-			if (auto spawnedModel = model->assets->SpawnUnder(world, binding->entity); !spawnedModel)
-			{
-				Rollback(world, spawned.value);
-				return MakeFail<std::vector<WorldDocumentBinding>>(spawnedModel.error.code, spawnedModel.error.message);
 			}
 
 			continue;

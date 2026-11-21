@@ -395,7 +395,7 @@ Result<void> EngineLoop::RenderFrame()
 
 	std::vector<WorldExtractedObject> extractedObjects;
 	ExtractedView extractedView{};
-	ExtractedLighting extractedLighting{};
+	WorldExtractedLighting extractedLighting{};
 	const PublishedWorld published = FindPublishedWorld();
 	if (published.world != nullptr)
 	{

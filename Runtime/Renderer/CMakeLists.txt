@@ -30,9 +30,7 @@ target_link_libraries(Renderer
         Math
         RHI
         RHI_Interface
-        AssetSystem
         Application
-        World
     PRIVATE
         DX12
         ImGui

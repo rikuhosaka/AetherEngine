@@ -19,21 +19,6 @@
 
 class World;
 
-// GPU 上のモデルを既存エンティティの子として出す。実装は Renderer 側。
-class ISceneModelSpawn
-{
-public:
-	virtual ~ISceneModelSpawn() = default;
-
-	virtual Result<void> SpawnUnder(World& world, EntityId parent) = 0;
-};
-
-struct SceneModelRef
-{
-	uint32_t documentId = 0;
-	ISceneModelSpawn* assets = nullptr;
-};
-
 // Parallel to SceneDocument::world. A missing component means the entity does not have it.
 struct SceneEntity
 {
@@ -76,5 +61,4 @@ struct SceneRenderResources
 	World& world,
 	const SceneDocument& document,
 	std::span<const SceneMeshRef> meshes,
-	const SceneRenderResources& render,
-	std::span<const SceneModelRef> models = {});
+	const SceneRenderResources& render);

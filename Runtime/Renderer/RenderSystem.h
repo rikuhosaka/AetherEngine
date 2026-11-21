@@ -45,8 +45,7 @@ public:
 	[[nodiscard]] UiFrameCapture EndUiFrame();
 
 	[[nodiscard]] Result<UploadedSceneAssets> UploadScene(
-		const SceneDocument& document,
-		const AssetCache& cache,
+		const SceneGpuUpload& upload,
 		FrameContext& frameContext);
 
 	Result<FrameContext*> BeginRecording();

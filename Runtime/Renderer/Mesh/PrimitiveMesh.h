@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/AssetSystem/Mesh/PrimitiveMesh.h"
+#include "Runtime/AssetData/PrimitiveMeshData.h"
 #include "Runtime/Renderer/Mesh/MeshUpload.h"
 
 [[nodiscard]] MeshUploadDesc MakePrimitiveMeshUploadDesc(

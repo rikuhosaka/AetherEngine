@@ -48,6 +48,7 @@ public:
 	[[nodiscard]] bool HasDocument() const { return m_hasDocument; }
 	[[nodiscard]] const SceneDocument& GetDocument() const { return m_document; }
 	[[nodiscard]] const AssetCache& GetAssetCache() const { return m_assetCache; }
+	[[nodiscard]] const std::filesystem::path& GetAssetsRoot() const { return m_assetsRoot; }
 	void Publish(EditorSceneServices& out) const;
 
 private:

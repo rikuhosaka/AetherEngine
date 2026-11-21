@@ -100,7 +100,7 @@ void ExtractView(
 	}
 }
 
-void ExtractLighting(const World& world, ExtractedLighting& outLighting)
+void ExtractLighting(const World& world, WorldExtractedLighting& outLighting)
 {
 	BuildExtractedLighting(world, outLighting);
 }

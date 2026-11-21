@@ -6,10 +6,10 @@
 
 #include <DirectXMath.h>
 
-void BuildExtractedLighting(const World& world, ExtractedLighting& outLighting)
+void BuildExtractedLighting(const World& world, WorldExtractedLighting& outLighting)
 {
 	const LightingSettings& settings = world.GetLighting();
-	outLighting = ExtractedLighting{};
+	outLighting = WorldExtractedLighting{};
 	outLighting.ambientColor[0] = settings.ambientColor[0];
 	outLighting.ambientColor[1] = settings.ambientColor[1];
 	outLighting.ambientColor[2] = settings.ambientColor[2];

@@ -1,4 +1,4 @@
-#include "Runtime/Renderer/Test/TextureFileLoaderTest.h"
+#include "Runtime/Engine/EngineInstance/TextureFileLoaderTest.h"
 
 #include "Runtime/Core/Hash/Fnv.h"
 #include "Runtime/Core/IO/BinaryFile.h"

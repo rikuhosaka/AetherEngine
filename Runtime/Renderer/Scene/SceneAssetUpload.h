@@ -1,14 +1,18 @@
 #pragma once
 
 #include "Runtime/Core/Log/Result.h"
+#include "Runtime/Renderer/Material/MaterialTypes.h"
+#include "Runtime/Renderer/Mesh/MeshTypes.h"
 #include "Runtime/Renderer/Scene/FbxSceneAssets.h"
-#include "Runtime/Engine/SceneDocument/SceneDocument.h"
+#include "Runtime/Renderer/Scene/SceneGpuUpload.h"
+#include "Runtime/Renderer/Texture/TextureTypes.h"
 
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
-class AssetCache;
 class FrameContext;
 class RenderResourceServices;
 class RHICommandList;
@@ -19,19 +23,30 @@ struct SceneModelAsset
 	std::unique_ptr<FbxSceneAssets> assets{};
 };
 
+struct UploadedMeshRef
+{
+	std::string key{};
+	MeshHandle mesh{};
+};
+
+struct UploadedRenderResources
+{
+	MaterialHandle material{};
+	TextureHandle baseColor{};
+	std::optional<uint32_t> materialConstantsSlot{};
+};
+
 struct UploadedSceneAssets
 {
-	std::vector<SceneMeshRef> meshes{};
-	SceneRenderResources render{};
+	std::vector<UploadedMeshRef> meshes{};
+	UploadedRenderResources render{};
 	std::vector<SceneModelAsset> models{};
 };
 
-// Uploads one mesh per document mesh key, model textures, and the shared lit material.
+// Uploads meshes, textures, and the shared lit material from CPU upload data.
 [[nodiscard]] Result<UploadedSceneAssets> UploadSceneAssets(
-	const SceneDocument& document,
-	const AssetCache& cache,
+	const SceneGpuUpload& upload,
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
-	const std::filesystem::path& assetsRoot,
 	const std::filesystem::path& shaderRoot);

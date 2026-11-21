@@ -1,19 +1,11 @@
 #pragma once
 
-#include "Runtime/AssetSystem/Model/Loader/ModelLoadTypes.h"
+#include "Runtime/AssetData/PrimitiveMeshData.h"
 #include "Runtime/Core/Log/Result.h"
 
 #include <DirectXMath.h>
 
 #include <span>
-#include <vector>
-
-struct PrimitiveMeshData
-{
-	std::vector<BasicVertex> vertices{};
-	std::vector<uint32_t> indices{};
-	MeshBounds bounds{};
-};
 
 struct PlanePrimitiveDesc
 {

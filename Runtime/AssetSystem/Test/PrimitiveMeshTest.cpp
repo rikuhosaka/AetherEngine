@@ -1,7 +1,7 @@
-#include "Runtime/Renderer/Test/PrimitiveMeshTest.h"
+#include "Runtime/AssetSystem/Test/PrimitiveMeshTest.h"
 
+#include "Runtime/AssetSystem/Mesh/PrimitiveMesh.h"
 #include "Runtime/Core/Log/LogMacros.h"
-#include "Runtime/Renderer/Mesh/PrimitiveMesh.h"
 
 #include <DirectXMath.h>
 

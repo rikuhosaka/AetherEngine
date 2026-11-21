@@ -1,6 +1,6 @@
 #pragma once
 
-struct ExtractedLighting;
+struct WorldExtractedLighting;
 class World;
 
-void BuildExtractedLighting(const World& world, ExtractedLighting& outLighting);
+void BuildExtractedLighting(const World& world, WorldExtractedLighting& outLighting);

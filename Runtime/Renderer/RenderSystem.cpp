@@ -23,7 +23,6 @@
 #include "Runtime/RHI/Interface/RHIImGui.h"
 #include "Runtime/RHI/Interface/RHITransientDescriptorAllocator.h"
 #include "Runtime/RHI/Interface/RHIUploadBuffer.h"
-#include "Runtime/Engine/SceneDocument/SceneDocument.h"
 
 #include "imgui.h"
 
@@ -395,8 +394,7 @@ UiFrameCapture RenderSystem::EndUiFrame()
 }
 
 Result<UploadedSceneAssets> RenderSystem::UploadScene(
-	const SceneDocument& document,
-	const AssetCache& cache,
+	const SceneGpuUpload& upload,
 	FrameContext& frameContext)
 {
 	if (m_render.resources == nullptr)
@@ -408,12 +406,10 @@ Result<UploadedSceneAssets> RenderSystem::UploadScene(
 	}
 
 	return UploadSceneAssets(
-		document,
-		cache,
+		upload,
 		*m_render.resources,
 		frameContext,
 		frameContext.graphicsCommandList,
-		m_config.assetsRoot,
 		m_config.shaderRoot);
 }
 

@@ -1,39 +1,25 @@
 #include "Runtime/Renderer/Scene/FbxSceneAssets.h"
 
-#include "Runtime/Core/IO/Path.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Core/Math/Matrix.h"
 #include "Runtime/Renderer/Material/MaterialSystemServices.h"
 #include "Runtime/Renderer/Material/MaterialTypes.h"
 #include "Runtime/Renderer/Mesh/MeshSystemServices.h"
-#include "Runtime/Renderer/Mesh/MeshUpload.h"
-#include "Runtime/AssetSystem/Model/Loader/CookedModel.h"
-#include "Runtime/AssetSystem/Model/Loader/ModelLoadTypes.h"
 #include "Runtime/Renderer/Resource/RenderResourceServices.h"
 #include "Runtime/Renderer/Scene/RenderConstantsLayout.h"
-#include "Runtime/AssetSystem/Texture/Loader/TextureLoadTypes.h"
-#include "Runtime/Renderer/Texture/TextureSystemServices.h"
-#include "Runtime/Renderer/Texture/TextureUpload.h"
 #include "Runtime/RHI/Common/RHIInput.h"
 #include "Runtime/RHI/Interface/RHICommandList.h"
-#include "Runtime/Renderer/Scene/WorldRenderBridge.h"
-#include "Runtime/Engine/World/Component/Renderable.h"
-#include "Runtime/Engine/World/World.h"
 
 #include <DirectXMath.h>
 
-#include <array>
-#include <cmath>
 #include <cstring>
-#include <system_error>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 namespace
 {
-DirectX::XMMATRIX LoadFbxRowMajorMatrix(const float matrix4x4[16])
+DirectX::XMMATRIX LoadRowMajorMatrix(const float matrix4x4[16])
 {
 	DirectX::XMFLOAT4X4 loaded{};
 	std::memcpy(loaded.m, matrix4x4, sizeof(loaded.m));
@@ -41,17 +27,17 @@ DirectX::XMMATRIX LoadFbxRowMajorMatrix(const float matrix4x4[16])
 }
 
 void ComputeNodeWorldMatrix(
-	const ModelAssetData& assetData,
+	std::span<const SceneNodeUpload> nodes,
 	uint32_t nodeIndex,
 	float outWorldMatrix[16])
 {
-	const ModelNodeData& node = assetData.nodes[nodeIndex];
-	DirectX::XMMATRIX world = LoadFbxRowMajorMatrix(node.localTransform);
+	const SceneNodeUpload& node = nodes[nodeIndex];
+	DirectX::XMMATRIX world = LoadRowMajorMatrix(node.localTransform);
 
 	if (node.parentIndex >= 0)
 	{
 		float parentWorldMatrix[16]{};
-		ComputeNodeWorldMatrix(assetData, static_cast<uint32_t>(node.parentIndex), parentWorldMatrix);
+		ComputeNodeWorldMatrix(nodes, static_cast<uint32_t>(node.parentIndex), parentWorldMatrix);
 		const DirectX::XMMATRIX parentWorld = Aether::Math::LoadMatrixFromHlsl(parentWorldMatrix);
 		// Row-vector order, matching World::GetWorldMatrix: local, then parent.
 		world = DirectX::XMMatrixMultiply(world, parentWorld);
@@ -60,107 +46,17 @@ void ComputeNodeWorldMatrix(
 	Aether::Math::StoreMatrixForHlsl(outWorldMatrix, world);
 }
 
-[[nodiscard]] Result<TransformComponent> TransformFromDxMatrix(DirectX::FXMMATRIX matrix)
+[[nodiscard]] Result<TextureHandle> TextureAt(
+	std::span<const TextureHandle> textures,
+	uint32_t index)
 {
-	DirectX::XMVECTOR scale{};
-	DirectX::XMVECTOR rotation{};
-	DirectX::XMVECTOR translation{};
-	if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, matrix))
+	if (index >= textures.size() || !textures[index].IsValid())
 	{
-		return FailInternal<TransformComponent>(LogCategory::Asset, ErrorCode::InvalidArgument,
-			"FBX node transform could not be decomposed into translation, rotation, and scale");
+		return FailInternal<TextureHandle>(LogCategory::Asset, ErrorCode::InvalidArgument,
+			"Model texture index is out of range");
 	}
 
-	TransformComponent transform{};
-	DirectX::XMStoreFloat3(&transform.position, translation);
-	DirectX::XMStoreFloat4(&transform.rotation, rotation);
-	DirectX::XMStoreFloat3(&transform.scale, scale);
-	return MakeOk(std::move(transform));
-}
-
-[[nodiscard]] bool MatricesNearlyEqual(DirectX::FXMMATRIX left, DirectX::FXMMATRIX right)
-{
-	DirectX::XMFLOAT4X4 leftStored{};
-	DirectX::XMFLOAT4X4 rightStored{};
-	DirectX::XMStoreFloat4x4(&leftStored, left);
-	DirectX::XMStoreFloat4x4(&rightStored, right);
-	constexpr float kEpsilon = 0.001f;
-	for (int row = 0; row < 4; ++row)
-	{
-		for (int column = 0; column < 4; ++column)
-		{
-			if (std::fabs(leftStored.m[row][column] - rightStored.m[row][column]) > kEpsilon)
-			{
-				return false;
-			}
-		}
-	}
-
-	return true;
-}
-
-[[nodiscard]] Result<MeshHandle> UploadModelMesh(
-	MeshSystemServices& meshServices,
-	const ModelMeshData& meshData,
-	FrameContext& frameContext,
-	RHICommandList* commandList)
-{
-	std::vector<SubmeshRange> submeshRanges;
-	submeshRanges.reserve(meshData.submeshes.size());
-	for (const ModelSubMeshData& submesh : meshData.submeshes)
-	{
-		SubmeshRange range{};
-		range.indexStart = submesh.indexStart;
-		range.indexCount = submesh.indexCount;
-		range.materialSlot = submesh.materialSlot;
-		submeshRanges.push_back(range);
-	}
-
-	MeshUploadDesc meshDesc{};
-	meshDesc.vertices = std::span<const std::byte>(
-		reinterpret_cast<const std::byte*>(meshData.vertices.data()),
-		meshData.vertices.size() * sizeof(BasicVertex));
-	meshDesc.indices = std::span<const std::byte>(
-		reinterpret_cast<const std::byte*>(meshData.indices.data()),
-		meshData.indices.size() * sizeof(uint32_t));
-	meshDesc.vertexStride = sizeof(BasicVertex);
-	meshDesc.vertexCount = static_cast<uint32_t>(meshData.vertices.size());
-	meshDesc.indexCount = static_cast<uint32_t>(meshData.indices.size());
-	meshDesc.indexFormat = IndexFormat::R32_UINT;
-	meshDesc.layoutId = VertexLayoutId::Basic;
-	meshDesc.submeshes = std::move(submeshRanges);
-	meshDesc.bounds = meshData.bounds;
-	meshDesc.DebugName = meshData.name.c_str();
-
-	return meshServices.UploadMesh(meshDesc, frameContext, commandList);
-}
-
-// The FBX loader resolves texture paths to absolute paths, but TextureSystemServices only
-// accepts paths relative to Assets/. Returns an empty path if the texture lies outside Assets/.
-[[nodiscard]] std::filesystem::path MakeAssetsRelativePath(
-	const std::filesystem::path& assetsRoot,
-	const std::filesystem::path& texturePath)
-{
-	if (!texturePath.is_absolute())
-	{
-		return texturePath;
-	}
-
-	std::error_code errorCode{};
-	const std::filesystem::path canonicalRoot = std::filesystem::weakly_canonical(assetsRoot, errorCode);
-	if (errorCode)
-	{
-		return {};
-	}
-
-	const std::filesystem::path relativePath =
-		std::filesystem::relative(texturePath, canonicalRoot, errorCode);
-	if (errorCode || relativePath.empty() || ContainsParentReference(relativePath))
-	{
-		return {};
-	}
-
-	return relativePath;
+	return MakeOk(textures[index]);
 }
 } // namespace
 
@@ -168,83 +64,13 @@ FbxSceneAssets::FbxSceneAssets() = default;
 
 FbxSceneAssets::~FbxSceneAssets() = default;
 
-Result<void> FbxSceneAssets::LoadTextureForSlot(
-	RenderResourceServices& resources,
-	FrameContext& frameContext,
-	RHICommandList* commandList,
-	const std::filesystem::path& assetsRoot,
-	const std::filesystem::path& texturePath,
-	TextureColorSpace colorSpace,
-	const char* debugName,
-	TextureHandle& outTexture)
-{
-	const std::filesystem::path relativePath = MakeAssetsRelativePath(assetsRoot, texturePath);
-	if (!texturePath.empty() && relativePath.empty())
-	{
-		LOG_WARN_F(LogCategory::Asset,
-			"Model texture is outside Assets/, using white fallback: {}", texturePath.string());
-	}
-
-	if (!relativePath.empty())
-	{
-		TextureLoadDesc textureLoadDesc{};
-		textureLoadDesc.relativePath = relativePath;
-		textureLoadDesc.colorSpace = colorSpace;
-		textureLoadDesc.generateMips = true;
-		textureLoadDesc.debugName = debugName;
-
-		const Result<TextureHandle> textureResult = resources.GetTextureServices().GetOrLoadTexture(
-			textureLoadDesc,
-			frameContext,
-			commandList);
-		if (textureResult)
-		{
-			outTexture = textureResult.value;
-			return MakeOk();
-		}
-
-		LOG_WARN_F(LogCategory::Asset,
-			"Model texture load failed for {}: {}",
-			relativePath.string(),
-			textureResult.error.message);
-	}
-
-	const std::array<std::byte, 4> whitePixel = {
-		std::byte{ 255 },
-		std::byte{ 255 },
-		std::byte{ 255 },
-		std::byte{ 255 },
-	};
-	TextureUploadDesc textureDesc{};
-	textureDesc.width = 1;
-	textureDesc.height = 1;
-	TextureMipData mip{};
-	mip.width = 1;
-	mip.height = 1;
-	mip.rowPitch = 4;
-	mip.pixels = whitePixel;
-	textureDesc.mips.push_back(mip);
-
-	const Result<TextureHandle> uploadResult = resources.GetTextureServices().UploadTexture(
-		textureDesc,
-		frameContext,
-		commandList);
-	if (!uploadResult)
-	{
-		return MakeFail(uploadResult.error.code, uploadResult.error.message);
-	}
-
-	outTexture = uploadResult.value;
-	return MakeOk();
-}
-
 Result<void> FbxSceneAssets::EnsureInitialized(
 	RenderResourceServices& resources,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
 	const std::filesystem::path& shaderRoot,
-	const std::filesystem::path& assetsRoot,
-	const std::filesystem::path& modelRelativePath,
+	const SceneModelUpload& model,
+	std::span<const TextureHandle> textures,
 	const LitMaterialConstants& materialConstants)
 {
 	if (m_ready)
@@ -258,32 +84,30 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 			"FbxSceneAssets requires a valid command list");
 	}
 
-	if (shaderRoot.empty() || assetsRoot.empty())
+	if (shaderRoot.empty())
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"FbxSceneAssets requires valid shader and assets roots");
+			"FbxSceneAssets requires a valid shader root");
 	}
 
-	const Result<ModelAssetData> loadResult = LoadModelAsset(assetsRoot, modelRelativePath);
-	if (!loadResult)
-	{
-		return MakeFail(loadResult.error.code, loadResult.error.message);
-	}
-
-	const ModelAssetData& assetData = loadResult.value;
-	if (assetData.meshes.empty())
+	if (model.meshes.empty())
 	{
 		return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
 			"FbxSceneAssets model contains no meshes");
 	}
 
-	std::unordered_map<uint32_t, MeshHandle> uploadedMeshes;
-	uploadedMeshes.reserve(assetData.meshes.size());
-	for (uint32_t meshIndex = 0; meshIndex < assetData.meshes.size(); ++meshIndex)
+	if (model.meshNames.size() != model.meshes.size())
 	{
-		const Result<MeshHandle> meshResult = UploadModelMesh(
-			resources.GetMeshServices(),
-			assetData.meshes[meshIndex],
+		return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
+			"FbxSceneAssets model mesh names do not match meshes");
+	}
+
+	std::vector<MeshHandle> uploadedMeshes;
+	uploadedMeshes.reserve(model.meshes.size());
+	for (const MeshUploadDesc& meshDesc : model.meshes)
+	{
+		const Result<MeshHandle> meshResult = resources.GetMeshServices().UploadMesh(
+			meshDesc,
 			frameContext,
 			commandList);
 		if (!meshResult)
@@ -291,47 +115,40 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 			return MakeFail(meshResult.error.code, meshResult.error.message);
 		}
 
-		uploadedMeshes.emplace(meshIndex, meshResult.value);
+		uploadedMeshes.push_back(meshResult.value);
 	}
 
 	m_materialTextures.clear();
-	m_materialTextures.resize(assetData.materialSlots.size());
+	m_materialTextures.resize(model.baseColorBySlot.size());
 	m_normalTextures.clear();
-	m_normalTextures.resize(assetData.materialSlots.size());
-	for (uint32_t slotIndex = 0; slotIndex < assetData.materialSlots.size(); ++slotIndex)
+	m_normalTextures.resize(model.normalBySlot.size());
+	if (model.baseColorBySlot.size() != model.normalBySlot.size())
 	{
-		if (auto textureResult = LoadTextureForSlot(
-				resources,
-				frameContext,
-				commandList,
-				assetsRoot,
-				assetData.materialSlots[slotIndex].diffuseTexturePath,
-				TextureColorSpace::Srgb,
-				"FbxBaseColor",
-				m_materialTextures[slotIndex]);
-			!textureResult)
+		return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
+			"FbxSceneAssets material texture slots do not match");
+	}
+
+	for (uint32_t slotIndex = 0; slotIndex < model.baseColorBySlot.size(); ++slotIndex)
+	{
+		const Result<TextureHandle> baseColor = TextureAt(textures, model.baseColorBySlot[slotIndex]);
+		if (!baseColor)
 		{
-			return textureResult;
+			return MakeFail(baseColor.error.code, baseColor.error.message);
 		}
 
-		if (assetData.materialSlots[slotIndex].normalTexturePath.empty())
+		m_materialTextures[slotIndex] = baseColor.value;
+		if (model.normalBySlot[slotIndex] == kNoSceneTexture)
 		{
 			continue;
 		}
 
-		if (auto normalResult = LoadTextureForSlot(
-				resources,
-				frameContext,
-				commandList,
-				assetsRoot,
-				assetData.materialSlots[slotIndex].normalTexturePath,
-				TextureColorSpace::Linear,
-				"FbxNormal",
-				m_normalTextures[slotIndex]);
-			!normalResult)
+		const Result<TextureHandle> normal = TextureAt(textures, model.normalBySlot[slotIndex]);
+		if (!normal)
 		{
-			return normalResult;
+			return MakeFail(normal.error.code, normal.error.message);
 		}
+
+		m_normalTextures[slotIndex] = normal.value;
 	}
 
 	MaterialCreateDesc materialDesc{};
@@ -370,49 +187,44 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	}
 
 	m_nodes.clear();
-	m_nodes.reserve(assetData.nodes.size());
-	for (const ModelNodeData& node : assetData.nodes)
+	m_nodes.reserve(model.nodes.size());
+	for (const SceneNodeUpload& node : model.nodes)
 	{
-		const Result<TransformComponent> localResult = TransformFromDxMatrix(LoadFbxRowMajorMatrix(node.localTransform));
-		if (!localResult)
-		{
-			return MakeFail(localResult.error.code, localResult.error.message);
-		}
-
-		FbxNodeSpawn record{};
+		FbxNodeRecord record{};
 		record.name = node.name;
-		record.local = localResult.value;
+		std::memcpy(record.localTransform, node.localTransform, sizeof(record.localTransform));
 		record.parentIndex = node.parentIndex;
 		m_nodes.push_back(record);
 	}
 
 	m_submeshes.clear();
-	for (uint32_t nodeIndex = 0; nodeIndex < assetData.nodes.size(); ++nodeIndex)
+	for (uint32_t nodeIndex = 0; nodeIndex < model.nodes.size(); ++nodeIndex)
 	{
-		const ModelNodeData& node = assetData.nodes[nodeIndex];
+		const SceneNodeUpload& node = model.nodes[nodeIndex];
 		if (node.meshIndex < 0)
 		{
 			continue;
 		}
 
-		const auto meshIt = uploadedMeshes.find(static_cast<uint32_t>(node.meshIndex));
-		if (meshIt == uploadedMeshes.end())
+		if (static_cast<uint32_t>(node.meshIndex) >= uploadedMeshes.size())
 		{
-			continue;
+			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
+				"Model node mesh index is out of range");
 		}
 
-		const ModelMeshData& meshData = assetData.meshes[static_cast<std::size_t>(node.meshIndex)];
-		for (uint32_t submeshIndex = 0; submeshIndex < meshData.submeshes.size(); ++submeshIndex)
+		const uint32_t meshIndex = static_cast<uint32_t>(node.meshIndex);
+		const MeshUploadDesc& meshDesc = model.meshes[meshIndex];
+		for (uint32_t submeshIndex = 0; submeshIndex < meshDesc.submeshes.size(); ++submeshIndex)
 		{
-			const uint32_t materialSlot = meshData.submeshes[submeshIndex].materialSlot;
+			const uint32_t materialSlot = meshDesc.submeshes[submeshIndex].materialSlot;
 
-			FbxSubmeshSpawn submesh{};
-			const std::string& meshName = meshData.name.empty() ? node.name : meshData.name;
-			submesh.name = meshData.submeshes.size() <= 1
+			FbxSubmeshRecord submesh{};
+			const std::string& meshName = model.meshNames[meshIndex].empty() ? node.name : model.meshNames[meshIndex];
+			submesh.name = meshDesc.submeshes.size() <= 1
 				? meshName
 				: meshName + " " + std::to_string(submeshIndex);
 			submesh.nodeIndex = nodeIndex;
-			submesh.mesh = meshIt->second;
+			submesh.mesh = uploadedMeshes[meshIndex];
 			submesh.submeshIndex = submeshIndex;
 			if (materialSlot < m_materialTextures.size())
 			{
@@ -423,7 +235,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 			{
 				submesh.baseColor = m_materialTextures.front();
 			}
-			ComputeNodeWorldMatrix(assetData, nodeIndex, submesh.worldMatrix);
+			ComputeNodeWorldMatrix(model.nodes, nodeIndex, submesh.worldMatrix);
 			m_submeshes.push_back(submesh);
 		}
 	}
@@ -435,101 +247,6 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	}
 
 	m_ready = true;
-	LOG_INFO_F(LogCategory::Core, "FbxSceneAssets initialized: {}", modelRelativePath.string());
-	return MakeOk();
-}
-
-Result<void> FbxSceneAssets::SpawnUnder(World& world, EntityId parent)
-{
-	if (m_spawned)
-	{
-		return MakeOk();
-	}
-
-	if (!m_ready || !world.IsAlive(parent))
-	{
-		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
-			"FbxSceneAssets::SpawnUnder requires initialized GPU assets and a live parent");
-	}
-
-	std::vector<EntityId> nodeEntities;
-	nodeEntities.reserve(m_nodes.size());
-	for (const FbxNodeSpawn& node : m_nodes)
-	{
-		WorldSpawnDesc desc{};
-		desc.name = node.name.empty() ? "ModelNode" : node.name;
-		desc.transform = node.local;
-		nodeEntities.push_back(world.Spawn(std::move(desc)));
-	}
-
-	for (size_t nodeIndex = 0; nodeIndex < m_nodes.size(); ++nodeIndex)
-	{
-		const int32_t parentIndex = m_nodes[nodeIndex].parentIndex;
-		if (parentIndex >= 0 && static_cast<size_t>(parentIndex) >= nodeEntities.size())
-		{
-			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"Model node parent could not be attached");
-		}
-
-		const EntityId nodeParent = parentIndex < 0
-			? parent
-			: nodeEntities[static_cast<size_t>(parentIndex)];
-		if (!world.SetParent(nodeEntities[nodeIndex], nodeParent))
-		{
-			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"Model node parent could not be attached");
-		}
-	}
-
-	const DirectX::XMMATRIX placementMatrix = world.GetWorldMatrix(parent);
-	for (const FbxSubmeshSpawn& submesh : m_submeshes)
-	{
-		if (submesh.nodeIndex >= nodeEntities.size())
-		{
-			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"Model submesh node index is out of range");
-		}
-
-		WorldSpawnDesc desc{};
-		desc.name = submesh.name;
-		desc.parent = nodeEntities[submesh.nodeIndex];
-		const EntityId submeshEntity = world.Spawn(std::move(desc));
-
-		Renderable renderable{};
-		renderable.mesh = ToWorldMeshId(submesh.mesh);
-		renderable.material = ToWorldMaterialId(m_material);
-		renderable.submeshIndex = submesh.submeshIndex;
-		renderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
-		renderable.visible = true;
-		renderable.overrides.baseColor = ToWorldTextureId(submesh.baseColor);
-		renderable.overrides.normal = ToWorldTextureId(submesh.normal);
-		if (m_materialConstantsSlot.has_value())
-		{
-			WorldMaterialParameterBlock materialBlock{};
-			materialBlock.bindingSlot = *m_materialConstantsSlot;
-			const auto* bytes = reinterpret_cast<const std::byte*>(&m_materialConstants);
-			materialBlock.data.assign(bytes, bytes + sizeof(m_materialConstants));
-			renderable.overrides.parameters.push_back(std::move(materialBlock));
-		}
-
-		if (!world.Add<Renderable>(submeshEntity, std::move(renderable)))
-		{
-			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"Model submesh renderable was rejected");
-		}
-
-		const DirectX::XMMATRIX resolved = world.GetWorldMatrix(submeshEntity);
-		const DirectX::XMMATRIX baked = DirectX::XMMatrixMultiply(
-			Aether::Math::LoadMatrixFromHlsl(submesh.worldMatrix),
-			placementMatrix);
-		if (!MatricesNearlyEqual(resolved, baked))
-		{
-			return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
-				"Model hierarchy world matrix does not match the baked node transform");
-		}
-	}
-
-	m_spawned = true;
-	LOG_INFO_F(LogCategory::Core, "FbxSceneAssets spawned {} submeshes", m_submeshes.size());
+	LOG_INFO_F(LogCategory::Core, "FbxSceneAssets initialized: document {}", model.documentId);
 	return MakeOk();
 }
