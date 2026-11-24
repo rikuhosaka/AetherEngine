@@ -1,21 +1,17 @@
 #include "Runtime/Engine/World/Test/WorldTest.h"
 
 #include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
-#include "Runtime/Engine/World/DebugStatsServices.h"
 #include "Runtime/Engine/World/SceneContentServices.h"
 #include "Runtime/Engine/World/Component/CameraComponent.h"
-#include "Runtime/Engine/Camera/CameraExtract.h"
 #include "Runtime/Engine/Camera/CameraState.h"
 #include "Runtime/Engine/World/Component/CameraSystemComponent.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Math/Matrix.h"
 #include "Runtime/Core/Math/Transform.h"
-#include "Runtime/Engine/Camera/ExtractedView.h"
-#include "Runtime/Engine/World/ExtractedLighting.h"
-#include "Runtime/Engine/World/ExtractedObject.h"
-#include "Runtime/Engine/World/Subsystem/PhysicsSubsystem.h"
-#include "Runtime/Engine/World/Component/RigidBody.h"
+#include "Runtime/Engine/World/WorldCameraSample.h"
 #include "Runtime/Engine/World/World.h"
+#include "Runtime/Engine/World/Component/RigidBody.h"
+#include "Runtime/Engine/World/Subsystem/PhysicsSubsystem.h"
 #include "Runtime/Engine/World/WorldExtract.h"
 #include "Runtime/Engine/World/WorldDocument.h"
 
@@ -87,32 +83,20 @@ namespace
 	return stored;
 }
 
-[[nodiscard]] bool SameExtractedView(const ExtractedView& left, const ExtractedView& right)
+[[nodiscard]] bool SameCameraState(const CameraState& left, const CameraState& right)
 {
-	if (left.viewportWidth != right.viewportWidth || left.viewportHeight != right.viewportHeight)
-	{
-		return false;
-	}
-
-	for (int index = 0; index < 3; ++index)
-	{
-		if (!IsNearlyEqual(left.cameraPosition[index], right.cameraPosition[index]))
-		{
-			return false;
-		}
-	}
-
-	for (int index = 0; index < 16; ++index)
-	{
-		if (!IsNearlyEqual(left.viewMatrix[index], right.viewMatrix[index])
-			|| !IsNearlyEqual(left.projectionMatrix[index], right.projectionMatrix[index])
-			|| !IsNearlyEqual(left.viewProjectionMatrix[index], right.viewProjectionMatrix[index]))
-		{
-			return false;
-		}
-	}
-
-	return true;
+	return IsNearlyEqual(left.position.x, right.position.x)
+		&& IsNearlyEqual(left.position.y, right.position.y)
+		&& IsNearlyEqual(left.position.z, right.position.z)
+		&& IsNearlyEqual(left.forward.x, right.forward.x)
+		&& IsNearlyEqual(left.forward.y, right.forward.y)
+		&& IsNearlyEqual(left.forward.z, right.forward.z)
+		&& IsNearlyEqual(left.up.x, right.up.x)
+		&& IsNearlyEqual(left.up.y, right.up.y)
+		&& IsNearlyEqual(left.up.z, right.up.z)
+		&& IsNearlyEqual(left.lens.fovYDegrees, right.lens.fovYDegrees)
+		&& IsNearlyEqual(left.lens.nearPlane, right.lens.nearPlane)
+		&& IsNearlyEqual(left.lens.farPlane, right.lens.farPlane);
 }
 
 [[nodiscard]] DirectX::XMMATRIX ToMatrix(const TransformComponent& transform)
@@ -136,13 +120,6 @@ public:
 
 	EntityId spawned{};
 };
-
-[[nodiscard]] float ExtractedTranslationY(const WorldExtractedObject& object)
-{
-	DirectX::XMFLOAT4X4 decoded{};
-	DirectX::XMStoreFloat4x4(&decoded, Aether::Math::LoadMatrixFromHlsl(object.worldMatrix));
-	return decoded._42;
-}
 
 [[nodiscard]] bool HasNamedEntity(const World& world, std::string_view name)
 {
@@ -875,14 +852,12 @@ Result<void> RunWorldTests()
 	expectedPose.position = { 0.0f, 1.6f, -4.0f };
 	expectedPose.forward = { 0.0f, 0.0f, 1.0f };
 	expectedPose.up = { 0.0f, 1.0f, 0.0f };
-	ExtractedView expectedView{};
-	BuildExtractedView(expectedPose, 640, 480, expectedView);
-	ExtractedView extractedView{};
-	ExtractCameraView(cameraWorld, spawnedCamera, 640, 480, extractedView);
-	ExtractedView clearedView = expectedView;
-	ExtractCameraView(cameraWorld, plainEntity, 640, 480, clearedView);
-	if (!SameExtractedView(extractedView, expectedView) || clearedView.viewportWidth != 0
-		|| clearedView.viewportHeight != 0)
+	WorldCameraSample extractedCamera{};
+	ExtractCameraView(cameraWorld, spawnedCamera, extractedCamera);
+	WorldCameraSample clearedCamera{};
+	clearedCamera.found = true;
+	ExtractCameraView(cameraWorld, plainEntity, clearedCamera);
+	if (!extractedCamera.found || !SameCameraState(extractedCamera.state, expectedPose) || clearedCamera.found)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -902,17 +877,16 @@ Result<void> RunWorldTests()
 	}
 
 	expectedPose.position = { 10.0f, 1.6f, -4.0f };
-	BuildExtractedView(expectedPose, 640, 480, expectedView);
+	const CameraState poseBeforeLens = expectedPose;
 	cameraWorld.Get<CameraComponent>(spawnedCamera)->fovYDegrees = 90.0f;
 	cameraWorld.Get<CameraComponent>(spawnedCamera)->nearPlane = 1.0f;
 	cameraWorld.Get<CameraComponent>(spawnedCamera)->farPlane = 100.0f;
 	expectedPose.lens.fovYDegrees = 90.0f;
 	expectedPose.lens.nearPlane = 1.0f;
 	expectedPose.lens.farPlane = 100.0f;
-	ExtractedView defaultLensView = expectedView;
-	BuildExtractedView(expectedPose, 640, 480, expectedView);
-	ExtractCameraView(cameraWorld, spawnedCamera, 640, 480, extractedView);
-	if (!SameExtractedView(extractedView, expectedView) || SameExtractedView(extractedView, defaultLensView))
+	ExtractCameraView(cameraWorld, spawnedCamera, extractedCamera);
+	if (!extractedCamera.found || !SameCameraState(extractedCamera.state, expectedPose)
+		|| SameCameraState(extractedCamera.state, poseBeforeLens))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -1000,14 +974,9 @@ Result<void> RunWorldTests()
 		sessionWorld.FixedTick(kFixedDeltaSeconds);
 	}
 
-	DebugStatsServices stats{};
-	std::vector<WorldExtractedObject> extracted{};
-	Extract(sessionWorld, extracted, {}, stats);
 	const TransformComponent* fallen = sessionWorld.GetTransform(sessionBody);
 	if (fallen == nullptr || !(fallen->position.y < 3.5f) || !IsNearlyEqual(fallen->scale.x, 2.0f)
-		|| !IsNearlyEqual(fallen->scale.y, 3.0f) || !IsNearlyEqual(fallen->scale.z, 4.0f)
-		|| stats.extractedObjectCount != 1 || extracted.size() != 1
-		|| !IsNearlyEqual(ExtractedTranslationY(extracted[0]), fallen->position.y))
+		|| !IsNearlyEqual(fallen->scale.y, 3.0f) || !IsNearlyEqual(fallen->scale.z, 4.0f))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -1016,15 +985,15 @@ Result<void> RunWorldTests()
 	}
 
 	const float pausedHeight = fallen->position.y;
-	extracted.clear();
-	Extract(sessionWorld, extracted, {}, stats);
-	ExtractedView pausedView{};
-	ExtractView(sessionWorld, pausedView, 640, 480);
+	WorldCameraSample pausedView{};
+	ExtractView(sessionWorld, pausedView);
 	sessionWorld.Tick(0.016f);
 	if (!sessionWorld.IsPlaying()
 		|| !IsNearlyEqual(sessionWorld.GetTransform(sessionBody)->position.y, pausedHeight)
-		|| extracted.size() != 1 || !IsNearlyEqual(ExtractedTranslationY(extracted[0]), pausedHeight)
-		|| pausedView.viewportWidth != 640)
+		|| !pausedView.found
+		|| !IsNearlyEqual(pausedView.state.position.x, playCameraPosition.x)
+		|| !IsNearlyEqual(pausedView.state.position.y, playCameraPosition.y)
+		|| !IsNearlyEqual(pausedView.state.position.z, playCameraPosition.z))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -1059,12 +1028,9 @@ Result<void> RunWorldTests()
 			"Loading during play should write the live document");
 	}
 
-	ExtractedView sessionView{};
-	ExtractView(sessionWorld, sessionView, 640, 480);
-	WorldExtractedLighting sessionLighting{};
-	sessionWorld.GetLighting().ambientIntensity = 0.35f;
-	ExtractLighting(sessionWorld, sessionLighting);
-	if (sessionView.viewportWidth != 640 || !IsNearlyEqual(sessionLighting.ambientIntensity, 0.35f))
+	WorldCameraSample sessionView{};
+	ExtractView(sessionWorld, sessionView);
+	if (!sessionView.found)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -1074,16 +1040,14 @@ Result<void> RunWorldTests()
 
 	sessionWorld.EndPlay();
 	const TransformComponent* closed = sessionWorld.GetTransform(sessionBody);
-	ExtractedView closedView{};
-	closedView.viewportWidth = 7;
-	ExtractView(sessionWorld, closedView, 640, 480);
-	extracted.clear();
-	Extract(sessionWorld, extracted, {}, stats);
+	WorldCameraSample closedView{};
+	closedView.state.position.x = 7.0f;
+	ExtractView(sessionWorld, closedView);
 	if (sessionWorld.IsPlaying()
 		|| !FindCamera(sessionWorld).IsValid() || closed == nullptr
 		|| !IsNearlyEqual(closed->position.y, pausedHeight) || !IsNearlyEqual(closed->scale.y, 3.0f)
-		|| !HasNamedEntity(sessionWorld, "Loaded") || closedView.viewportWidth != 640
-		|| extracted.size() != 1 || !IsNearlyEqual(ExtractedTranslationY(extracted[0]), pausedHeight)
+		|| !HasNamedEntity(sessionWorld, "Loaded") || !closedView.found
+		|| !IsNearlyEqual(closedView.state.position.x, playCameraPosition.x)
 		|| playingClone.IsPlaying() || !IsNearlyEqual(playingClone.GetTransform(sessionBody)->position.y, pausedHeight))
 	{
 		return FailRuntime(

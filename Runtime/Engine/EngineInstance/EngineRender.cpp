@@ -1,7 +1,6 @@
 #include "Runtime/Engine/EngineInstance/EngineRender.h"
 
-#include "Runtime/Engine/Application/Subsystem/EngineLoopConfig.h"
-#include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
+#include "Runtime/Renderer/RenderSystemConfig.h"
 #include "Runtime/Renderer/Resource/FrameContext.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
 #include "Runtime/Engine/World/World.h"
@@ -31,15 +30,21 @@ Result<void> EngineRender::Initialize(
 	HWND hwnd,
 	uint32_t width,
 	uint32_t height,
-	const EngineLoopConfig& config,
-	SubsystemContext& ctx)
+	const EngineLoopConfig& config)
 {
-	return m_impl->render.Initialize(hwnd, width, height, config, ctx);
+	RenderSystemConfig renderConfig{};
+	renderConfig.renderer.shaderRoot = config.shaderRoot;
+	renderConfig.renderer.compiledShaderRoot = config.compiledShaderRoot;
+	renderConfig.renderer.assetsRoot = config.assetsRoot;
+	renderConfig.renderer.visualizeSceneDepth = config.visualizeSceneDepth;
+	renderConfig.dx12DebugConfigPath = config.dx12DebugConfigPath;
+	renderConfig.vsync = config.vsync;
+	return m_impl->render.Initialize(hwnd, width, height, renderConfig);
 }
 
-void EngineRender::Shutdown(SubsystemContext& ctx)
+void EngineRender::Shutdown()
 {
-	m_impl->render.Shutdown(ctx);
+	m_impl->render.Shutdown();
 }
 
 Result<void> EngineRender::Resize(uint32_t width, uint32_t height)
@@ -50,19 +55,9 @@ Result<void> EngineRender::Resize(uint32_t width, uint32_t height)
 Result<void> EngineRender::Render(
 	uint32_t viewportWidth,
 	uint32_t viewportHeight,
-	const ExtractedView& view,
-	const WorldExtractedLighting& lighting,
-	std::span<const WorldExtractedObject> objects)
+	const RenderFrame& frame)
 {
-	std::vector<ExtractedObject> renderObjects{};
-	renderObjects.reserve(objects.size());
-	for (const WorldExtractedObject& object : objects)
-	{
-		renderObjects.push_back(ToExtractedObject(object));
-	}
-
-	const ExtractedLighting renderLighting = ToExtractedLighting(lighting);
-	return m_impl->render.Render(viewportWidth, viewportHeight, view, renderLighting, renderObjects);
+	return m_impl->render.Render(viewportWidth, viewportHeight, frame);
 }
 
 bool EngineRender::BeginUiFrame()

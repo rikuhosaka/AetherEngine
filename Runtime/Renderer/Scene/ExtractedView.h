@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+// 1フレームのビュー。行列は HLSL の定数バッファ向け。
 struct ExtractedView
 {
 	float viewMatrix[16]{};

@@ -5,8 +5,10 @@
 #include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
+#include "Runtime/Engine/EngineInstance/Subsystem/UiSubsystem.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/WindowSubsystem.h"
-#include "Runtime/Engine/World/ExtractedLighting.h"
+#include "Runtime/Engine/EngineInstance/BuildRenderFrame.h"
+#include "Runtime/Renderer/Scene/RenderSceneTypes.h"
 #include "Runtime/Engine/World/World.h"
 #include "Runtime/Engine/World/WorldExtract.h"
 
@@ -99,8 +101,7 @@ Result<void> EngineLoop::Initialize()
 					windowServices.hwnd,
 					windowServices.clientWidth,
 					windowServices.clientHeight,
-					m_config,
-					m_context);
+					m_config);
 				!renderResult)
 			{
 				LogResult(renderResult, LogCategory::Core);
@@ -393,9 +394,7 @@ Result<void> EngineLoop::RenderFrame()
 	const uint32_t height = windowServices != nullptr ? windowServices->clientHeight : 0;
 	m_context.SetFrameSlot(m_render.GetFrameSlot());
 
-	std::vector<WorldExtractedObject> extractedObjects;
-	ExtractedView extractedView{};
-	WorldExtractedLighting extractedLighting{};
+	struct RenderFrame frame{};
 	const PublishedWorld published = FindPublishedWorld();
 	if (published.world != nullptr)
 	{
@@ -405,27 +404,25 @@ Result<void> EngineLoop::RenderFrame()
 				"EngineLoop::RenderFrame missing the engine world");
 		}
 
-		ExtractLighting(*published.world, extractedLighting);
 		// 一時停止中に補間すると、停止した瞬間の中間姿勢が残る。最新ステップをそのまま出す。
 		const float alpha = published.session->mode == SessionMode::Paused
 			? 1.0f
 			: m_context.GetInterpolationAlpha();
 		std::vector<RenderPose> renderPoses{};
 		SampleRenderPoses(*published.world, alpha, renderPoses);
-		ExtractView(*published.world, extractedView, width, height, renderPoses);
-		Extract(
+		WorldCameraSample extractedCamera{};
+		ExtractView(*published.world, extractedCamera, renderPoses);
+		BuildRenderFrame(
 			*published.world,
-			extractedObjects,
-			renderPoses,
-			*published.stats);
-	}
-
-	if (auto renderResult = m_render.Render(
+			extractedCamera,
 			width,
 			height,
-			extractedView,
-			extractedLighting,
-			extractedObjects);
+			renderPoses,
+			*published.stats,
+			frame);
+	}
+
+	if (auto renderResult = m_render.Render(width, height, frame);
 		!renderResult)
 	{
 		return renderResult;
@@ -449,7 +446,7 @@ void EngineLoop::ShutdownSession()
 		subsystem->Shutdown(m_context);
 	}
 
-	m_render.Shutdown(m_context);
+	m_render.Shutdown();
 
 	for (ISubsystem* subsystem : order)
 	{

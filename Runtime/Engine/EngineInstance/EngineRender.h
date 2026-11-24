@@ -1,23 +1,19 @@
 #pragma once
 
 #include "Runtime/Engine/Application/Subsystem/EngineLoopConfig.h"
-#include "Runtime/Engine/EngineInstance/Subsystem/UiSubsystem.h"
-#include "Runtime/Engine/Camera/ExtractedView.h"
+#include "Runtime/Renderer/Scene/RenderSceneTypes.h"
+#include "Runtime/Renderer/UiFrameCapture.h"
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/World/ExtractedLighting.h"
-#include "Runtime/Engine/World/ExtractedObject.h"
 #include "Runtime/Engine/World/WorldDocument.h"
 
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <vector>
 
 class SceneDocumentSubsystem;
-class SubsystemContext;
 class World;
 
-// RenderSystem の窓口。Renderer の型は実装ファイルに閉じる。
+// RenderSystem の窓口。RenderSystem は実装ファイルに閉じ、UI のキャプチャ結果だけ公開する。
 class EngineRender
 {
 public:
@@ -31,17 +27,14 @@ public:
 		HWND hwnd,
 		uint32_t width,
 		uint32_t height,
-		const EngineLoopConfig& config,
-		SubsystemContext& ctx);
-	void Shutdown(SubsystemContext& ctx);
+		const EngineLoopConfig& config);
+	void Shutdown();
 	Result<void> Resize(uint32_t width, uint32_t height);
 
 	Result<void> Render(
 		uint32_t viewportWidth,
 		uint32_t viewportHeight,
-		const ExtractedView& view,
-		const WorldExtractedLighting& lighting,
-		std::span<const WorldExtractedObject> objects);
+		const RenderFrame& frame);
 
 	[[nodiscard]] bool BeginUiFrame();
 	[[nodiscard]] UiFrameCapture EndUiFrame();

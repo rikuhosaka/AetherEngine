@@ -1,16 +1,9 @@
 #pragma once
 
 #include "Runtime/Engine/Application/Subsystem/ISubsystem.h"
+#include "Runtime/Renderer/UiFrameCapture.h"
 
 #include <memory>
-
-// ImGui の実体は RenderSystem が持つ。ここにあるのは、そのフレームで UI を描けるかと入力キャプチャの結果だけ。
-struct UiFrameCapture
-{
-	bool wantCaptureMouse = false;
-	bool wantCaptureKeyboard = false;
-	bool anyWindowHovered = false;
-};
 
 struct UiServices
 {

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Runtime/Engine/Application/Subsystem/SubsystemTypes.h"
 #include "Runtime/Renderer/Resource/FrameContext.h"
 
 #include <array>
@@ -18,7 +17,8 @@ struct RHIServices
 	RHIFence* frameFence = nullptr;
 	RHIBarrierDebug* barrierDebug = nullptr;
 
-	static constexpr uint32_t kFrameCount = EngineConstants::kFrameInFlightCount;
+	// 同時に飛行させるフレーム数。スワップチェイン枚数とは別に持つ。
+	static constexpr uint32_t kFrameCount = 3;
 
 	std::array<FrameContext, kFrameCount> frameContexts{};
 

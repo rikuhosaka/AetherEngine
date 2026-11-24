@@ -7,8 +7,6 @@
 #include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Physics/PhysicsLibrary.h"
-#include "Runtime/Engine/World/ExtractedLighting.h"
-#include "Runtime/Engine/World/SceneLighting.h"
 #include "Runtime/Engine/World/PhysicsScene.h"
 #include "Runtime/Engine/World/World.h"
 
@@ -349,54 +347,6 @@ namespace
 	return MakeOk();
 }
 
-[[nodiscard]] Result<void> TestLightExtract()
-{
-	World empty{};
-	const LightingSettings& settings = empty.GetLighting();
-	WorldExtractedLighting fallback{};
-	BuildExtractedLighting(empty, fallback);
-	if (!IsNearlyEqual(fallback.mainLightDirection[0], settings.mainLightDirection[0])
-		|| !IsNearlyEqual(fallback.mainLightDirection[1], settings.mainLightDirection[1])
-		|| !IsNearlyEqual(fallback.mainLightIntensity, settings.mainLightIntensity)
-		|| !IsNearlyEqual(fallback.ambientIntensity, settings.ambientIntensity))
-	{
-		return FailRuntime(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"Lighting without a light component should keep the world lighting");
-	}
-
-	World world{};
-	const EntityId entity = world.Spawn(WorldSpawnDesc{});
-	LightComponent light{};
-	light.color[0] = 0.2f;
-	light.color[1] = 0.4f;
-	light.color[2] = 0.6f;
-	light.intensity = 3.5f;
-	if (!world.Add<LightComponent>(entity, light))
-	{
-		return FailRuntime(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"Light extract test should add a light");
-	}
-
-	WorldExtractedLighting extracted{};
-	BuildExtractedLighting(world, extracted);
-	if (!IsNearlyEqual(extracted.mainLightColor[0], 0.2f) || !IsNearlyEqual(extracted.mainLightColor[1], 0.4f)
-		|| !IsNearlyEqual(extracted.mainLightColor[2], 0.6f) || !IsNearlyEqual(extracted.mainLightIntensity, 3.5f)
-		|| !IsNearlyEqual(extracted.mainLightDirection[2], 1.0f)
-		|| !IsNearlyEqual(extracted.ambientIntensity, world.GetLighting().ambientIntensity))
-	{
-		return FailRuntime(
-			LogCategory::ECS,
-			ErrorCode::InvalidArgument,
-			"The first light component should replace the main light and keep ambient");
-	}
-
-	return MakeOk();
-}
-
 } // namespace
 
 Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
@@ -404,11 +354,6 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	if (auto written = TestWriteScene(); !written)
 	{
 		return written;
-	}
-
-	if (auto light = TestLightExtract(); !light)
-	{
-		return light;
 	}
 
 	if (auto library = InitializePhysicsLibrary(); !library)

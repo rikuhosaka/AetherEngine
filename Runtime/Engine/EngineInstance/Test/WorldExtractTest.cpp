@@ -1,16 +1,21 @@
-#include "Runtime/Engine/World/Test/WorldExtractTest.h"
+#include "Runtime/Engine/EngineInstance/Test/WorldExtractTest.h"
 
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Math/Matrix.h"
 #include "Runtime/Core/Math/Transform.h"
-#include "Runtime/Engine/World/ExtractedObject.h"
+#include "Runtime/Engine/EngineInstance/BuildRenderFrame.h"
+#include "Runtime/Engine/World/Component/LightComponent.h"
 #include "Runtime/Engine/World/Component/Renderable.h"
+#include "Runtime/Engine/World/DebugStatsServices.h"
+#include "Runtime/Engine/World/Lighting.h"
 #include "Runtime/Engine/World/World.h"
-#include "Runtime/Engine/World/WorldExtract.h"
+#include "Runtime/Engine/World/WorldCameraSample.h"
 
 #include <DirectXMath.h>
 
 #include <cmath>
+#include <cstddef>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -20,10 +25,78 @@ namespace
 {
 	return std::fabs(left - right) <= epsilon;
 }
+
+[[nodiscard]] RenderFrame ExtractFrame(
+	const World& world,
+	std::span<const RenderPose> poses = {})
+{
+	RenderFrame frame{};
+	DebugStatsServices stats{};
+	BuildRenderFrame(world, WorldCameraSample{}, 0, 0, poses, stats, frame);
+	return frame;
+}
+
+[[nodiscard]] bool SameId(const RenderObjectId& objectId, EntityId entity)
+{
+	return objectId.Index == entity.Index && objectId.Generation == entity.Generation;
+}
+
+[[nodiscard]] Result<void> TestLightExtract()
+{
+	World empty{};
+	const LightingSettings& settings = empty.GetLighting();
+	const RenderFrame fallback = ExtractFrame(empty);
+	if (!IsNearlyEqual(fallback.lighting.mainLightDirection[0], settings.mainLightDirection[0])
+		|| !IsNearlyEqual(fallback.lighting.mainLightDirection[1], settings.mainLightDirection[1])
+		|| !IsNearlyEqual(fallback.lighting.mainLightIntensity, settings.mainLightIntensity)
+		|| !IsNearlyEqual(fallback.lighting.ambientIntensity, settings.ambientIntensity))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Lighting without a light component should keep the world lighting");
+	}
+
+	World world{};
+	const EntityId entity = world.Spawn(WorldSpawnDesc{});
+	LightComponent light{};
+	light.color[0] = 0.2f;
+	light.color[1] = 0.4f;
+	light.color[2] = 0.6f;
+	light.intensity = 3.5f;
+	if (!world.Add<LightComponent>(entity, light))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Light extract test should add a light");
+	}
+
+	const RenderFrame extracted = ExtractFrame(world);
+	if (!IsNearlyEqual(extracted.lighting.mainLightColor[0], 0.2f)
+		|| !IsNearlyEqual(extracted.lighting.mainLightColor[1], 0.4f)
+		|| !IsNearlyEqual(extracted.lighting.mainLightColor[2], 0.6f)
+		|| !IsNearlyEqual(extracted.lighting.mainLightIntensity, 3.5f)
+		|| !IsNearlyEqual(extracted.lighting.mainLightDirection[2], 1.0f)
+		|| !IsNearlyEqual(extracted.lighting.ambientIntensity, world.GetLighting().ambientIntensity))
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"The first light component should replace the main light and keep ambient");
+	}
+
+	return MakeOk();
+}
 } // namespace
 
 Result<void> RunWorldExtractTests()
 {
+	if (auto light = TestLightExtract(); !light)
+	{
+		return light;
+	}
+
 	World world{};
 	WorldSpawnDesc spawnDesc{};
 	spawnDesc.transform.position = { 5.0f, 2.0f, -1.0f };
@@ -33,6 +106,10 @@ Result<void> RunWorldExtractTests()
 	firstRenderable.mesh = WorldMeshId{ 3, 1 };
 	firstRenderable.material = WorldMaterialId{ 4, 2 };
 	firstRenderable.layerMask = WorldLayer::Opaque | WorldLayer::Shadow;
+	WorldMaterialParameterBlock parameter{};
+	parameter.bindingSlot = 2;
+	parameter.data = { std::byte{ 1 }, std::byte{ 2 }, std::byte{ 3 } };
+	firstRenderable.overrides.parameters.push_back(parameter);
 	if (!world.Add<Renderable>(first, std::move(firstRenderable)))
 	{
 		return FailRuntime(
@@ -41,9 +118,8 @@ Result<void> RunWorldExtractTests()
 			"Extract test should add a renderable");
 	}
 
-	std::vector<WorldExtractedObject> extracted;
-	ExtractWorld(world, extracted);
-	if (extracted.size() != 1)
+	RenderFrame frame = ExtractFrame(world);
+	if (frame.objects.size() != 1)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -51,7 +127,8 @@ Result<void> RunWorldExtractTests()
 			"Spawned entity should extract as one object");
 	}
 
-	if (extracted[0].objectId.Index != first.Index || extracted[0].objectId.Generation != first.Generation)
+	const ExtractedObjectSnapshot& firstObject = frame.objects[0];
+	if (!SameId(firstObject.objectId, first))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -59,9 +136,9 @@ Result<void> RunWorldExtractTests()
 			"Extracted object id should match entity id");
 	}
 
-	if (extracted[0].mesh.Index != 3 || extracted[0].mesh.Generation != 1 ||
-		extracted[0].material.Index != 4 || extracted[0].material.Generation != 2 ||
-		extracted[0].layerMask != (WorldLayer::Opaque | WorldLayer::Shadow))
+	if (firstObject.mesh.Index != 3 || firstObject.mesh.Generation != 1
+		|| firstObject.material.Index != 4 || firstObject.material.Generation != 2
+		|| firstObject.layerMask != (WorldLayer::Opaque | WorldLayer::Shadow))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -69,7 +146,28 @@ Result<void> RunWorldExtractTests()
 			"Extracted handles should match world ids");
 	}
 
-	const DirectX::XMMATRIX worldMatrix = Aether::Math::LoadMatrixFromHlsl(extracted[0].worldMatrix);
+	if (firstObject.overrides.parameters.size() != 1
+		|| firstObject.overrides.parameters[0].bindingSlot != 2
+		|| firstObject.overrides.parameters[0].data.size() != 3
+		|| firstObject.overrides.parameters[0].data[0] != std::byte{ 1 }
+		|| firstObject.overrides.parameters[0].data[2] != std::byte{ 3 })
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Extracted material parameters should copy the component bytes");
+	}
+
+	world.Get<Renderable>(first)->overrides.parameters[0].data[0] = std::byte{ 9 };
+	if (firstObject.overrides.parameters[0].data[0] != std::byte{ 1 })
+	{
+		return FailRuntime(
+			LogCategory::ECS,
+			ErrorCode::InvalidArgument,
+			"Extracted material parameters should be independent of the component");
+	}
+
+	const DirectX::XMMATRIX worldMatrix = Aether::Math::LoadMatrixFromHlsl(firstObject.worldMatrix);
 	DirectX::XMFLOAT4X4 stored{};
 	DirectX::XMStoreFloat4x4(&stored, worldMatrix);
 	if (!IsNearlyEqual(stored._41, 5.0f) ||
@@ -83,9 +181,8 @@ Result<void> RunWorldExtractTests()
 	}
 
 	world.Destroy(first);
-	extracted.clear();
-	ExtractWorld(world, extracted);
-	if (!extracted.empty())
+	frame = ExtractFrame(world);
+	if (!frame.objects.empty())
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -104,11 +201,8 @@ Result<void> RunWorldExtractTests()
 			ErrorCode::InvalidArgument,
 			"Extract test should add a renderable");
 	}
-	extracted.clear();
-	ExtractWorld(world, extracted);
-	if (extracted.size() != 1 ||
-		extracted[0].objectId.Index != second.Index ||
-		extracted[0].objectId.Generation != second.Generation)
+	frame = ExtractFrame(world);
+	if (frame.objects.size() != 1 || !SameId(frame.objects[0].objectId, second))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -117,17 +211,16 @@ Result<void> RunWorldExtractTests()
 	}
 
 	const EntityId unrendered = world.Spawn(WorldSpawnDesc{});
-	extracted.clear();
-	ExtractWorld(world, extracted);
+	frame = ExtractFrame(world);
 	bool sawUnrendered = false;
-	for (const WorldExtractedObject& object : extracted)
+	for (const ExtractedObjectSnapshot& object : frame.objects)
 	{
-		if (object.objectId.Index == unrendered.Index && object.objectId.Generation == unrendered.Generation)
+		if (SameId(object.objectId, unrendered))
 		{
 			sawUnrendered = true;
 		}
 	}
-	if (extracted.size() != 1 || sawUnrendered)
+	if (frame.objects.size() != 1 || sawUnrendered)
 	{
 		return FailRuntime(
 			LogCategory::ECS,
@@ -157,12 +250,11 @@ Result<void> RunWorldExtractTests()
 			"Extract test should add a child renderable");
 	}
 
-	extracted.clear();
-	ExtractWorld(world, extracted);
-	const WorldExtractedObject* extractedChild = nullptr;
-	for (const WorldExtractedObject& object : extracted)
+	frame = ExtractFrame(world);
+	const ExtractedObjectSnapshot* extractedChild = nullptr;
+	for (const ExtractedObjectSnapshot& object : frame.objects)
 	{
-		if (object.objectId.Index == child.Index && object.objectId.Generation == child.Generation)
+		if (SameId(object.objectId, child))
 		{
 			extractedChild = &object;
 			break;
@@ -201,9 +293,8 @@ Result<void> RunWorldExtractTests()
 	}
 
 	world.Destroy(parent);
-	extracted.clear();
-	ExtractWorld(world, extracted);
-	for (const WorldExtractedObject& object : extracted)
+	frame = ExtractFrame(world);
+	for (const ExtractedObjectSnapshot& object : frame.objects)
 	{
 		if (object.objectId.Index == child.Index || object.objectId.Index == parent.Index)
 		{
@@ -240,12 +331,11 @@ Result<void> RunWorldExtractTests()
 		}
 	}
 
-	extracted.clear();
-	ExtractWorld(world, extracted);
-	const WorldExtractedObject* extractedStale = nullptr;
-	for (const WorldExtractedObject& object : extracted)
+	frame = ExtractFrame(world);
+	const ExtractedObjectSnapshot* extractedStale = nullptr;
+	for (const ExtractedObjectSnapshot& object : frame.objects)
 	{
-		if (object.objectId.Index == staleChild.Index && object.objectId.Generation == staleChild.Generation)
+		if (SameId(object.objectId, staleChild))
 		{
 			extractedStale = &object;
 			break;

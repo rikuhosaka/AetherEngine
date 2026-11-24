@@ -1,8 +1,6 @@
 #include "Runtime/Renderer/RenderSystem.h"
 
 #include "Runtime/Renderer/GpuQueueRetirement.h"
-#include "Runtime/Engine/Application/Subsystem/SubsystemContext.h"
-#include "Runtime/Engine/Application/Subsystem/SubsystemTypes.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Renderer/Resource/FrameContext.h"
@@ -115,8 +113,7 @@ Result<void> RenderSystem::Initialize(
 	HWND hwnd,
 	uint32_t width,
 	uint32_t height,
-	const EngineLoopConfig& config,
-	SubsystemContext& ctx)
+	const RenderSystemConfig& config)
 {
 	if (hwnd == nullptr)
 	{
@@ -130,7 +127,7 @@ Result<void> RenderSystem::Initialize(
 			"RenderSystem requires non-zero client dimensions");
 	}
 
-	if (config.shaderRoot.empty() || config.assetsRoot.empty())
+	if (config.renderer.shaderRoot.empty() || config.renderer.assetsRoot.empty())
 	{
 		return FailInternal(LogCategory::Core, ErrorCode::InvalidArgument,
 			"RenderSystem requires shader and asset roots");
@@ -145,14 +142,14 @@ Result<void> RenderSystem::Initialize(
 	m_impl->barrierDebug = std::make_unique<DX12BarrierDebug>();
 	if (auto initResult = m_impl->device->Initialize(); !initResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return initResult;
 	}
 
 	auto queueResult = m_impl->device->CreateCommandQueue();
 	if (!queueResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return MakeFail(queueResult.error.code, queueResult.error.message);
 	}
 	m_impl->graphicsQueue = std::move(queueResult.value);
@@ -160,14 +157,14 @@ Result<void> RenderSystem::Initialize(
 	auto fenceResult = m_impl->device->CreateFence();
 	if (!fenceResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return MakeFail(fenceResult.error.code, fenceResult.error.message);
 	}
 	m_impl->frameFence = std::move(fenceResult.value);
 
 	if (auto frameResourcesResult = CreateFrameResources(); !frameResourcesResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return frameResourcesResult;
 	}
 
@@ -180,8 +177,6 @@ Result<void> RenderSystem::Initialize(
 	DisplayConfig displayConfig{};
 	displayConfig.width = width;
 	displayConfig.height = height;
-	displayConfig.bufferCount = EngineConstants::kSwapChainBufferCount;
-
 	auto displayResult = DisplayContext::Create(
 		m_rhi.device,
 		m_rhi.graphicsQueue,
@@ -189,7 +184,7 @@ Result<void> RenderSystem::Initialize(
 		displayConfig);
 	if (!displayResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return MakeFail(displayResult.error.code, displayResult.error.message);
 	}
 	m_impl->display = std::move(displayResult.value);
@@ -197,7 +192,7 @@ Result<void> RenderSystem::Initialize(
 	auto descriptorAllocatorResult = m_rhi.device->CreateDescriptorAllocator(kPersistentDescriptorCount);
 	if (!descriptorAllocatorResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return MakeFail(
 			descriptorAllocatorResult.error.code,
 			descriptorAllocatorResult.error.message);
@@ -205,11 +200,7 @@ Result<void> RenderSystem::Initialize(
 	m_impl->descriptorAllocator = std::move(descriptorAllocatorResult.value);
 
 	m_impl->renderer = std::make_unique<Renderer>();
-	RendererConfig rendererConfig{};
-	rendererConfig.shaderRoot = m_config.shaderRoot;
-	rendererConfig.compiledShaderRoot = m_config.compiledShaderRoot;
-	rendererConfig.assetsRoot = m_config.assetsRoot;
-	rendererConfig.visualizeSceneDepth = m_config.visualizeSceneDepth;
+	RendererConfig rendererConfig = m_config.renderer;
 #ifdef AETHER_PRECOMPILED_SHADERS_ONLY
 	rendererConfig.shaderSourcePolicy = ShaderSourcePolicy::PrecompiledOnly;
 #elif defined(NDEBUG)
@@ -224,28 +215,28 @@ Result<void> RenderSystem::Initialize(
 			rendererConfig);
 		!rendererResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return rendererResult;
 	}
 
 	m_render.resources = m_impl->renderer->GetResourceServices();
-	m_render.shaderRoot = m_config.shaderRoot;
+	m_render.shaderRoot = m_config.renderer.shaderRoot;
 
 	RHIImGuiDesc imguiDesc{};
 	imguiDesc.hwnd = hwnd;
 	imguiDesc.commandQueue = m_rhi.graphicsQueue;
-	imguiDesc.framesInFlight = EngineConstants::kFrameInFlightCount;
+	imguiDesc.framesInFlight = RHIServices::kFrameCount;
 	auto imguiResult = m_rhi.device->CreateImGui(imguiDesc);
 	if (!imguiResult)
 	{
-		Shutdown(ctx);
+		Shutdown();
 		return MakeFail(imguiResult.error.code, imguiResult.error.message);
 	}
 	m_imgui = std::move(imguiResult.value);
 	return MakeOk();
 }
 
-void RenderSystem::Shutdown(SubsystemContext& /*ctx*/)
+void RenderSystem::Shutdown()
 {
 	m_imgui.reset();
 	if (m_impl == nullptr)
@@ -410,15 +401,13 @@ Result<UploadedSceneAssets> RenderSystem::UploadScene(
 		*m_render.resources,
 		frameContext,
 		frameContext.graphicsCommandList,
-		m_config.shaderRoot);
+		m_config.renderer.shaderRoot);
 }
 
 Result<void> RenderSystem::Render(
 	uint32_t viewportWidth,
 	uint32_t viewportHeight,
-	const ExtractedView& view,
-	const ExtractedLighting& lighting,
-	std::span<const ExtractedObject> objects)
+	const RenderFrame& frame)
 {
 	if (viewportWidth == 0 || viewportHeight == 0)
 	{
@@ -469,13 +458,10 @@ Result<void> RenderSystem::Render(
 	m_recording = true;
 	m_impl->renderer->SetFrameContext(&frameContext);
 	m_impl->renderer->BeginFrame(frameContext.frameIndex);
-	m_impl->renderer->ExtractView(view);
-	m_impl->renderer->ExtractLighting(lighting);
-	m_impl->renderer->ExtractScene(objects);
 
 	{
 		const RHIScopedDebugEvent frameEvent(commandList, "Frame");
-		m_impl->renderer->BuildScene(commandList);
+		m_impl->renderer->BuildScene(commandList, frame);
 		m_impl->renderer->RenderShadow(commandList);
 		m_impl->display->BeginMainRenderPass(frameContext, commandList);
 		m_impl->renderer->Render(commandList);

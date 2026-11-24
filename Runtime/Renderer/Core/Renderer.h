@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
-#include <span>
 
 class PipelineStateCache;
 class RHIDescriptorAllocator;
@@ -33,10 +32,7 @@ public:
 	void SetFrameContext(FrameContext* frameContext);
 
 	void BeginFrame(uint32_t frameIndex);
-	void ExtractScene(std::span<const ExtractedObject> objects);
-	void ExtractView(const ExtractedView& view);
-	void ExtractLighting(const ExtractedLighting& lighting);
-	void BuildScene(RHICommandList* commandList);
+	void BuildScene(RHICommandList* commandList, const RenderFrame& frame);
 	void RenderShadow(RHICommandList* commandList);
 	void Render(RHICommandList* commandList);
 	void DrawSceneDepthDebug(RHICommandList* commandList);

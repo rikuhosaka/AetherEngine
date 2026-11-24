@@ -22,9 +22,6 @@ enum class SubsystemState : uint8_t
 
 namespace EngineConstants
 {
-constexpr uint32_t kFrameInFlightCount = 3;
-constexpr uint32_t kSwapChainBufferCount = 3;
-
 constexpr float kMaxDeltaSeconds = 0.1f;
 constexpr float kMinDeltaSeconds = 0.0f;
 constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;

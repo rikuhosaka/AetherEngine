@@ -1,15 +1,19 @@
-#include "Runtime/Engine/World/Test/EntityPhysicsTest.h"
+#include "Runtime/Engine/EngineInstance/Test/EntityPhysicsTest.h"
 
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Core/Math/Matrix.h"
+#include "Runtime/Engine/EngineInstance/BuildRenderFrame.h"
 #include "Runtime/Engine/World/Component/Renderable.h"
+#include "Runtime/Engine/World/DebugStatsServices.h"
 #include "Runtime/Engine/World/PhysicsScene.h"
 #include "Runtime/Engine/World/World.h"
-#include "Runtime/Engine/World/WorldExtract.h"
+#include "Runtime/Engine/World/WorldCameraSample.h"
 #include "Runtime/Physics/PhysicsLibrary.h"
 
 #include <cmath>
 #include <format>
+#include <span>
+#include <vector>
 
 namespace
 {
@@ -76,7 +80,7 @@ namespace
 	return MakeOk();
 }
 
-[[nodiscard]] float ExtractedTranslationY(const WorldExtractedObject& object)
+[[nodiscard]] float ExtractedTranslationY(const ExtractedObjectSnapshot& object)
 {
 	const DirectX::XMMATRIX matrix = Aether::Math::LoadMatrixFromHlsl(object.worldMatrix);
 	DirectX::XMFLOAT4X4 stored{};
@@ -84,19 +88,29 @@ namespace
 	return stored._42;
 }
 
-[[nodiscard]] const WorldExtractedObject* FindExtracted(
-	const std::vector<WorldExtractedObject>& objects,
+[[nodiscard]] const ExtractedObjectSnapshot* FindExtracted(
+	const std::vector<ExtractedObjectSnapshot>& objects,
 	EntityId id)
 {
-	for (const WorldExtractedObject& object : objects)
+	for (const ExtractedObjectSnapshot& object : objects)
 	{
-		if (object.objectId == id)
+		if (object.objectId.Index == id.Index && object.objectId.Generation == id.Generation)
 		{
 			return &object;
 		}
 	}
 
 	return nullptr;
+}
+
+[[nodiscard]] std::vector<ExtractedObjectSnapshot> ExtractObjects(
+	const World& world,
+	std::span<const RenderPose> poses = {})
+{
+	RenderFrame frame{};
+	DebugStatsServices stats{};
+	BuildRenderFrame(world, WorldCameraSample{}, 0, 0, poses, stats, frame);
+	return std::move(frame.objects);
 }
 
 [[nodiscard]] Result<void> TestSampleLeavesTransform()
@@ -162,14 +176,12 @@ namespace
 			"Sampling a previous pose should leave the committed transform unchanged");
 	}
 
-	std::vector<WorldExtractedObject> extracted{};
-	ExtractWorld(world, extracted, previous);
-	const WorldExtractedObject* visualChild = FindExtracted(extracted, child);
+	std::vector<ExtractedObjectSnapshot> extracted = ExtractObjects(world, previous);
+	const ExtractedObjectSnapshot* visualChild = FindExtracted(extracted, child);
 	const bool foundVisual = visualChild != nullptr;
 	const float visualY = foundVisual ? ExtractedTranslationY(*visualChild) : 0.0f;
-	extracted.clear();
-	ExtractWorld(world, extracted);
-	const WorldExtractedObject* simulatedChild = FindExtracted(extracted, child);
+	extracted = ExtractObjects(world);
+	const ExtractedObjectSnapshot* simulatedChild = FindExtracted(extracted, child);
 	const float simulatedChildY = simulatedChild == nullptr ? 0.0f : ExtractedTranslationY(*simulatedChild);
 	const TransformComponent* afterExtract = world.GetTransform(parent);
 	if (!foundVisual || simulatedChild == nullptr || afterExtract == nullptr

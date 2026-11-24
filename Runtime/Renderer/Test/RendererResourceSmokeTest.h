@@ -21,7 +21,7 @@ struct RendererResourceSmokeResult
 	ExtractedView view{};
 	ExtractedLighting lighting{};
 	FrameConstants frameConstants{};
-	ExtractedObject extractedObject{};
+	ExtractedObjectSnapshot extractedObject{};
 	RendererResourceSmokeMaterialConstants materialConstants{};
 	std::string error{};
 };

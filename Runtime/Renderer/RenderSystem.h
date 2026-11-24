@@ -2,20 +2,20 @@
 
 #include "Runtime/Renderer/RHIServices.h"
 #include "Runtime/Renderer/RenderServices.h"
-#include "Runtime/Engine/Application/Subsystem/EngineLoopConfig.h"
-#include "Runtime/Engine/EngineInstance/Subsystem/UiSubsystem.h"
+#include "Runtime/Renderer/RenderSystemConfig.h"
+#include "Runtime/Renderer/UiFrameCapture.h"
 #include "Runtime/Core/Log/Result.h"
 #include "Runtime/Renderer/Scene/RenderSceneTypes.h"
 #include "Runtime/Renderer/Scene/SceneAssetUpload.h"
 
+#include <Windows.h>
+
 #include <cstdint>
 #include <memory>
-#include <span>
 
 class FrameContext;
 class RHIImGui;
 class RenderSystemImpl;
-class SubsystemContext;
 
 class RenderSystem
 {
@@ -27,17 +27,14 @@ public:
 		HWND hwnd,
 		uint32_t width,
 		uint32_t height,
-		const EngineLoopConfig& config,
-		SubsystemContext& ctx);
-	void Shutdown(SubsystemContext& ctx);
+		const RenderSystemConfig& config);
+	void Shutdown();
 	Result<void> Resize(uint32_t width, uint32_t height);
 
 	Result<void> Render(
 		uint32_t viewportWidth,
 		uint32_t viewportHeight,
-		const ExtractedView& view,
-		const ExtractedLighting& lighting,
-		std::span<const ExtractedObject> objects);
+		const RenderFrame& frame);
 
 	// UI サブシステムの Tick より前に呼ぶ。ImGui が無ければ false。
 	[[nodiscard]] bool BeginUiFrame();
@@ -66,6 +63,6 @@ private:
 	std::unique_ptr<RHIImGui> m_imgui{};
 	RHIServices m_rhi{};
 	RenderServices m_render{};
-	EngineLoopConfig m_config{};
+	RenderSystemConfig m_config{};
 	bool m_recording = false;
 };

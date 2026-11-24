@@ -42,11 +42,6 @@ uint32_t MakeSortKey(MaterialHandle material, MeshHandle mesh)
 	return (material.Index << 16) | (mesh.Index & 0xFFFFu);
 }
 
-void CopyMatrix(float* destination, const float* source)
-{
-	std::memcpy(destination, source, sizeof(float) * 16);
-}
-
 bool StringEqualsIgnoreCase(std::string_view left, std::string_view right)
 {
 	if (left.size() != right.size())
@@ -295,35 +290,6 @@ bool ConstantBuffersEqual(
 	return true;
 }
 
-StoredMaterialParameterOverrides CopyOverrides(const MaterialParameterOverrides& overrides)
-{
-	StoredMaterialParameterOverrides stored{};
-	stored.baseColor = overrides.baseColor;
-	stored.normal = overrides.normal;
-	stored.parameters.reserve(overrides.parameters.size());
-	for (const MaterialParameterBlock& block : overrides.parameters)
-	{
-		StoredMaterialParameterBlock storedBlock{};
-		storedBlock.bindingSlot = block.bindingSlot;
-		storedBlock.data.assign(block.data.begin(), block.data.end());
-		stored.parameters.push_back(std::move(storedBlock));
-	}
-	return stored;
-}
-
-ExtractedObjectSnapshot CopyExtractedObject(const ExtractedObject& object)
-{
-	ExtractedObjectSnapshot snapshot{};
-	snapshot.objectId = object.objectId;
-	snapshot.mesh = object.mesh;
-	snapshot.material = object.material;
-	snapshot.overrides = CopyOverrides(object.overrides);
-	snapshot.submeshIndex = object.submeshIndex;
-	CopyMatrix(snapshot.worldMatrix, object.worldMatrix);
-	snapshot.layerMask = object.layerMask;
-	snapshot.visible = object.visible;
-	return snapshot;
-}
 } // namespace
 
 void RenderScene::BeginFrame()
@@ -334,60 +300,25 @@ void RenderScene::BeginFrame()
 	m_snapshot.objectConstants.clear();
 	m_snapshot.hasView = false;
 	m_snapshot.hasLighting = false;
-	m_hasExtractedView = false;
-	m_hasExtractedLighting = false;
-}
-
-void RenderScene::Extract(std::span<const ExtractedObject> objects, uint32_t frameIndex)
-{
-	m_extractedFrame.frameIndex = frameIndex;
-	m_extractedFrame.objects.clear();
-	m_extractedFrame.objects.reserve(objects.size());
-	for (const ExtractedObject& object : objects)
-	{
-		m_extractedFrame.objects.push_back(CopyExtractedObject(object));
-	}
-}
-
-void RenderScene::ExtractView(const ExtractedView& view)
-{
-	m_extractedView = view;
-	m_hasExtractedView = true;
-}
-
-void RenderScene::ExtractLighting(const ExtractedLighting& lighting)
-{
-	m_extractedLighting = lighting;
-	m_hasExtractedLighting = true;
 }
 
 void RenderScene::Build(
+	const RenderFrame& frame,
+	uint32_t frameIndex,
 	FrameContext& frameContext,
 	RHICommandList* commandList,
 	RenderResourceServices& resources)
 {
-	m_snapshot.frameIndex = m_extractedFrame.frameIndex;
+	m_snapshot.frameIndex = frameIndex;
 	m_snapshot.opaqueItems.clear();
 	m_snapshot.shadowItems.clear();
 	m_snapshot.transparentItems.clear();
 	m_snapshot.objectConstants.clear();
-	m_snapshot.hasView = m_hasExtractedView;
-	m_snapshot.hasLighting = m_hasExtractedLighting;
-
-	if (m_hasExtractedView)
-	{
-		m_snapshot.view = m_extractedView;
-	}
-
-	if (m_hasExtractedLighting)
-	{
-		m_snapshot.lighting = m_extractedLighting;
-	}
-
-	if (m_snapshot.hasView && m_snapshot.hasLighting)
-	{
-		BuildFrameConstants(m_snapshot.view, m_snapshot.lighting, m_snapshot.frameConstants);
-	}
+	m_snapshot.view = frame.view;
+	m_snapshot.lighting = frame.lighting;
+	m_snapshot.hasView = true;
+	m_snapshot.hasLighting = true;
+	BuildFrameConstants(m_snapshot.view, m_snapshot.lighting, m_snapshot.frameConstants);
 
 	std::string placeholderError;
 	if (!m_placeholders.EnsureInitialized(
@@ -410,7 +341,7 @@ void RenderScene::Build(
 		? MakeViewFrustum(m_snapshot.view.viewProjectionMatrix)
 		: ViewFrustum{};
 
-	for (const ExtractedObjectSnapshot& object : m_extractedFrame.objects)
+	for (const ExtractedObjectSnapshot& object : frame.objects)
 	{
 		if (!object.visible || !object.objectId.IsValid())
 		{
@@ -465,7 +396,7 @@ void RenderScene::Build(
 			resolvedConstants,
 			resources,
 			placeholders,
-			m_extractedFrame.frameIndex);
+			frameIndex);
 		if (!instanceHandle.IsValid())
 		{
 			continue;
@@ -516,7 +447,7 @@ void RenderScene::Build(
 		std::ranges::sort(m_snapshot.transparentItems, {}, &RenderItem::sortKey);
 	}
 
-	ReleaseStaleMaterialInstances(materialServices, m_extractedFrame.frameIndex);
+	ReleaseStaleMaterialInstances(materialServices, frameIndex);
 }
 
 MaterialInstanceHandle RenderScene::ResolveMaterialInstance(

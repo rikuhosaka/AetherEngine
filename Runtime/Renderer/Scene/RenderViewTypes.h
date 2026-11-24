@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Runtime/Engine/Camera/ExtractedView.h"
+#include "Runtime/Renderer/Scene/ExtractedView.h"
 
 #include <cstdint>
 

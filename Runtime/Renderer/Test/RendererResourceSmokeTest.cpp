@@ -31,7 +31,7 @@ void MakeIdentity(float* outMatrix4x4)
 }
 
 void FillExtractedObjectOverrides(
-	ExtractedObject& object,
+	ExtractedObjectSnapshot& object,
 	const TextureHandle& textureHandle,
 	const RendererResourceSmokeMaterialConstants& materialConstants)
 {
@@ -39,12 +39,11 @@ void FillExtractedObjectOverrides(
 	object.overrides.normal = {};
 
 	object.overrides.parameters.clear();
-	MaterialParameterBlock materialBlock{};
+	StoredMaterialParameterBlock materialBlock{};
 	materialBlock.bindingSlot = 0;
-	materialBlock.data = std::span<const std::byte>(
-		reinterpret_cast<const std::byte*>(&materialConstants),
-		sizeof(materialConstants));
-	object.overrides.parameters.push_back(materialBlock);
+	const auto* bytes = reinterpret_cast<const std::byte*>(&materialConstants);
+	materialBlock.data.assign(bytes, bytes + sizeof(materialConstants));
+	object.overrides.parameters.push_back(std::move(materialBlock));
 }
 
 [[nodiscard]] bool IsNearlyEqual(float left, float right, float epsilon = 0.0001f)
@@ -229,7 +228,7 @@ RendererResourceSmokeResult BuildRendererResourceSmokeScene(
 	InitDefaultExtractedLighting(result.lighting);
 	BuildFrameConstants(result.view, result.lighting, result.frameConstants);
 
-	ExtractedObject& object = result.extractedObject;
+	ExtractedObjectSnapshot& object = result.extractedObject;
 	object.objectId.Index = 0;
 	object.objectId.Generation = 1;
 	object.mesh = meshHandle;

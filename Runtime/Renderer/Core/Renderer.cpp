@@ -91,22 +91,7 @@ void Renderer::BeginFrame(uint32_t frameIndex)
 	m_scene.BeginFrame();
 }
 
-void Renderer::ExtractScene(std::span<const ExtractedObject> objects)
-{
-	m_scene.Extract(objects, m_frameIndex);
-}
-
-void Renderer::ExtractView(const ExtractedView& view)
-{
-	m_scene.ExtractView(view);
-}
-
-void Renderer::ExtractLighting(const ExtractedLighting& lighting)
-{
-	m_scene.ExtractLighting(lighting);
-}
-
-void Renderer::BuildScene(RHICommandList* commandList)
+void Renderer::BuildScene(RHICommandList* commandList, const RenderFrame& frame)
 {
 	if (m_frameContext == nullptr || m_resourceServices == nullptr || commandList == nullptr)
 	{
@@ -119,7 +104,7 @@ void Renderer::BuildScene(RHICommandList* commandList)
 		return;
 	}
 
-	m_scene.Build(*m_frameContext, commandList, *m_resourceServices);
+	m_scene.Build(frame, m_frameIndex, *m_frameContext, commandList, *m_resourceServices);
 	m_sceneBuilt = true;
 }
 

@@ -9,7 +9,6 @@
 #include "Runtime/Renderer/Texture/TextureTypes.h"
 
 #include <cstdint>
-#include <span>
 #include <vector>
 
 namespace RenderLayer
@@ -18,34 +17,6 @@ constexpr uint8_t Opaque = 1u << 0;
 constexpr uint8_t Shadow = 1u << 1;
 constexpr uint8_t Transparent = 1u << 2;
 } // namespace RenderLayer
-
-struct MaterialParameterBlock
-{
-    std::span<const std::byte> data;
-
-    uint32_t bindingSlot;
-};
-
-struct MaterialParameterOverrides
-{
-    TextureHandle baseColor;
-
-    TextureHandle normal;
-
-    std::vector<MaterialParameterBlock> parameters;
-};
-
-struct ExtractedObject
-{
-	RenderObjectId objectId{};
-	MeshHandle mesh{};
-	MaterialHandle material{};
-	MaterialParameterOverrides overrides{};
-	uint32_t submeshIndex = 0;
-	float worldMatrix[16]{};
-	uint8_t layerMask = RenderLayer::Opaque;
-	bool visible = true;
-};
 
 struct StoredMaterialParameterBlock
 {
@@ -72,9 +43,11 @@ struct ExtractedObjectSnapshot
 	bool visible = true;
 };
 
-struct ExtractedFrame
+// 1フレーム分の描画入力。パラメータのバイト列はこのフレームが所有する。
+struct RenderFrame
 {
-	uint32_t frameIndex = 0;
+	ExtractedView view{};
+	ExtractedLighting lighting{};
 	std::vector<ExtractedObjectSnapshot> objects{};
 };
 

@@ -6,14 +6,10 @@
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/Engine.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/InputSubsystem.h"
-#include "Runtime/Engine/World/ExtractedObject.h"
-#include "Runtime/Engine/World/DebugStatsServices.h"
 #include "Runtime/Engine/World/Component/RigidBody.h"
 #include "Runtime/Engine/World/World.h"
-#include "Runtime/Engine/World/WorldExtract.h"
 
 #include <cmath>
-#include <vector>
 
 namespace
 {
@@ -134,9 +130,6 @@ Result<void> RunEngineSessionTests()
 	{
 		engine.FixedTick(context, kFixedDeltaSeconds);
 	}
-	DebugStatsServices stats{};
-	std::vector<WorldExtractedObject> extracted{};
-	Extract(engine.GetWorld(), extracted, {}, stats);
 	const float playedHeight = engine.GetWorld().GetTransform(body)->position.y;
 	if (!(playedHeight < 3.5f))
 	{
@@ -150,8 +143,6 @@ Result<void> RunEngineSessionTests()
 	session->requestMode = SessionMode::Paused;
 	engine.Tick(context, 0.016f);
 	engine.FixedTick(context, kFixedDeltaSeconds);
-	extracted.clear();
-	Extract(engine.GetWorld(), extracted, {}, stats);
 	if (!engine.GetWorld().IsPlaying() || session->mode != SessionMode::Paused || published->generation != 2
 		|| !IsNearlyEqual(engine.GetWorld().GetTransform(body)->position.y, playedHeight))
 	{

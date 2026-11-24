@@ -8,14 +8,15 @@
 #include "Runtime/Engine/EngineInstance/RendererDebugTests.h"
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 #include "Runtime/Engine/SceneDocument/SceneDocumentTest.h"
-#include "Runtime/Engine/World/Test/EntityPhysicsTest.h"
+#include "Runtime/Engine/EngineInstance/Test/EntityPhysicsTest.h"
 #include "Runtime/Physics/Test/PhysicsLibraryTest.h"
 #include "Runtime/Physics/Test/PhysicsWorldTest.h"
+#include "Runtime/Engine/EngineInstance/Test/CameraViewBuildTest.h"
 #include "Runtime/Engine/EngineInstance/Test/EngineSessionTest.h"
 #include "Runtime/Engine/World/Test/WorldTest.h"
 #include "Runtime/Engine/SceneDocument/SceneCaptureTest.h"
 #include "Runtime/Engine/SceneDocument/ServiceLifetimeTest.h"
-#include "Runtime/Engine/World/Test/WorldExtractTest.h"
+#include "Runtime/Engine/EngineInstance/Test/WorldExtractTest.h"
 
 #include <cmath>
 #include <string>
@@ -152,6 +153,11 @@ Result<void> RunDebugStartupTests(
 	}
 
 	if (auto result = RunEngineSessionTests(); !result)
+	{
+		return result;
+	}
+
+	if (auto result = RunCameraViewBuildTests(); !result)
 	{
 		return result;
 	}
