@@ -7,11 +7,11 @@ namespace
 using Json = nlohmann::json;
 } // namespace
 
-Result<CameraComponent> CameraComponentSerializer::Read(const nlohmann::json& value)
+Result<SceneCamera> CameraComponentSerializer::Read(const nlohmann::json& value)
 {
 	if (!value.is_object())
 	{
-		return FailRuntime<CameraComponent>(
+		return FailRuntime<SceneCamera>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document camera is invalid");
@@ -20,12 +20,12 @@ Result<CameraComponent> CameraComponentSerializer::Read(const nlohmann::json& va
 	const Json* fovY = JsonFields::FindField(value, "fovY");
 	const Json* nearPlane = JsonFields::FindField(value, "near");
 	const Json* farPlane = JsonFields::FindField(value, "far");
-	CameraComponent component{};
+	SceneCamera component{};
 	if (fovY == nullptr || nearPlane == nullptr || farPlane == nullptr
 		|| !JsonFields::ReadFloat(*fovY, component.fovYDegrees) || !JsonFields::ReadFloat(*nearPlane, component.nearPlane)
 		|| !JsonFields::ReadFloat(*farPlane, component.farPlane))
 	{
-		return FailRuntime<CameraComponent>(
+		return FailRuntime<SceneCamera>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document camera is invalid");
@@ -34,7 +34,7 @@ Result<CameraComponent> CameraComponentSerializer::Read(const nlohmann::json& va
 	return MakeOk(component);
 }
 
-nlohmann::json CameraComponentSerializer::Write(const CameraComponent& camera)
+nlohmann::json CameraComponentSerializer::Write(const SceneCamera& camera)
 {
 	return nlohmann::json::object({
 		{ "fovY", camera.fovYDegrees },

@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <string>
@@ -360,6 +361,32 @@ void GenerateTangentsForRange(
 	return MakeOk(std::move(values));
 }
 
+// Specular color, matching an FBX specular map. The specular factor texture is a scalar and is left unused.
+[[nodiscard]] const cgltf_texture_view* SpecularColorTextureView(const cgltf_material& material)
+{
+	if (material.has_specular && material.specular.specular_color_texture.texture != nullptr)
+	{
+		return &material.specular.specular_color_texture;
+	}
+
+	if (material.has_pbr_specular_glossiness
+		&& material.pbr_specular_glossiness.specular_glossiness_texture.texture != nullptr)
+	{
+		return &material.pbr_specular_glossiness.specular_glossiness_texture;
+	}
+
+	return nullptr;
+}
+
+[[nodiscard]] bool IsSupportedRequiredExtension(const char* name)
+{
+	return name != nullptr
+		&& (std::strcmp(name, "KHR_materials_unlit") == 0
+			|| std::strcmp(name, "KHR_mesh_quantization") == 0
+			|| std::strcmp(name, "KHR_materials_specular") == 0
+			|| std::strcmp(name, "KHR_materials_pbrSpecularGlossiness") == 0);
+}
+
 struct GltfImporter
 {
 	std::filesystem::path absolutePath{};
@@ -459,8 +486,7 @@ struct GltfImporter
 		for (cgltf_size index = 0; index < data->extensions_required_count; ++index)
 		{
 			const char* name = data->extensions_required[index];
-			if (name == nullptr
-				|| (std::strcmp(name, "KHR_materials_unlit") != 0 && std::strcmp(name, "KHR_mesh_quantization") != 0))
+			if (!IsSupportedRequiredExtension(name))
 			{
 				return FailRuntime(
 					LogCategory::Asset,
@@ -732,6 +758,16 @@ struct GltfImporter
 		}
 		slot.normalTexturePath = std::move(normal.value);
 
+		if (const cgltf_texture_view* specularView = SpecularColorTextureView(*material))
+		{
+			auto specular = ResolveTextureView(*specularView, false);
+			if (!specular)
+			{
+				return MakeFail<uint32_t>(specular.error.code, specular.error.message);
+			}
+			slot.specularTexturePath = std::move(specular.value);
+		}
+
 		const uint32_t slotIndex = static_cast<uint32_t>(asset.materialSlots.size());
 		asset.materialSlots.push_back(std::move(slot));
 		materialSlots.emplace(material, slotIndex);
@@ -757,8 +793,9 @@ struct GltfImporter
 		const cgltf_accessor* normalAccessor = cgltf_find_accessor(&primitive, cgltf_attribute_type_normal, 0);
 		const cgltf_accessor* tangentAccessor = cgltf_find_accessor(&primitive, cgltf_attribute_type_tangent, 0);
 		const cgltf_accessor* uvAccessor = cgltf_find_accessor(&primitive, cgltf_attribute_type_texcoord, 0);
-		const bool needsUv = !asset.materialSlots[materialSlot.value].diffuseTexturePath.empty()
-			|| !asset.materialSlots[materialSlot.value].normalTexturePath.empty();
+		const ModelMaterialSlotData& slot = asset.materialSlots[materialSlot.value];
+		const bool needsUv = !slot.diffuseTexturePath.empty() || !slot.normalTexturePath.empty()
+			|| !slot.specularTexturePath.empty();
 		if (needsUv && (uvAccessor == nullptr || uvAccessor->count != positionAccessor->count))
 		{
 			return FailRuntime(
@@ -1069,7 +1106,9 @@ struct GltfImporter
 		const cgltf_texture* baseColor = material.has_pbr_metallic_roughness
 			? material.pbr_metallic_roughness.base_color_texture.texture
 			: nullptr;
-		const cgltf_texture* textures[] = { baseColor, material.normal_texture.texture };
+		const cgltf_texture_view* specularView = SpecularColorTextureView(material);
+		const cgltf_texture* specular = specularView != nullptr ? specularView->texture : nullptr;
+		const cgltf_texture* textures[] = { baseColor, material.normal_texture.texture, specular };
 		for (const cgltf_texture* texture : textures)
 		{
 			if (texture != nullptr && texture->image == image)

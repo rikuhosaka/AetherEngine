@@ -7,7 +7,7 @@ struct VSOut
 Texture2D g_texture : register(t0);
 SamplerState g_sampler : register(s0);
 
-cbuffer MaterialConstants : register(b1)
+cbuffer MaterialConstants : register(b2)
 {
     float4 tint;
 };

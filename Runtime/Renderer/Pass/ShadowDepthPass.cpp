@@ -4,6 +4,7 @@
 #include "Runtime/Renderer/Mesh/MeshSystemServices.h"
 #include "Runtime/Renderer/Pass/FrameConstantsBinder.h"
 #include "Runtime/Renderer/Pass/ObjectConstantsBinder.h"
+#include "Runtime/Renderer/Pipeline/GraphicsRootSignature.h"
 #include "Runtime/Renderer/Pipeline/PipelineStateCache.h"
 #include "Runtime/Renderer/Pipeline/RootSignatureCache.h"
 #include "Runtime/Renderer/Pipeline/ShaderRootLayoutBuilder.h"
@@ -303,17 +304,16 @@ bool ShadowDepthPass::EnsurePipeline()
 		return false;
 	}
 
-	ShaderRootLayoutBuilder layoutBuilder{};
-	layoutBuilder.AddStage(*reflection);
-	auto layoutResult = layoutBuilder.Build();
-	if (!layoutResult)
+	const RHIRootSignatureLayout rootSignatureLayout = MakeGraphicsRootSignatureLayout();
+	auto bindingSlotsResult = MapRootSignatureBindings(rootSignatureLayout, std::span{ reflection, 1 });
+	if (!bindingSlotsResult)
 	{
-		LOG_ERROR(LogCategory::Renderer, "Failed to build the shadow depth root signature");
+		LOG_ERROR(LogCategory::Renderer, "Shadow depth shader is incompatible with the graphics root signature");
 		m_pipelineFailed = true;
 		return false;
 	}
 
-	auto rootSignatureResult = m_rootSignatureCache->GetOrCreateRootSignature(layoutResult.value.Layout);
+	auto rootSignatureResult = m_rootSignatureCache->GetOrCreateRootSignature(rootSignatureLayout);
 	if (!rootSignatureResult)
 	{
 		LOG_ERROR(LogCategory::Renderer, "Failed to create the shadow depth root signature");
@@ -330,8 +330,8 @@ bool ShadowDepthPass::EnsurePipeline()
 	}
 
 	m_material.vertexShader = std::move(vertexShaderResult.value);
-	m_material.bindingSlots = layoutResult.value.Slots;
-	m_material.rootSignatureLayout = layoutResult.value.Layout;
+	m_material.bindingSlots = std::move(bindingSlotsResult.value);
+	m_material.rootSignatureLayout = rootSignatureLayout;
 	m_material.constantLayout = reflection->ConstantBuffers;
 	m_material.inputLayout = InputLayoutType::Basic;
 	m_material.requiredLayout = VertexLayoutId::Basic;
@@ -345,7 +345,7 @@ bool ShadowDepthPass::EnsurePipeline()
 	pipelineLayout.dsvFormat = DSV_FORMAT::D32_FLOAT;
 	pipelineLayout.depth = DepthStencilState::DepthDefault;
 	pipelineLayout.raster = RasterizerState::NoCull;
-	pipelineLayout.rootSignature = layoutResult.value.Layout;
+	pipelineLayout.rootSignature = rootSignatureLayout;
 	pipelineLayout.DebugName = "ShadowDepth";
 
 	auto pipelineStateResult = m_pipelineStateCache->GetOrCreatePipelineState(pipelineLayout);

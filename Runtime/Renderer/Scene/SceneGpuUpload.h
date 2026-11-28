@@ -40,6 +40,7 @@ struct SceneModelUpload
 	std::vector<SceneNodeUpload> nodes{};
 	std::vector<uint32_t> baseColorBySlot{};
 	std::vector<uint32_t> normalBySlot{};
+	std::vector<uint32_t> specularBySlot{};
 };
 
 struct SceneGpuUpload

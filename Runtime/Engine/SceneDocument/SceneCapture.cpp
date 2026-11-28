@@ -1,5 +1,6 @@
 #include "Runtime/Engine/SceneDocument/SceneCapture.h"
 
+#include "Runtime/Engine/SceneDocument/SceneComponentMap.h"
 #include "Runtime/Engine/World/Component/DocumentEntityId.h"
 #include "Runtime/Engine/World/World.h"
 
@@ -106,10 +107,10 @@ Result<SceneDocument> CaptureScene(const World& world, const SceneDocument& auth
 		}
 
 		SceneEntity capturedEntity = authored.entities[index];
-		capturedEntity.transform = *transform;
+		capturedEntity.transform = ToSceneTransform(*transform);
 		if (const RigidBody* body = world.Get<RigidBody>(entity))
 		{
-			capturedEntity.body = *body;
+			capturedEntity.body = ToSceneRigidBody(*body);
 		}
 		else
 		{
@@ -118,7 +119,7 @@ Result<SceneDocument> CaptureScene(const World& world, const SceneDocument& auth
 
 		if (const CameraComponent* camera = world.Get<CameraComponent>(entity))
 		{
-			capturedEntity.camera = *camera;
+			capturedEntity.camera = ToSceneCamera(*camera);
 		}
 		else
 		{
@@ -127,7 +128,7 @@ Result<SceneDocument> CaptureScene(const World& world, const SceneDocument& auth
 
 		if (const LightComponent* light = world.Get<LightComponent>(entity))
 		{
-			capturedEntity.light = *light;
+			capturedEntity.light = ToSceneLight(*light);
 		}
 		else
 		{

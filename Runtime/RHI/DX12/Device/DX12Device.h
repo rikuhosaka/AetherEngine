@@ -40,6 +40,7 @@ public:
 		RHIDescriptorAllocator* allocator) override;
 
 	void WriteShaderResourceView(RHITexture* texture, CpuDescHandle destCpuHandle) override;
+	void WriteNullShaderResourceView(CpuDescHandle destCpuHandle) override;
 	void WriteRenderTargetView(RHITexture* texture, RtvHandle dest) override;
 	void WriteDepthStencilView(RHITexture* texture, DsvHandle dest) override;
 	void WriteConstantBufferView(

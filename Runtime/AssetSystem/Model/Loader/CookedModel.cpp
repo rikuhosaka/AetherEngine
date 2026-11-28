@@ -201,6 +201,7 @@ void WriteModel(
 		writer.String(slot.name);
 		WriteStoredPath(writer, assetsRoot, slot.diffuseTexturePath);
 		WriteStoredPath(writer, assetsRoot, slot.normalTexturePath);
+		WriteStoredPath(writer, assetsRoot, slot.specularTexturePath);
 	}
 
 	writer.U32(static_cast<uint32_t>(model.nodes.size()));
@@ -335,6 +336,7 @@ void WriteModel(
 		slot.name = reader.String(kMaxStringBytes);
 		slot.diffuseTexturePath = ReadStoredPath(reader, assetsRoot);
 		slot.normalTexturePath = ReadStoredPath(reader, assetsRoot);
+		slot.specularTexturePath = ReadStoredPath(reader, assetsRoot);
 		if (!reader.Reading())
 		{
 			return false;

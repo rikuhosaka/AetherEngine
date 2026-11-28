@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/World/Component/RigidBody.h"
+#include "Runtime/Engine/SceneDocument/SceneComponents.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
 #include <string_view>
@@ -14,8 +14,8 @@ class RigidBodySerializer
 public:
 	static constexpr std::string_view kKey = "physics";
 
-	[[nodiscard]] static Result<RigidBody> Read(const nlohmann::json& value);
-	[[nodiscard]] static nlohmann::json Write(const RigidBody& body);
+	[[nodiscard]] static Result<SceneRigidBody> Read(const nlohmann::json& value);
+	[[nodiscard]] static nlohmann::json Write(const SceneRigidBody& body);
 	[[nodiscard]] static const char* MotionName(PhysicsMotion motion);
 	[[nodiscard]] static const char* ShapeName(PhysicsShapeType type);
 };

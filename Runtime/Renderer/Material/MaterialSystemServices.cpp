@@ -2,6 +2,7 @@
 
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
+#include "Runtime/Renderer/Pipeline/GraphicsRootSignature.h"
 #include "Runtime/Renderer/Pipeline/PipelineStateCache.h"
 #include "Runtime/Renderer/Pipeline/RootSignatureCache.h"
 #include "Runtime/Renderer/Pipeline/ShaderRootLayoutBuilder.h"
@@ -244,17 +245,18 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 			"Failed to resolve reflected material shader data.");
 	}
 
-	ShaderRootLayoutBuilder layoutBuilder{};
-	layoutBuilder.AddStage(*vsReflection);
-	layoutBuilder.AddStage(*psReflection);
-	auto layoutResult = layoutBuilder.Build();
-	if (!layoutResult)
+	const RHIRootSignatureLayout rootSignatureLayout = MakeGraphicsRootSignatureLayout();
+	const ShaderReflectionData shaderStages[] = { *vsReflection, *psReflection };
+	auto bindingSlotsResult = MapRootSignatureBindings(rootSignatureLayout, shaderStages);
+	if (!bindingSlotsResult)
 	{
-		return MakeFail<MaterialHandle>(layoutResult.error.code, layoutResult.error.message);
+		return MakeFail<MaterialHandle>(
+			bindingSlotsResult.error.code,
+			bindingSlotsResult.error.message);
 	}
 
 	auto rootSignatureResult =
-		m_rootSignatureCache->GetOrCreateRootSignature(layoutResult.value.Layout);
+		m_rootSignatureCache->GetOrCreateRootSignature(rootSignatureLayout);
 	if (!rootSignatureResult)
 	{
 		return MakeFail<MaterialHandle>(
@@ -290,7 +292,7 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 	pipelineLayout.inputLayout = desc.inputLayout;
 	pipelineLayout.blend = desc.blend;
 	pipelineLayout.depth = desc.depth;
-	pipelineLayout.rootSignature = layoutResult.value.Layout;
+	pipelineLayout.rootSignature = rootSignatureLayout;
 	pipelineLayout.topology = PrimitiveTopology::TriangleList;
 
 	auto pipelineStateResult = m_pipelineStateCache->GetOrCreatePipelineState(pipelineLayout);
@@ -305,8 +307,8 @@ Result<MaterialHandle> MaterialSystemServices::CreateMaterial(const MaterialCrea
 	material->rootSignature = rootSignatureResult.value;
 	material->requiredLayout = desc.requiredLayout;
 	material->inputLayout = desc.inputLayout;
-	material->bindingSlots = layoutResult.value.Slots;
-	material->rootSignatureLayout = layoutResult.value.Layout;
+	material->bindingSlots = std::move(bindingSlotsResult.value);
+	material->rootSignatureLayout = rootSignatureLayout;
 	material->constantLayout = vsReflection->ConstantBuffers;
 	material->constantLayout.insert(
 		material->constantLayout.end(),

@@ -1,12 +1,7 @@
 #pragma once
 
-#include "Runtime/Engine/World/Component/CameraComponent.h"
-#include "Runtime/Engine/World/EntityId.h"
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/World/Component/LightComponent.h"
-#include "Runtime/Engine/World/Component/Renderable.h"
-#include "Runtime/Engine/World/Component/RigidBody.h"
-#include "Runtime/Engine/World/Component/TransformComponent.h"
+#include "Runtime/Engine/SceneDocument/SceneComponents.h"
 #include "Runtime/Engine/World/WorldDocument.h"
 
 #include <cstdint>
@@ -26,10 +21,10 @@ struct SceneEntity
 	std::string mesh{};
 	std::string model{};
 	float tint[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
-	TransformComponent transform{};
-	std::optional<RigidBody> body{};
-	std::optional<CameraComponent> camera{};
-	std::optional<LightComponent> light{};
+	SceneTransform transform{};
+	std::optional<SceneRigidBody> body{};
+	std::optional<SceneCamera> camera{};
+	std::optional<SceneLight> light{};
 };
 
 struct SceneDocument

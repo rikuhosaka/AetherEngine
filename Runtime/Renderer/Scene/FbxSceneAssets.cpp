@@ -122,7 +122,10 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 	m_materialTextures.resize(model.baseColorBySlot.size());
 	m_normalTextures.clear();
 	m_normalTextures.resize(model.normalBySlot.size());
-	if (model.baseColorBySlot.size() != model.normalBySlot.size())
+	m_specularTextures.clear();
+	m_specularTextures.resize(model.specularBySlot.size());
+	if (model.baseColorBySlot.size() != model.normalBySlot.size()
+		|| model.baseColorBySlot.size() != model.specularBySlot.size())
 	{
 		return FailInternal(LogCategory::Asset, ErrorCode::InvalidArgument,
 			"FbxSceneAssets material texture slots do not match");
@@ -137,18 +140,29 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 		}
 
 		m_materialTextures[slotIndex] = baseColor.value;
-		if (model.normalBySlot[slotIndex] == kNoSceneTexture)
+		if (model.normalBySlot[slotIndex] != kNoSceneTexture)
+		{
+			const Result<TextureHandle> normal = TextureAt(textures, model.normalBySlot[slotIndex]);
+			if (!normal)
+			{
+				return MakeFail(normal.error.code, normal.error.message);
+			}
+
+			m_normalTextures[slotIndex] = normal.value;
+		}
+
+		if (model.specularBySlot[slotIndex] == kNoSceneTexture)
 		{
 			continue;
 		}
 
-		const Result<TextureHandle> normal = TextureAt(textures, model.normalBySlot[slotIndex]);
-		if (!normal)
+		const Result<TextureHandle> specular = TextureAt(textures, model.specularBySlot[slotIndex]);
+		if (!specular)
 		{
-			return MakeFail(normal.error.code, normal.error.message);
+			return MakeFail(specular.error.code, specular.error.message);
 		}
 
-		m_normalTextures[slotIndex] = normal.value;
+		m_specularTextures[slotIndex] = specular.value;
 	}
 
 	MaterialCreateDesc materialDesc{};
@@ -230,6 +244,7 @@ Result<void> FbxSceneAssets::EnsureInitialized(
 			{
 				submesh.baseColor = m_materialTextures[materialSlot];
 				submesh.normal = m_normalTextures[materialSlot];
+				submesh.specular = m_specularTextures[materialSlot];
 			}
 			else if (!m_materialTextures.empty())
 			{

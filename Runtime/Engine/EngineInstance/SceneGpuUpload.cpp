@@ -268,14 +268,18 @@ Result<void> BuildSceneGpuUpload(
 	std::unordered_map<std::string, uint32_t> loadedTextures{};
 	std::vector<std::vector<uint32_t>> baseColorByModel{};
 	std::vector<std::vector<uint32_t>> normalByModel{};
+	std::vector<std::vector<uint32_t>> specularByModel{};
 	baseColorByModel.reserve(sources.models.size());
 	normalByModel.reserve(sources.models.size());
+	specularByModel.reserve(sources.models.size());
 	for (const ModelAssetData& model : sources.models)
 	{
 		std::vector<uint32_t> baseColors{};
 		std::vector<uint32_t> normals{};
+		std::vector<uint32_t> speculars{};
 		baseColors.reserve(model.materialSlots.size());
 		normals.reserve(model.materialSlots.size());
+		speculars.reserve(model.materialSlots.size());
 		for (const ModelMaterialSlotData& slot : model.materialSlots)
 		{
 			const Result<uint32_t> diffuse = ResolveModelTexture(
@@ -294,26 +298,48 @@ Result<void> BuildSceneGpuUpload(
 			if (slot.normalTexturePath.empty())
 			{
 				normals.push_back(kNoSceneTexture);
+			}
+			else
+			{
+				const Result<uint32_t> normal = ResolveModelTexture(
+					sources,
+					loadedTextures,
+					assetsRoot,
+					slot.normalTexturePath,
+					TextureColorSpace::Linear,
+					"FbxNormal");
+				if (!normal)
+				{
+					return MakeFail(normal.error.code, normal.error.message);
+				}
+
+				normals.push_back(normal.value);
+			}
+
+			if (slot.specularTexturePath.empty())
+			{
+				speculars.push_back(kNoSceneTexture);
 				continue;
 			}
 
-			const Result<uint32_t> normal = ResolveModelTexture(
+			const Result<uint32_t> specular = ResolveModelTexture(
 				sources,
 				loadedTextures,
 				assetsRoot,
-				slot.normalTexturePath,
+				slot.specularTexturePath,
 				TextureColorSpace::Linear,
-				"FbxNormal");
-			if (!normal)
+				"FbxSpecular");
+			if (!specular)
 			{
-				return MakeFail(normal.error.code, normal.error.message);
+				return MakeFail(specular.error.code, specular.error.message);
 			}
 
-			normals.push_back(normal.value);
+			speculars.push_back(specular.value);
 		}
 
 		baseColorByModel.push_back(std::move(baseColors));
 		normalByModel.push_back(std::move(normals));
+		specularByModel.push_back(std::move(speculars));
 	}
 
 	sources.upload.meshes.reserve(sources.primitives.size());
@@ -362,6 +388,7 @@ Result<void> BuildSceneGpuUpload(
 
 		model.baseColorBySlot = std::move(baseColorByModel[modelIndex]);
 		model.normalBySlot = std::move(normalByModel[modelIndex]);
+		model.specularBySlot = std::move(specularByModel[modelIndex]);
 		sources.upload.models.push_back(std::move(model));
 	}
 

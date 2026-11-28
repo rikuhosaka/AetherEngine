@@ -46,6 +46,8 @@ private:
 	RHIRootSignature* m_rootSignature = nullptr;
 	RHIPipelineState* m_pipelineState = nullptr;
 	uint32_t m_srvRootParameter = 0;
+	uint32_t m_srvTableCount = 0;
+	uint32_t m_srvTableOffset = 0;
 	bool m_ready = false;
 	bool m_failed = false;
 };

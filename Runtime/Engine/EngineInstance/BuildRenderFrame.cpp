@@ -75,6 +75,7 @@ ExtractedObjectSnapshot MakeExtractedObject(
 
 	object.overrides.baseColor = ToTextureHandle(renderable.overrides.baseColor);
 	object.overrides.normal = ToTextureHandle(renderable.overrides.normal);
+	object.overrides.specular = ToTextureHandle(renderable.overrides.specular);
 	object.overrides.parameters.reserve(renderable.overrides.parameters.size());
 	for (const WorldMaterialParameterBlock& block : renderable.overrides.parameters)
 	{

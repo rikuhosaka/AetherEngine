@@ -2,6 +2,7 @@
 
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Core/Log/Result.h"
+#include "Runtime/Renderer/Pipeline/GraphicsRootSignature.h"
 #include "Runtime/Renderer/Pipeline/PipelineStateCache.h"
 #include "Runtime/Renderer/Pipeline/RootSignatureCache.h"
 #include "Runtime/Renderer/Pipeline/ShaderRootLayoutBuilder.h"
@@ -131,16 +132,44 @@ void SceneDepthDebugPass::Execute(FrameContext& frameContext, RHICommandList* co
 	const RHIScopedDebugEvent passEvent(commandList, "SceneDepthDebug");
 	commandList->SetTransientDescriptorHeap(frameContext.transientDescriptors);
 
-	const uint32_t descriptorIndex = frameContext.transientDescriptors->Allocate();
-	if (descriptorIndex == UINT32_MAX)
+	if (m_srvTableCount == 0)
 	{
-		LOG_ERROR(LogCategory::Renderer, "Failed to allocate a scene depth shader resource view");
+		LOG_ERROR(LogCategory::Renderer, "Scene depth debug shader resource table is empty");
 		return;
 	}
 
-	const CpuDescHandle cpuHandle = frameContext.transientDescriptors->GetCpuHandle(descriptorIndex);
-	const GpuDescHandle gpuHandle = frameContext.transientDescriptors->GetGpuHandle(descriptorIndex);
-	m_device->WriteShaderResourceView(frameContext.depthTexture, cpuHandle);
+	uint32_t firstDescriptorIndex = UINT32_MAX;
+	for (uint32_t element = 0; element < m_srvTableCount; ++element)
+	{
+		const uint32_t descriptorIndex = frameContext.transientDescriptors->Allocate();
+		if (descriptorIndex == UINT32_MAX)
+		{
+			LOG_ERROR(LogCategory::Renderer, "Failed to allocate a scene depth shader resource view");
+			return;
+		}
+
+		if (element == 0)
+		{
+			firstDescriptorIndex = descriptorIndex;
+		}
+		else if (descriptorIndex != firstDescriptorIndex + element)
+		{
+			LOG_ERROR(LogCategory::Renderer, "Scene depth shader resource descriptors are not contiguous");
+			return;
+		}
+
+		const CpuDescHandle cpuHandle = frameContext.transientDescriptors->GetCpuHandle(descriptorIndex);
+		if (element == m_srvTableOffset)
+		{
+			m_device->WriteShaderResourceView(frameContext.depthTexture, cpuHandle);
+		}
+		else
+		{
+			m_device->WriteNullShaderResourceView(cpuHandle);
+		}
+	}
+
+	const GpuDescHandle gpuHandle = frameContext.transientDescriptors->GetGpuHandle(firstDescriptorIndex);
 
 	commandList->SetPipelineState(m_pipelineState);
 	commandList->SetRootSignature(m_rootSignature);
@@ -235,23 +264,50 @@ bool SceneDepthDebugPass::EnsureReady()
 		return false;
 	}
 
-	ShaderRootLayoutBuilder layoutBuilder{};
-	layoutBuilder.AddStage(*vsReflection);
-	layoutBuilder.AddStage(*psReflection);
-	auto layoutResult = layoutBuilder.Build();
-	if (!layoutResult)
+	const RHIRootSignatureLayout rootSignatureLayout = MakeGraphicsRootSignatureLayout();
+	const ShaderReflectionData shaderStages[] = { *vsReflection, *psReflection };
+	auto bindingSlotsResult = MapRootSignatureBindings(rootSignatureLayout, shaderStages);
+	if (!bindingSlotsResult)
 	{
-		LOG_ERROR(LogCategory::Renderer, "Failed to build the scene depth debug root signature");
+		LOG_ERROR(LogCategory::Renderer, "Scene depth debug shaders are incompatible with the graphics root signature");
 		m_failed = true;
 		return false;
 	}
 
 	bool foundSrv = false;
-	for (const ShaderRootBindingSlot& slot : layoutResult.value.Slots)
+	for (const ShaderRootBindingSlot& slot : bindingSlotsResult.value)
 	{
 		if (slot.RootType == RHIRootParamType::SRV)
 		{
+			if (slot.RootParameterIndex >= rootSignatureLayout.parameters.size())
+			{
+				LOG_ERROR(LogCategory::Renderer, "Scene depth shader resource is outside the root signature");
+				m_failed = true;
+				return false;
+			}
+
+			const RHIRootParameterDesc& parameter = rootSignatureLayout.parameters[slot.RootParameterIndex];
+			if (parameter.kind != RHIRootParameterKind::DescriptorTable
+				|| slot.RangeIndex >= parameter.ranges.size())
+			{
+				LOG_ERROR(LogCategory::Renderer, "Scene depth shader resource is not in a descriptor table");
+				m_failed = true;
+				return false;
+			}
+
+			const RHIRootDescriptorRange& range = parameter.ranges[slot.RangeIndex];
+			if (range.unbounded || range.count == 0
+				|| slot.TableOffset < range.offset
+				|| slot.TableOffset >= range.offset + range.count)
+			{
+				LOG_ERROR(LogCategory::Renderer, "Scene depth shader resource is outside its descriptor range");
+				m_failed = true;
+				return false;
+			}
+
 			m_srvRootParameter = slot.RootParameterIndex;
+			m_srvTableCount = range.count;
+			m_srvTableOffset = slot.TableOffset - range.offset;
 			foundSrv = true;
 			break;
 		}
@@ -263,7 +319,7 @@ bool SceneDepthDebugPass::EnsureReady()
 		return false;
 	}
 
-	auto rootSignatureResult = m_rootSignatureCache->GetOrCreateRootSignature(layoutResult.value.Layout);
+	auto rootSignatureResult = m_rootSignatureCache->GetOrCreateRootSignature(rootSignatureLayout);
 	if (!rootSignatureResult)
 	{
 		LOG_ERROR(LogCategory::Renderer, "Failed to create the scene depth debug root signature");
@@ -290,7 +346,7 @@ bool SceneDepthDebugPass::EnsureReady()
 	pipelineLayout.depth = DepthStencilState::DepthNone;
 	pipelineLayout.dsvFormat = DSV_FORMAT::Unknown;
 	pipelineLayout.raster = RasterizerState::NoCull;
-	pipelineLayout.rootSignature = layoutResult.value.Layout;
+	pipelineLayout.rootSignature = rootSignatureLayout;
 	pipelineLayout.DebugName = "SceneDepthDebug";
 
 	auto pipelineStateResult = m_pipelineStateCache->GetOrCreatePipelineState(pipelineLayout);

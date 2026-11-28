@@ -78,6 +78,14 @@ bool SlotMatchesNormal(std::string_view slotName)
 		|| StringEqualsIgnoreCase(slotName, "bump");
 }
 
+bool SlotMatchesSpecular(std::string_view slotName)
+{
+	return StringEqualsIgnoreCase(slotName, "specular")
+		|| StringEqualsIgnoreCase(slotName, "specularmap")
+		|| StringEqualsIgnoreCase(slotName, "g_specular")
+		|| StringEqualsIgnoreCase(slotName, "g_specularmap");
+}
+
 TextureHandle ResolveTextureHandle(
 	TextureHandle handle,
 	TextureSystemServices& textureServices,
@@ -102,7 +110,8 @@ TextureHandle PickOverrideForSlot(
 	const StoredMaterialParameterOverrides& overrides,
 	TextureSystemServices& textureServices,
 	TextureHandle albedoPlaceholder,
-	TextureHandle normalPlaceholder)
+	TextureHandle normalPlaceholder,
+	TextureHandle specularPlaceholder)
 {
 	if (SlotMatchesBaseColor(slotName))
 	{
@@ -114,6 +123,11 @@ TextureHandle PickOverrideForSlot(
 		return ResolveTextureHandle(overrides.normal, textureServices, normalPlaceholder);
 	}
 
+	if (SlotMatchesSpecular(slotName))
+	{
+		return ResolveTextureHandle(overrides.specular, textureServices, specularPlaceholder);
+	}
+
 	return albedoPlaceholder;
 }
 
@@ -122,7 +136,8 @@ std::vector<TextureHandle> BuildBoundTextures(
 	const StoredMaterialParameterOverrides& overrides,
 	TextureSystemServices& textureServices,
 	TextureHandle albedoPlaceholder,
-	TextureHandle normalPlaceholder)
+	TextureHandle normalPlaceholder,
+	TextureHandle specularPlaceholder)
 {
 	std::vector<TextureHandle> boundTextures;
 	for (const ShaderRootBindingSlot& slot : material.bindingSlots)
@@ -159,7 +174,8 @@ std::vector<TextureHandle> BuildBoundTextures(
 					overrides,
 					textureServices,
 					albedoPlaceholder,
-					normalPlaceholder);
+					normalPlaceholder,
+					specularPlaceholder);
 			}
 			else if (shaderRegister != 0)
 			{
@@ -244,7 +260,7 @@ bool OverridesEqual(
 	const StoredMaterialParameterOverrides& left,
 	const StoredMaterialParameterOverrides& right)
 {
-	if (left.baseColor != right.baseColor || left.normal != right.normal)
+	if (left.baseColor != right.baseColor || left.normal != right.normal || left.specular != right.specular)
 	{
 		return false;
 	}
@@ -384,7 +400,8 @@ void RenderScene::Build(
 			object.overrides,
 			textureServices,
 			placeholders.texture,
-			placeholders.normalTexture);
+			placeholders.normalTexture,
+			placeholders.specularTexture);
 		const std::vector<std::vector<std::byte>> resolvedConstants =
 			BuildConstantBuffers(*material, object.overrides);
 

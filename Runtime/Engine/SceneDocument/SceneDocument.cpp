@@ -1,15 +1,18 @@
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
 
+#include "Runtime/Engine/SceneDocument/SceneComponentMap.h"
 #include "Runtime/Engine/SceneDocument/Serializer/CameraComponentSerializer.h"
 #include "Runtime/Core/Json/JsonFields.h"
 #include "Runtime/Engine/SceneDocument/Serializer/LightComponentSerializer.h"
 #include "Runtime/Engine/SceneDocument/Serializer/RigidBodySerializer.h"
 #include "Runtime/Engine/SceneDocument/Serializer/TransformSerializer.h"
 #include "Runtime/Engine/World/World.h"
+#include "Runtime/Renderer/Scene/FbxSceneAssets.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
 #include <cctype>
 #include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -84,7 +87,7 @@ using Json = nlohmann::json;
 			"Scene document transform is missing a field");
 	}
 
-	Result<TransformComponent> transform = TransformSerializer::Read(*transformValue);
+	Result<SceneTransform> transform = TransformSerializer::Read(*transformValue);
 	if (!transform)
 	{
 		return MakeFail<SceneEntity>(transform.error.code, transform.error.message);
@@ -144,7 +147,7 @@ using Json = nlohmann::json;
 				"Scene document physics requires a root entity");
 		}
 
-		Result<RigidBody> body = RigidBodySerializer::Read(*physics);
+		Result<SceneRigidBody> body = RigidBodySerializer::Read(*physics);
 		if (!body)
 		{
 			return MakeFail<SceneEntity>(body.error.code, body.error.message);
@@ -155,7 +158,7 @@ using Json = nlohmann::json;
 
 	if (const Json* camera = JsonFields::FindField(value, CameraComponentSerializer::kKey))
 	{
-		Result<CameraComponent> component = CameraComponentSerializer::Read(*camera);
+		Result<SceneCamera> component = CameraComponentSerializer::Read(*camera);
 		if (!component)
 		{
 			return MakeFail<SceneEntity>(component.error.code, component.error.message);
@@ -166,7 +169,7 @@ using Json = nlohmann::json;
 
 	if (const Json* light = JsonFields::FindField(value, LightComponentSerializer::kKey))
 	{
-		Result<LightComponent> component = LightComponentSerializer::Read(*light);
+		Result<SceneLight> component = LightComponentSerializer::Read(*light);
 		if (!component)
 		{
 			return MakeFail<SceneEntity>(component.error.code, component.error.message);
@@ -319,6 +322,96 @@ Result<SceneDocument> LoadSceneDocument(const std::filesystem::path& path)
 	return ReadSceneDocument(text);
 }
 
+TransformComponent ToTransformComponent(const SceneTransform& transform)
+{
+	TransformComponent component{};
+	component.position = transform.position;
+	component.rotation = transform.rotation;
+	component.scale = transform.scale;
+	return component;
+}
+
+SceneTransform ToSceneTransform(const TransformComponent& transform)
+{
+	SceneTransform component{};
+	component.position = transform.position;
+	component.rotation = transform.rotation;
+	component.scale = transform.scale;
+	return component;
+}
+
+RigidBody ToRigidBody(const SceneRigidBody& body)
+{
+	RigidBody component{};
+	component.motion = body.motion;
+	component.friction = body.friction;
+	component.restitution = body.restitution;
+	component.mass = body.mass;
+	component.shape.type = body.shape.type;
+	component.shape.halfExtent = body.shape.halfExtent;
+	component.shape.radius = body.shape.radius;
+	component.shape.halfHeight = body.shape.halfHeight;
+	component.shape.mesh = body.shape.mesh;
+	component.shape.points = body.shape.points;
+	component.shape.indices = body.shape.indices;
+	return component;
+}
+
+SceneRigidBody ToSceneRigidBody(const RigidBody& body)
+{
+	SceneRigidBody component{};
+	component.motion = body.motion;
+	component.friction = body.friction;
+	component.restitution = body.restitution;
+	component.mass = body.mass;
+	component.shape.type = body.shape.type;
+	component.shape.halfExtent = body.shape.halfExtent;
+	component.shape.radius = body.shape.radius;
+	component.shape.halfHeight = body.shape.halfHeight;
+	component.shape.mesh = body.shape.mesh;
+	component.shape.points = body.shape.points;
+	component.shape.indices = body.shape.indices;
+	return component;
+}
+
+CameraComponent ToCameraComponent(const SceneCamera& camera)
+{
+	CameraComponent component{};
+	component.fovYDegrees = camera.fovYDegrees;
+	component.nearPlane = camera.nearPlane;
+	component.farPlane = camera.farPlane;
+	return component;
+}
+
+SceneCamera ToSceneCamera(const CameraComponent& camera)
+{
+	SceneCamera component{};
+	component.fovYDegrees = camera.fovYDegrees;
+	component.nearPlane = camera.nearPlane;
+	component.farPlane = camera.farPlane;
+	return component;
+}
+
+LightComponent ToLightComponent(const SceneLight& light)
+{
+	LightComponent component{};
+	component.color[0] = light.color[0];
+	component.color[1] = light.color[1];
+	component.color[2] = light.color[2];
+	component.intensity = light.intensity;
+	return component;
+}
+
+SceneLight ToSceneLight(const LightComponent& light)
+{
+	SceneLight component{};
+	component.color[0] = light.color[0];
+	component.color[1] = light.color[1];
+	component.color[2] = light.color[2];
+	component.intensity = light.intensity;
+	return component;
+}
+
 Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 	World& world,
 	const SceneDocument& document,
@@ -353,9 +446,7 @@ Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 				"Scene document transform was rejected");
 		}
 
-		liveTransform->position = entity.transform.position;
-		liveTransform->rotation = entity.transform.rotation;
-		liveTransform->scale = entity.transform.scale;
+		*liveTransform = ToTransformComponent(entity.transform);
 		if (!entity.model.empty())
 		{
 			if (world.Get<Renderable>(binding->entity) != nullptr)
@@ -388,14 +479,16 @@ Result<std::vector<WorldDocumentBinding>> InstantiateScene(
 		{
 			WorldMaterialParameterBlock block{};
 			block.bindingSlot = *render.materialConstantsSlot;
-			const auto* bytes = reinterpret_cast<const std::byte*>(entity.tint);
-			block.data.assign(bytes, bytes + sizeof(entity.tint));
+			LitMaterialConstants constants{};
+			std::memcpy(constants.tint, entity.tint, sizeof(constants.tint));
+			const auto* bytes = reinterpret_cast<const std::byte*>(&constants);
+			block.data.assign(bytes, bytes + sizeof(constants));
 			renderable->overrides.parameters.push_back(std::move(block));
 		}
 
-		const bool bodyAdded = !entity.body.has_value() || world.Add<RigidBody>(binding->entity, *entity.body);
-		const bool cameraAdded = !entity.camera.has_value() || world.Add<CameraComponent>(binding->entity, *entity.camera);
-		const bool lightAdded = !entity.light.has_value() || world.Add<LightComponent>(binding->entity, *entity.light);
+		const bool bodyAdded = !entity.body.has_value() || world.Add<RigidBody>(binding->entity, ToRigidBody(*entity.body));
+		const bool cameraAdded = !entity.camera.has_value() || world.Add<CameraComponent>(binding->entity, ToCameraComponent(*entity.camera));
+		const bool lightAdded = !entity.light.has_value() || world.Add<LightComponent>(binding->entity, ToLightComponent(*entity.light));
 		if (!bodyAdded || !cameraAdded || !lightAdded)
 		{
 			Rollback(world, spawned.value);

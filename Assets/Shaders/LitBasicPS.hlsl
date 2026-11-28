@@ -13,6 +13,7 @@ struct PSIn
 Texture2D g_texture : register(t0);
 Texture2D<float> g_shadowMap : register(t1);
 Texture2D normalMap : register(t2);
+Texture2D specularMap : register(t3);
 SamplerState g_sampler : register(s0);
 
 float SampleShadow(float3 worldPos)
@@ -56,6 +57,8 @@ float SampleShadow(float3 worldPos)
 cbuffer MaterialConstants : register(b2)
 {
     float4 tint;
+    float shininess;
+    float3 _pad;
 };
 
 float4 LitBasicPS(PSIn input) : SV_Target
@@ -71,11 +74,16 @@ float4 LitBasicPS(PSIn input) : SV_Target
 
     float3 lightDirection = normalize(-mainLightDirection.xyz);
     float ndotl = saturate(dot(normal, lightDirection));
-
+    float3 specular = specularMap.Sample(g_sampler, input.uv).rgb * tint.rgb;
+    float3 viewDirection = normalize(cameraPosition.xyz - input.worldPos);
+    float3 halfwayDirection = normalize(lightDirection + viewDirection);
+    float specFactor = max(dot(normal, halfwayDirection), 0.0);
+    float specularIntensity = pow(specFactor, shininess);
     float3 ambient = ambientColor.rgb * ambientColor.a;
     float3 diffuse = mainLightColor.rgb * mainLightColor.a * ndotl;
     float shadow = SampleShadow(input.worldPos);
-    float3 litColor = albedo * (ambient + diffuse * shadow);
+    float3 specularColor = specular * specularIntensity * mainLightColor.rgb * mainLightColor.a * shadow;
+    float3 litColor = albedo * (ambient + diffuse * shadow) + specularColor;
 
     return float4(litColor, albedoSample.a * tint.a);
 }

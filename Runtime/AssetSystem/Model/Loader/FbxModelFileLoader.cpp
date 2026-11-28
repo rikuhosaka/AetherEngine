@@ -136,6 +136,7 @@ public:
 		{
 			assignTexturePath(material->FindProperty(FbxSurfaceMaterial::sBump), slot.normalTexturePath);
 		}
+		assignTexturePath(material->FindProperty(FbxSurfaceMaterial::sSpecular), slot.specularTexturePath);
 
 		const uint32_t slotIndex = static_cast<uint32_t>(materialSlots.size());
 		materialSlots.push_back(std::move(slot));

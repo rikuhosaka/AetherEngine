@@ -7,11 +7,11 @@ namespace
 using Json = nlohmann::json;
 } // namespace
 
-Result<TransformComponent> TransformSerializer::Read(const nlohmann::json& value)
+Result<SceneTransform> TransformSerializer::Read(const nlohmann::json& value)
 {
 	if (!value.is_object())
 	{
-		return FailRuntime<TransformComponent>(
+		return FailRuntime<SceneTransform>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document transform is missing a field");
@@ -20,13 +20,13 @@ Result<TransformComponent> TransformSerializer::Read(const nlohmann::json& value
 	const Json* position = JsonFields::FindField(value, "position");
 	const Json* rotation = JsonFields::FindField(value, "rotation");
 	const Json* scale = JsonFields::FindField(value, "scale");
-	TransformComponent transform{};
+	SceneTransform transform{};
 	if (position == nullptr || rotation == nullptr || scale == nullptr
 		|| !JsonFields::ReadFloats(*position, &transform.position.x, 3)
 		|| !JsonFields::ReadFloats(*rotation, &transform.rotation.x, 4)
 		|| !JsonFields::ReadFloats(*scale, &transform.scale.x, 3))
 	{
-		return FailRuntime<TransformComponent>(
+		return FailRuntime<SceneTransform>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document transform is missing a field");
@@ -35,7 +35,7 @@ Result<TransformComponent> TransformSerializer::Read(const nlohmann::json& value
 	return MakeOk(transform);
 }
 
-nlohmann::json TransformSerializer::Write(const TransformComponent& transform)
+nlohmann::json TransformSerializer::Write(const SceneTransform& transform)
 {
 	return nlohmann::json::object({
 		{ "position", nlohmann::json::array({ transform.position.x, transform.position.y, transform.position.z }) },

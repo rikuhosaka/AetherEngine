@@ -154,6 +154,30 @@ bool RenderPlaceholders::EnsureInitialized(
 	}
 	m_resources.normalTexture = normalTextureResult.value;
 
+	TextureUploadDesc specularTextureDesc{};
+	specularTextureDesc.width = 1;
+	specularTextureDesc.height = 1;
+	TextureMipData specularMip{};
+	specularMip.width = 1;
+	specularMip.height = 1;
+	specularMip.rowPitch = 4;
+	specularMip.pixels = whitePixel;
+	specularTextureDesc.mips.push_back(specularMip);
+
+	auto specularTextureResult = resources.GetTextureServices().UploadTexture(
+		specularTextureDesc,
+		frameContext,
+		commandList);
+	if (!specularTextureResult)
+	{
+		if (outError != nullptr)
+		{
+			*outError = specularTextureResult.error.message;
+		}
+		return false;
+	}
+	m_resources.specularTexture = specularTextureResult.value;
+
 	MaterialCreateDesc materialDesc{};
 	materialDesc.vertexShaderPath = shaderRoot / "SimpleVS.hlsl";
 	materialDesc.pixelShaderPath = shaderRoot / "SimplePS.hlsl";

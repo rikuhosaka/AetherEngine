@@ -7,7 +7,7 @@
 #include <filesystem>
 
 // Bump when ModelAssetData, BasicVertex, or the import options change shape.
-constexpr uint32_t kCookedModelVersion = 1;
+constexpr uint32_t kCookedModelVersion = 2;
 
 // Cooked file for one model. relativePath is relative to assetsRoot, including its extension.
 [[nodiscard]] std::filesystem::path CookedModelPath(

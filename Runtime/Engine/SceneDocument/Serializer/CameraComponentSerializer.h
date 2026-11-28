@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/World/Component/CameraComponent.h"
+#include "Runtime/Engine/SceneDocument/SceneComponents.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
 #include <string_view>
@@ -14,6 +14,6 @@ class CameraComponentSerializer
 public:
 	static constexpr std::string_view kKey = "camera";
 
-	[[nodiscard]] static Result<CameraComponent> Read(const nlohmann::json& value);
-	[[nodiscard]] static nlohmann::json Write(const CameraComponent& camera);
+	[[nodiscard]] static Result<SceneCamera> Read(const nlohmann::json& value);
+	[[nodiscard]] static nlohmann::json Write(const SceneCamera& camera);
 };

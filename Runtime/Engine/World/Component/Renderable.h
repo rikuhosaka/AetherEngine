@@ -40,6 +40,7 @@ struct WorldMaterialOverrides
 {
 	WorldTextureId baseColor{};
 	WorldTextureId normal{};
+	WorldTextureId specular{};
 	std::vector<WorldMaterialParameterBlock> parameters{};
 };
 

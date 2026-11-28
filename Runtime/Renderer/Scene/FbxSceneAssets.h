@@ -6,6 +6,7 @@
 #include "Runtime/Renderer/Scene/SceneGpuUpload.h"
 #include "Runtime/Renderer/Texture/TextureTypes.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -19,7 +20,12 @@ class RHICommandList;
 struct LitMaterialConstants
 {
 	float tint[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+	float shininess = 32.0f;
+	float pad[3]{};
 };
+
+static_assert(sizeof(LitMaterialConstants) == 32);
+static_assert(offsetof(LitMaterialConstants, shininess) == 16);
 
 struct FbxNodeRecord
 {
@@ -35,6 +41,7 @@ struct FbxSubmeshRecord
 	MeshHandle mesh{};
 	TextureHandle baseColor{};
 	TextureHandle normal{};
+	TextureHandle specular{};
 	uint32_t submeshIndex = 0;
 	float worldMatrix[16]{};
 };
@@ -71,6 +78,7 @@ private:
 	MaterialHandle m_material{};
 	std::vector<TextureHandle> m_materialTextures{};
 	std::vector<TextureHandle> m_normalTextures{};
+	std::vector<TextureHandle> m_specularTextures{};
 	std::vector<FbxNodeRecord> m_nodes{};
 	std::vector<FbxSubmeshRecord> m_submeshes{};
 };

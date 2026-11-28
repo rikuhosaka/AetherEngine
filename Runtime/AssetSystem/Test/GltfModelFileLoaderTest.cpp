@@ -646,7 +646,8 @@ void ExpandWorldBounds(const ModelMeshData& mesh, const float world[16], MeshBou
 		&& NearlyEqual(child[13], 2.0f) && NearlyEqual(child[14], -3.0f) && NearlyEqual(child[15], 1.0f);
 	const std::filesystem::path albedo = CanonicalizeIfPossible(directory / "albedo.png");
 	const bool material = asset.materialSlots.size() == 1 && asset.materialSlots[0].name == "Stone"
-		&& asset.materialSlots[0].diffuseTexturePath == albedo && asset.materialSlots[0].normalTexturePath.empty();
+		&& asset.materialSlots[0].diffuseTexturePath == albedo && asset.materialSlots[0].normalTexturePath.empty()
+		&& asset.materialSlots[0].specularTexturePath.empty();
 	if (!hierarchy || !triangulated || !uvs || !localBounds || !matrices || !material)
 	{
 		return FailRuntime(
@@ -720,6 +721,115 @@ void ExpandWorldBounds(const ModelMeshData& mesh, const float world[16], MeshBou
 	}
 
 	return MakeOk();
+}
+
+[[nodiscard]] std::string SpecularMaterialJson(
+	const char* documentPrefix,
+	const char* images,
+	const char* materialBody)
+{
+	return std::string(R"({
+		"asset":{"version":"2.0"},
+		)") + documentPrefix + R"(
+		"scene":0,
+		"scenes":[{"nodes":[0]}],
+		"nodes":[{"mesh":0}],
+		"images":[)" + images + R"(],
+		"textures":[{"source":0},{"source":1},{"source":2},{"source":3}],
+		"materials":[{)" + materialBody + R"(}],
+		"meshes":[{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":1},"indices":2,"material":0}]}],
+		"accessors":[
+			{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+			{"bufferView":1,"componentType":5126,"count":3,"type":"VEC2"},
+			{"bufferView":2,"componentType":5123,"count":3,"type":"SCALAR"}
+		],
+		"bufferViews":[
+			{"buffer":0,"byteOffset":0,"byteLength":36},
+			{"buffer":0,"byteOffset":36,"byteLength":24},
+			{"buffer":0,"byteOffset":60,"byteLength":6}
+		],
+		"buffers":[{"uri":"textured.bin","byteLength":66}]
+	})";
+}
+
+[[nodiscard]] Result<void> ExpectSpecularTexture(
+	const std::filesystem::path& tempRoot,
+	const char* fileName,
+	const std::string& json,
+	const std::filesystem::path& expectedSpecular)
+{
+	if (!WriteText(tempRoot / fileName, json))
+	{
+		return FailRuntime(LogCategory::Asset, ErrorCode::FileNotFound, "glTF specular test file could not be written");
+	}
+
+	const Result<ModelAssetData> loaded = LoadGltfModelAssetDataFromFile(tempRoot / fileName);
+	if (!loaded || loaded.value.materialSlots.size() != 1
+		|| loaded.value.materialSlots[0].specularTexturePath != expectedSpecular)
+	{
+		return FailRuntime(
+			LogCategory::Asset,
+			ErrorCode::InvalidArgument,
+			"glTF specular extension should resolve the specular color texture");
+	}
+
+	return MakeOk();
+}
+
+[[nodiscard]] Result<void> TestSpecularExtensions(const std::filesystem::path& tempRoot)
+{
+	const bool wroteImages = WriteBytes(tempRoot / "specular.png", reinterpret_cast<const std::uint8_t*>("png"), 3)
+		&& WriteBytes(tempRoot / "gloss.png", reinterpret_cast<const std::uint8_t*>("png"), 3)
+		&& WriteBytes(tempRoot / "factor.png", reinterpret_cast<const std::uint8_t*>("png"), 3);
+	if (!wroteImages)
+	{
+		return FailRuntime(LogCategory::Asset, ErrorCode::FileNotFound, "glTF specular images could not be written");
+	}
+
+	const std::filesystem::path specularPath = CanonicalizeIfPossible(tempRoot / "specular.png");
+	const std::filesystem::path glossPath = CanonicalizeIfPossible(tempRoot / "gloss.png");
+	const char* colorImages =
+		R"({"uri":"albedo.png"},{"uri":"normal.png"},{"uri":"specular.png"},{"uri":"gloss.png"})";
+	const char* colorAndGloss = R"(
+		"name":"Stone",
+		"extensions":{
+			"KHR_materials_specular":{"specularColorTexture":{"index":2},"specularTexture":{"index":3}},
+			"KHR_materials_pbrSpecularGlossiness":{"specularGlossinessTexture":{"index":3}}
+		})";
+	if (auto color = ExpectSpecularTexture(
+			tempRoot,
+			"specular-color.gltf",
+			SpecularMaterialJson("", colorImages, colorAndGloss),
+			specularPath);
+		!color)
+	{
+		return color;
+	}
+
+	const char* glossImages =
+		R"({"uri":"albedo.png"},{"uri":"normal.png"},{"uri":"gloss.png"},{"uri":"factor.png"})";
+	const char* glossOnly = R"(
+		"name":"Stone",
+		"extensions":{"KHR_materials_pbrSpecularGlossiness":{"specularGlossinessTexture":{"index":2}}})";
+	if (auto gloss = ExpectSpecularTexture(
+			tempRoot,
+			"specular-gloss.gltf",
+			SpecularMaterialJson("", glossImages, glossOnly),
+			glossPath);
+		!gloss)
+	{
+		return gloss;
+	}
+
+	const char* factorOnly = R"("name":"Stone","extensions":{"KHR_materials_specular":{"specularTexture":{"index":2}}})";
+	return ExpectSpecularTexture(
+		tempRoot,
+		"specular-factor.gltf",
+		SpecularMaterialJson(
+			R"("extensionsUsed":["KHR_materials_specular"],"extensionsRequired":["KHR_materials_specular"],)",
+			glossImages,
+			factorOnly),
+		{});
 }
 } // namespace
 
@@ -882,6 +992,7 @@ Result<void> RunGltfModelFileLoaderTests()
 	if (!textured || textured.value.materialSlots.size() != 1 || textured.value.materialSlots[0].name != "Stone"
 		|| textured.value.materialSlots[0].diffuseTexturePath != albedoPath
 		|| textured.value.materialSlots[0].normalTexturePath != normalPath
+		|| !textured.value.materialSlots[0].specularTexturePath.empty()
 		|| !NearlyEqual(textured.value.meshes[0].vertices[1].uv[0], 1.0f))
 	{
 		std::filesystem::remove_all(tempRoot, errorCode);
@@ -889,6 +1000,12 @@ Result<void> RunGltfModelFileLoaderTests()
 			LogCategory::Asset,
 			ErrorCode::InvalidArgument,
 			"glTF material textures should resolve beside the file");
+	}
+
+	if (auto specular = TestSpecularExtensions(tempRoot); !specular)
+	{
+		std::filesystem::remove_all(tempRoot, errorCode);
+		return specular;
 	}
 
 	const std::string dataUriJson = R"({

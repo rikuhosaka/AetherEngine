@@ -28,6 +28,7 @@ struct StoredMaterialParameterOverrides
 {
 	TextureHandle baseColor{};
 	TextureHandle normal{};
+	TextureHandle specular{};
 	std::vector<StoredMaterialParameterBlock> parameters{};
 };
 

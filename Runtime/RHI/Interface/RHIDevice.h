@@ -72,6 +72,7 @@ public:
 		RHIDescriptorAllocator* allocator) = 0;
 
 	virtual void WriteShaderResourceView(RHITexture* texture, CpuDescHandle destCpuHandle) = 0;
+	virtual void WriteNullShaderResourceView(CpuDescHandle destCpuHandle) = 0;
 	virtual void WriteRenderTargetView(RHITexture* texture, RtvHandle dest) = 0;
 	virtual void WriteDepthStencilView(RHITexture* texture, DsvHandle dest) = 0;
 	virtual void WriteConstantBufferView(

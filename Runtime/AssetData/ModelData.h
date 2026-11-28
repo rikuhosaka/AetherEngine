@@ -36,6 +36,7 @@ struct ModelMaterialSlotData
 	std::string name;
 	std::filesystem::path diffuseTexturePath;
 	std::filesystem::path normalTexturePath;
+	std::filesystem::path specularTexturePath;
 };
 
 struct ModelNodeData

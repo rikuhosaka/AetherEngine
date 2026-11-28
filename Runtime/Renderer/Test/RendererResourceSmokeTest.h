@@ -7,13 +7,19 @@
 #include "Runtime/Renderer/Scene/RenderSceneTypes.h"
 #include "Runtime/Renderer/Scene/RenderViewTypes.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <string>
 
 struct RendererResourceSmokeMaterialConstants
 {
 	float tint[4]{ 0.26f, 0.52f, 0.96f, 1.0f };
+	float shininess = 32.0f;
+	float pad[3]{};
 };
+
+static_assert(sizeof(RendererResourceSmokeMaterialConstants) == 32);
+static_assert(offsetof(RendererResourceSmokeMaterialConstants, shininess) == 16);
 
 struct RendererResourceSmokeResult
 {

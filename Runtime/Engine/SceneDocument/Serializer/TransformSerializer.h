@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Runtime/Core/Log/Result.h"
-#include "Runtime/Engine/World/Component/TransformComponent.h"
+#include "Runtime/Engine/SceneDocument/SceneComponents.h"
 #include "ThirdParty/nlohmann/json.hpp"
 
 #include <string_view>
@@ -14,6 +14,6 @@ class TransformSerializer
 public:
 	static constexpr std::string_view kKey = "transform";
 
-	[[nodiscard]] static Result<TransformComponent> Read(const nlohmann::json& value);
-	[[nodiscard]] static nlohmann::json Write(const TransformComponent& transform);
+	[[nodiscard]] static Result<SceneTransform> Read(const nlohmann::json& value);
+	[[nodiscard]] static nlohmann::json Write(const SceneTransform& transform);
 };

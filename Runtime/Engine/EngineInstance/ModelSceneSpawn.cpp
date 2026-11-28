@@ -157,6 +157,7 @@ DirectX::XMMATRIX LoadRowMajorMatrix(const float matrix4x4[16])
 		renderable.visible = true;
 		renderable.overrides.baseColor = ToWorldTextureId(submesh.baseColor);
 		renderable.overrides.normal = ToWorldTextureId(submesh.normal);
+		renderable.overrides.specular = ToWorldTextureId(submesh.specular);
 		if (model.MaterialConstantsSlot().has_value())
 		{
 			WorldMaterialParameterBlock materialBlock{};

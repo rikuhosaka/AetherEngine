@@ -36,11 +36,11 @@ using Json = nlohmann::json;
 	return false;
 }
 
-[[nodiscard]] Result<RigidBodyShape> ReadShape(const Json& value)
+[[nodiscard]] Result<SceneRigidBodyShape> ReadShape(const Json& value)
 {
 	if (!value.is_object())
 	{
-		return FailRuntime<RigidBodyShape>(
+		return FailRuntime<SceneRigidBodyShape>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document shape must be an object");
@@ -49,21 +49,21 @@ using Json = nlohmann::json;
 	const Json* typeValue = JsonFields::FindField(value, "type");
 	if (typeValue == nullptr || !typeValue->is_string())
 	{
-		return FailRuntime<RigidBodyShape>(
+		return FailRuntime<SceneRigidBodyShape>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document shape is missing a type");
 	}
 
 	const std::string type = typeValue->get<std::string>();
-	RigidBodyShape shape{};
+	SceneRigidBodyShape shape{};
 	if (type == "box")
 	{
 		shape.type = PhysicsShapeType::Box;
 		const Json* halfExtent = JsonFields::FindField(value, "halfExtent");
 		if (halfExtent == nullptr || !JsonFields::ReadFloats(*halfExtent, &shape.halfExtent.x, 3))
 		{
-			return FailRuntime<RigidBodyShape>(
+			return FailRuntime<SceneRigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document box is missing halfExtent");
@@ -75,7 +75,7 @@ using Json = nlohmann::json;
 		const Json* radius = JsonFields::FindField(value, "radius");
 		if (radius == nullptr || !JsonFields::ReadFloat(*radius, shape.radius))
 		{
-			return FailRuntime<RigidBodyShape>(
+			return FailRuntime<SceneRigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document sphere is missing radius");
@@ -89,7 +89,7 @@ using Json = nlohmann::json;
 		if (radius == nullptr || halfHeight == nullptr || !JsonFields::ReadFloat(*radius, shape.radius)
 			|| !JsonFields::ReadFloat(*halfHeight, shape.halfHeight))
 		{
-			return FailRuntime<RigidBodyShape>(
+			return FailRuntime<SceneRigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document capsule is missing radius or halfHeight");
@@ -100,7 +100,7 @@ using Json = nlohmann::json;
 		shape.type = type == "convexHull" ? PhysicsShapeType::ConvexHull : PhysicsShapeType::Mesh;
 		if (JsonFields::FindField(value, "points") != nullptr || JsonFields::FindField(value, "indices") != nullptr)
 		{
-			return FailRuntime<RigidBodyShape>(
+			return FailRuntime<SceneRigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document mesh asset must not embed points or indices");
@@ -109,7 +109,7 @@ using Json = nlohmann::json;
 		const Json* mesh = JsonFields::FindField(value, "mesh");
 		if (mesh == nullptr || !mesh->is_string() || mesh->get<std::string>().empty())
 		{
-			return FailRuntime<RigidBodyShape>(
+			return FailRuntime<SceneRigidBodyShape>(
 				LogCategory::ECS,
 				ErrorCode::InvalidArgument,
 				"Scene document shape is missing a mesh asset");
@@ -119,7 +119,7 @@ using Json = nlohmann::json;
 	}
 	else
 	{
-		return FailRuntime<RigidBodyShape>(
+		return FailRuntime<SceneRigidBodyShape>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document shape is unsupported");
@@ -128,7 +128,7 @@ using Json = nlohmann::json;
 	return MakeOk(std::move(shape));
 }
 
-[[nodiscard]] Json WriteShape(const RigidBodyShape& shape)
+[[nodiscard]] Json WriteShape(const SceneRigidBodyShape& shape)
 {
 	Json value = Json::object();
 	value["type"] = RigidBodySerializer::ShapeName(shape.type);
@@ -190,11 +190,11 @@ const char* RigidBodySerializer::ShapeName(PhysicsShapeType type)
 	}
 }
 
-Result<RigidBody> RigidBodySerializer::Read(const nlohmann::json& value)
+Result<SceneRigidBody> RigidBodySerializer::Read(const nlohmann::json& value)
 {
 	if (!value.is_object())
 	{
-		return FailRuntime<RigidBody>(
+		return FailRuntime<SceneRigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document physics must be an object");
@@ -205,10 +205,10 @@ Result<RigidBody> RigidBodySerializer::Read(const nlohmann::json& value)
 	const nlohmann::json* restitution = JsonFields::FindField(value, "restitution");
 	const nlohmann::json* mass = JsonFields::FindField(value, "mass");
 	const nlohmann::json* shape = JsonFields::FindField(value, "shape");
-	RigidBody body{};
+	SceneRigidBody body{};
 	if (motion == nullptr || !ReadMotion(*motion, body.motion))
 	{
-		return FailRuntime<RigidBody>(
+		return FailRuntime<SceneRigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			motion != nullptr && motion->is_string()
@@ -220,22 +220,22 @@ Result<RigidBody> RigidBodySerializer::Read(const nlohmann::json& value)
 		|| !JsonFields::ReadFloat(*friction, body.friction) || !JsonFields::ReadFloat(*restitution, body.restitution)
 		|| !JsonFields::ReadFloat(*mass, body.mass))
 	{
-		return FailRuntime<RigidBody>(
+		return FailRuntime<SceneRigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document physics is missing a field");
 	}
 
-	Result<RigidBodyShape> readShape = ReadShape(*shape);
+	Result<SceneRigidBodyShape> readShape = ReadShape(*shape);
 	if (!readShape)
 	{
-		return MakeFail<RigidBody>(readShape.error.code, readShape.error.message);
+		return MakeFail<SceneRigidBody>(readShape.error.code, readShape.error.message);
 	}
 
 	body.shape = std::move(readShape.value);
 	if (body.shape.type == PhysicsShapeType::Mesh && body.motion != PhysicsMotion::Static)
 	{
-		return FailRuntime<RigidBody>(
+		return FailRuntime<SceneRigidBody>(
 			LogCategory::ECS,
 			ErrorCode::InvalidArgument,
 			"Scene document mesh physics requires static motion");
@@ -244,7 +244,7 @@ Result<RigidBody> RigidBodySerializer::Read(const nlohmann::json& value)
 	return MakeOk(std::move(body));
 }
 
-nlohmann::json RigidBodySerializer::Write(const RigidBody& body)
+nlohmann::json RigidBodySerializer::Write(const SceneRigidBody& body)
 {
 	return nlohmann::json::object({
 		{ "motion", MotionName(body.motion) },

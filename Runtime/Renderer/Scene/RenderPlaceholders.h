@@ -16,6 +16,7 @@ struct RenderPlaceholderResources
 	MaterialHandle material{};
 	TextureHandle texture{};
 	TextureHandle normalTexture{};
+	TextureHandle specularTexture{};
 	MaterialInstanceHandle materialInstance{};
 };
 

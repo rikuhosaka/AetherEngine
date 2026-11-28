@@ -46,6 +46,159 @@ uint32_t ResolveRootConstantCount(const Material& material, const ShaderRootBind
 
 	return slot.BindCount;
 }
+
+bool ShaderResourceParameterAlreadyBound(
+	const Material& material,
+	size_t slotIndex,
+	uint32_t rootParameterIndex)
+{
+	for (size_t earlierIndex = 0; earlierIndex < slotIndex; ++earlierIndex)
+	{
+		const ShaderRootBindingSlot& earlier = material.bindingSlots[earlierIndex];
+		if (earlier.RootType == RHIRootParamType::SRV && earlier.RootParameterIndex == rootParameterIndex)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool BindShaderResourceTable(
+	RHIDevice* device,
+	FrameContext& frameContext,
+	RHICommandList* commandList,
+	const Material& material,
+	const MaterialInstance& instance,
+	TextureSystemServices& textureServices,
+	RHITexture* shadowMap,
+	uint32_t rootParameterIndex,
+	size_t& textureIndex)
+{
+	if (rootParameterIndex >= material.rootSignatureLayout.parameters.size())
+	{
+		LOG_ERROR(LogCategory::Renderer, "Material shader resource table is outside the root signature");
+		return false;
+	}
+
+	const RHIRootParameterDesc& parameter = material.rootSignatureLayout.parameters[rootParameterIndex];
+	const RHIRootDescriptorRange* range = nullptr;
+	for (const ShaderRootBindingSlot& slot : material.bindingSlots)
+	{
+		if (slot.RootType != RHIRootParamType::SRV || slot.RootParameterIndex != rootParameterIndex)
+		{
+			continue;
+		}
+
+		if (parameter.kind != RHIRootParameterKind::DescriptorTable || slot.RangeIndex >= parameter.ranges.size())
+		{
+			LOG_ERROR(LogCategory::Renderer, "Material shader resource is not in a descriptor table");
+			return false;
+		}
+
+		const RHIRootDescriptorRange& candidate = parameter.ranges[slot.RangeIndex];
+		if (range == nullptr)
+		{
+			range = &candidate;
+			continue;
+		}
+
+		if (range != &candidate)
+		{
+			LOG_ERROR(LogCategory::Renderer, "Material shader resources span more than one descriptor range");
+			return false;
+		}
+	}
+
+	if (range == nullptr || range->unbounded || range->count == 0)
+	{
+		LOG_ERROR(LogCategory::Renderer, "Material shader resource table has no bounded descriptor range");
+		return false;
+	}
+
+	uint32_t firstDescriptorIndex = UINT32_MAX;
+	for (uint32_t element = 0; element < range->count; ++element)
+	{
+		const uint32_t descriptorIndex = frameContext.transientDescriptors->Allocate();
+		if (descriptorIndex == UINT32_MAX)
+		{
+			LOG_ERROR(LogCategory::RHI, "Transient descriptor allocation failed during material bind");
+			return false;
+		}
+
+		if (element == 0)
+		{
+			firstDescriptorIndex = descriptorIndex;
+		}
+		else if (descriptorIndex != firstDescriptorIndex + element)
+		{
+			LOG_ERROR(LogCategory::RHI, "Material shader resource descriptors are not contiguous");
+			return false;
+		}
+
+		const CpuDescHandle cpuHandle = frameContext.transientDescriptors->GetCpuHandle(descriptorIndex);
+		const uint32_t tableOffset = range->offset + element;
+		const ShaderRootBindingSlot* elementSlot = nullptr;
+		for (const ShaderRootBindingSlot& slot : material.bindingSlots)
+		{
+			if (slot.RootType != RHIRootParamType::SRV || slot.RootParameterIndex != rootParameterIndex)
+			{
+				continue;
+			}
+
+			if (slot.TableOffset != tableOffset)
+			{
+				continue;
+			}
+
+			if (elementSlot != nullptr)
+			{
+				LOG_ERROR(LogCategory::Renderer, "Material shader resource table has overlapping bindings");
+				return false;
+			}
+
+			elementSlot = &slot;
+		}
+
+		if (elementSlot == nullptr)
+		{
+			device->WriteNullShaderResourceView(cpuHandle);
+			continue;
+		}
+
+		if (IsPassBoundShaderResource(elementSlot->Register, elementSlot->Space))
+		{
+			if (shadowMap == nullptr)
+			{
+				LOG_ERROR(LogCategory::Renderer, "Material requires a shadow map that was not provided");
+				return false;
+			}
+
+			device->WriteShaderResourceView(shadowMap, cpuHandle);
+			continue;
+		}
+
+		if (textureIndex >= instance.boundTextures.size())
+		{
+			LOG_FATAL(LogCategory::Renderer, "Material instance missing bound texture");
+			return false;
+		}
+
+		Texture* texture = textureServices.GetTexture(instance.boundTextures[textureIndex]);
+		if (texture == nullptr || texture->resource == nullptr)
+		{
+			LOG_ERROR(LogCategory::Renderer, "Material bound texture is invalid");
+			return false;
+		}
+
+		device->WriteShaderResourceView(texture->resource.get(), cpuHandle);
+		++textureIndex;
+	}
+
+	const GpuDescHandle tableGpuHandle = frameContext.transientDescriptors->GetGpuHandle(firstDescriptorIndex);
+	commandList->SetGraphicsRootDescriptorTable(rootParameterIndex, tableGpuHandle.ptr);
+	return true;
+}
 } // namespace
 
 MaterialBindCache::MaterialBindCache(RHIDevice* device)
@@ -71,8 +224,9 @@ bool MaterialBindCache::Bind(
 
 	size_t textureIndex = 0;
 
-	for (const ShaderRootBindingSlot& slot : material.bindingSlots)
+	for (size_t slotIndex = 0; slotIndex < material.bindingSlots.size(); ++slotIndex)
 	{
+		const ShaderRootBindingSlot& slot = material.bindingSlots[slotIndex];
 		// Frame/object constants are bound by the pass; binding material data here would overwrite them.
 		if (slot.RootType == RHIRootParamType::CBV
 			&& IsPassBoundConstantRegister(material, slot.Register, slot.Space))
@@ -123,7 +277,30 @@ bool MaterialBindCache::Bind(
 			continue;
 		}
 
-		if (slot.RootType != RHIRootParamType::SRV && slot.RootType != RHIRootParamType::CBV)
+		if (slot.RootType == RHIRootParamType::SRV)
+		{
+			if (ShaderResourceParameterAlreadyBound(material, slotIndex, slot.RootParameterIndex))
+			{
+				continue;
+			}
+
+			if (!BindShaderResourceTable(
+				m_device,
+				frameContext,
+				commandList,
+				material,
+				instance,
+				textureServices,
+				shadowMap,
+				slot.RootParameterIndex,
+				textureIndex))
+			{
+				return false;
+			}
+			continue;
+		}
+
+		if (slot.RootType != RHIRootParamType::CBV)
 		{
 			continue;
 		}
@@ -138,94 +315,37 @@ bool MaterialBindCache::Bind(
 		const CpuDescHandle cpuHandle = frameContext.transientDescriptors->GetCpuHandle(descriptorIndex);
 		const GpuDescHandle gpuHandle = frameContext.transientDescriptors->GetGpuHandle(descriptorIndex);
 
-		if (slot.RootType == RHIRootParamType::SRV)
+		const std::optional<size_t> layoutIndex =
+			FindConstantLayoutIndex(material, slot.Register, slot.Space);
+		if (!layoutIndex.has_value()
+			|| *layoutIndex >= instance.constantBuffers.size()
+			|| frameContext.uploadBuffer == nullptr)
 		{
-			const uint32_t descriptorCount = slot.BindCount == 0 ? 1u : slot.BindCount;
-			uint32_t firstDescriptorIndex = descriptorIndex;
-			for (uint32_t element = 0; element < descriptorCount; ++element)
-			{
-				uint32_t elementDescriptorIndex = descriptorIndex;
-				if (element > 0)
-				{
-					elementDescriptorIndex = frameContext.transientDescriptors->Allocate();
-					if (elementDescriptorIndex == UINT32_MAX)
-					{
-						LOG_ERROR(LogCategory::RHI, "Transient descriptor allocation failed during material bind");
-						return false;
-					}
-				}
-
-				const CpuDescHandle elementCpuHandle =
-					frameContext.transientDescriptors->GetCpuHandle(elementDescriptorIndex);
-				const uint32_t shaderRegister = slot.Register + element;
-				if (IsPassBoundShaderResource(shaderRegister, slot.Space))
-				{
-					if (shadowMap == nullptr)
-					{
-						LOG_ERROR(LogCategory::Renderer, "Material requires a shadow map that was not provided");
-						return false;
-					}
-
-					m_device->WriteShaderResourceView(shadowMap, elementCpuHandle);
-					continue;
-				}
-
-				if (textureIndex >= instance.boundTextures.size())
-				{
-					LOG_FATAL(LogCategory::Renderer, "Material instance missing bound texture");
-					return false;
-				}
-
-				Texture* texture = textureServices.GetTexture(instance.boundTextures[textureIndex]);
-				if (texture == nullptr || texture->resource == nullptr)
-				{
-					LOG_ERROR(LogCategory::Renderer, "Material bound texture is invalid");
-					return false;
-				}
-
-				m_device->WriteShaderResourceView(texture->resource.get(), elementCpuHandle);
-				++textureIndex;
-			}
-
-			const GpuDescHandle tableGpuHandle =
-				frameContext.transientDescriptors->GetGpuHandle(firstDescriptorIndex);
-			commandList->SetGraphicsRootDescriptorTable(slot.RootParameterIndex, tableGpuHandle.ptr);
-			continue;
+			LOG_FATAL(LogCategory::Renderer, "Material instance missing constant buffer data");
+			return false;
 		}
-		else if (slot.RootType == RHIRootParamType::CBV)
+
+		const std::vector<std::byte>& constantData = instance.constantBuffers[*layoutIndex];
+		if (constantData.empty())
 		{
-			const std::optional<size_t> layoutIndex =
-				FindConstantLayoutIndex(material, slot.Register, slot.Space);
-			if (!layoutIndex.has_value()
-				|| *layoutIndex >= instance.constantBuffers.size()
-				|| frameContext.uploadBuffer == nullptr)
-			{
-				LOG_FATAL(LogCategory::Renderer, "Material instance missing constant buffer data");
-				return false;
-			}
-
-			const std::vector<std::byte>& constantData = instance.constantBuffers[*layoutIndex];
-			if (constantData.empty())
-			{
-				LOG_ERROR(LogCategory::Renderer, "Material constant buffer data is empty");
-				return false;
-			}
-
-			const size_t constantSize = constantData.size();
-			RHIUploadAllocation allocation = frameContext.uploadBuffer->Allocate(constantSize, 256);
-			if (allocation.cpuAddress == nullptr)
-			{
-				LOG_ERROR(LogCategory::RHI, "Upload buffer allocation failed during material bind");
-				return false;
-			}
-
-			std::memcpy(allocation.cpuAddress, constantData.data(), constantSize);
-			m_device->WriteConstantBufferView(
-				frameContext.uploadBuffer,
-				allocation.offset,
-				static_cast<uint32_t>(constantSize),
-				cpuHandle);
+			LOG_ERROR(LogCategory::Renderer, "Material constant buffer data is empty");
+			return false;
 		}
+
+		const size_t constantSize = constantData.size();
+		RHIUploadAllocation allocation = frameContext.uploadBuffer->Allocate(constantSize, 256);
+		if (allocation.cpuAddress == nullptr)
+		{
+			LOG_ERROR(LogCategory::RHI, "Upload buffer allocation failed during material bind");
+			return false;
+		}
+
+		std::memcpy(allocation.cpuAddress, constantData.data(), constantSize);
+		m_device->WriteConstantBufferView(
+			frameContext.uploadBuffer,
+			allocation.offset,
+			static_cast<uint32_t>(constantSize),
+			cpuHandle);
 
 		commandList->SetGraphicsRootDescriptorTable(slot.RootParameterIndex, gpuHandle.ptr);
 	}

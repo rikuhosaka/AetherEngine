@@ -4,20 +4,8 @@
 #include "Runtime/Renderer/Pipeline/ShaderRootLayoutTypes.h"
 #include "Runtime/Renderer/ShaderSystem/Reflection/ShaderReflectionData.h"
 
-class ShaderRootLayoutBuilder
-{
-public:
-	void Clear();
-	void AddStage(const ShaderReflectionData& reflection);
-	void SetOptions(ShaderRootLayoutBuildOptions options);
-
-	[[nodiscard]] Result<ShaderRootLayoutData> Build() const;
-
-private:
-	std::vector<ShaderReflectionData> m_stages{};
-	ShaderRootLayoutBuildOptions m_options{};
-};
-
-[[nodiscard]] Result<ShaderRootLayoutData> BuildRootSignatureLayout(
-	std::span<const ShaderReflectionData> stages,
-	ShaderRootLayoutBuildOptions options = {});
+// Maps reflected shader resources onto an existing root signature layout.
+// The layout is not modified. Slots are created only for resources the shaders reference.
+[[nodiscard]] Result<std::vector<ShaderRootBindingSlot>> MapRootSignatureBindings(
+	const RHIRootSignatureLayout& layout,
+	std::span<const ShaderReflectionData> stages);

@@ -13,7 +13,7 @@ Result<void> ApplyMeshCollision(SceneDocument& document, const AssetCache& cache
 			continue;
 		}
 
-		RigidBodyShape& shape = entity.body->shape;
+		SceneRigidBodyShape& shape = entity.body->shape;
 		if (shape.type != PhysicsShapeType::Mesh && shape.type != PhysicsShapeType::ConvexHull)
 		{
 			continue;

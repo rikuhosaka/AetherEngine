@@ -280,6 +280,7 @@ namespace
 			detail += " | slot " + slot.name;
 			detail += " diffuse=" + slot.diffuseTexturePath.string();
 			detail += " normal=" + slot.normalTexturePath.string();
+			detail += " specular=" + slot.specularTexturePath.string();
 		}
 
 		return FailRuntime(
@@ -329,10 +330,11 @@ namespace
 	{
 		LOG_INFO_F(
 			LogCategory::Asset,
-			"Paladin material '{}': diffuse='{}' normal='{}'",
+			"Paladin material '{}': diffuse='{}' normal='{}' specular='{}'",
 			slot.name,
 			slot.diffuseTexturePath.string(),
-			slot.normalTexturePath.string());
+			slot.normalTexturePath.string(),
+			slot.specularTexturePath.string());
 	}
 
 	return MakeOk();
@@ -404,7 +406,8 @@ namespace
 		const ModelMaterialSlotData& leftSlot = left.materialSlots[slotIndex];
 		const ModelMaterialSlotData& rightSlot = right.materialSlots[slotIndex];
 		if (leftSlot.name != rightSlot.name || leftSlot.diffuseTexturePath != rightSlot.diffuseTexturePath
-			|| leftSlot.normalTexturePath != rightSlot.normalTexturePath)
+			|| leftSlot.normalTexturePath != rightSlot.normalTexturePath
+			|| leftSlot.specularTexturePath != rightSlot.specularTexturePath)
 		{
 			return false;
 		}

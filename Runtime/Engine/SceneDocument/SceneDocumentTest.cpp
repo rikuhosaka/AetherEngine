@@ -4,11 +4,14 @@
 #include "Runtime/Engine/SceneDocument/EditorSceneServices.h"
 #include "Runtime/Engine/SceneDocument/SceneAssetLoader.h"
 #include "Runtime/Engine/SceneDocument/SceneDocument.h"
+
+#include "Runtime/Engine/SceneDocument/SceneComponentMap.h"
 #include "Runtime/Engine/EngineInstance/Subsystem/SceneDocumentSubsystem.h"
 #include "Runtime/Core/Log/LogMacros.h"
 #include "Runtime/Physics/PhysicsLibrary.h"
 #include "Runtime/Engine/World/PhysicsScene.h"
 #include "Runtime/Engine/World/World.h"
+#include "Runtime/Renderer/Scene/FbxSceneAssets.h"
 
 #include <cmath>
 #include <cstddef>
@@ -62,7 +65,7 @@ namespace
 	sphere.tint[1] = 0.35f;
 	sphere.tint[2] = 0.12f;
 	sphere.tint[3] = 1.0f;
-	RigidBody sphereBody{};
+	SceneRigidBody sphereBody{};
 	sphereBody.motion = PhysicsMotion::Dynamic;
 	sphereBody.friction = 0.2f;
 	sphereBody.shape.type = PhysicsShapeType::Sphere;
@@ -80,7 +83,7 @@ namespace
 	hull.tint[1] = 0.72f;
 	hull.tint[2] = 0.38f;
 	hull.tint[3] = 1.0f;
-	RigidBody hullBody{};
+	SceneRigidBody hullBody{};
 	hullBody.motion = PhysicsMotion::Dynamic;
 	hullBody.friction = 0.4f;
 	hullBody.shape.type = PhysicsShapeType::ConvexHull;
@@ -304,7 +307,7 @@ namespace
 		}
 
 		const WorldDocumentBinding* binding = FindBinding(spawned.value, entity.id);
-		if (binding == nullptr || !world.Add<RigidBody>(binding->entity, *entity.body))
+		if (binding == nullptr || !world.Add<RigidBody>(binding->entity, ToRigidBody(*entity.body)))
 		{
 			return FailRuntime(
 				LogCategory::ECS,
@@ -396,21 +399,22 @@ Result<void> RunSceneDocumentLoadTests(const std::filesystem::path& assetsRoot)
 	const RigidBody* hullBody = hullBinding == nullptr ? nullptr : world.Get<RigidBody>(hullBinding->entity);
 	const RigidBody* markerBody = markerBinding == nullptr ? nullptr : world.Get<RigidBody>(markerBinding->entity);
 	Result<PhysicsScene> created = instantiated ? BindRigidBodies(world) : MakeFail<PhysicsScene>(ErrorCode::InvalidArgument, "Scene did not instantiate");
-	float sphereTint[4]{};
+	LitMaterialConstants sphereConstants{};
 	const bool tintCopied = sphereRenderable != nullptr && sphereRenderable->overrides.parameters.size() == 1
-		&& sphereRenderable->overrides.parameters[0].data.size() == sizeof(sphereTint)
+		&& sphereRenderable->overrides.parameters[0].data.size() == sizeof(sphereConstants)
 		&& sphereRenderable->overrides.parameters[0].bindingSlot == 5;
 	if (tintCopied)
 	{
-		std::memcpy(sphereTint, sphereRenderable->overrides.parameters[0].data.data(), sizeof(sphereTint));
+		std::memcpy(&sphereConstants, sphereRenderable->overrides.parameters[0].data.data(), sizeof(sphereConstants));
 	}
 
 	if (!instantiated || sphereBinding == nullptr || hullBinding == nullptr || markerBinding == nullptr
 		|| sphereRenderable == nullptr || markerRenderable == nullptr || !tintCopied
 		|| sphereRenderable->mesh.Index != 7 || sphereRenderable->mesh.Generation != 1
 		|| sphereRenderable->material.Index != 3 || sphereRenderable->overrides.baseColor.Index != 4
-		|| !IsNearlyEqual(sphereTint[0], 0.90f) || !IsNearlyEqual(sphereTint[1], 0.35f)
-		|| !IsNearlyEqual(sphereTint[2], 0.12f) || markerRenderable->mesh.Index != 9
+		|| !IsNearlyEqual(sphereConstants.tint[0], 0.90f) || !IsNearlyEqual(sphereConstants.tint[1], 0.35f)
+		|| !IsNearlyEqual(sphereConstants.tint[2], 0.12f)
+		|| !IsNearlyEqual(sphereConstants.shininess, 32.0f) || markerRenderable->mesh.Index != 9
 		|| sphereBody == nullptr || hullBody == nullptr || markerBody != nullptr
 		|| !created || !created.value.Unbind(sphereBinding->entity) || !created.value.Unbind(hullBinding->entity)
 		|| created.value.Unbind(markerBinding->entity) || CountAlive(world) != 4 || !world.IsAlive(existing))

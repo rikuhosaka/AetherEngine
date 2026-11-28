@@ -3,6 +3,7 @@
 #include "Runtime/Engine/SceneDocument/SceneCapture.h"
 
 #include "Runtime/Core/Log/LogMacros.h"
+#include "Runtime/Engine/SceneDocument/SceneComponentMap.h"
 #include "Runtime/Engine/World/Component/DocumentEntityId.h"
 #include "Runtime/Engine/World/World.h"
 
@@ -37,7 +38,7 @@ namespace
 	sphere.tint[1] = 0.35f;
 	sphere.tint[2] = 0.12f;
 	sphere.tint[3] = 1.0f;
-	RigidBody sphereBody{};
+	SceneRigidBody sphereBody{};
 	sphereBody.motion = PhysicsMotion::Dynamic;
 	sphereBody.friction = 0.2f;
 	sphereBody.shape.type = PhysicsShapeType::Sphere;
@@ -55,7 +56,7 @@ namespace
 	hull.tint[1] = 0.72f;
 	hull.tint[2] = 0.38f;
 	hull.tint[3] = 1.0f;
-	RigidBody hullBody{};
+	SceneRigidBody hullBody{};
 	hullBody.motion = PhysicsMotion::Dynamic;
 	hullBody.friction = 0.4f;
 	hullBody.shape.type = PhysicsShapeType::ConvexHull;
@@ -121,12 +122,12 @@ namespace
 
 	WorldSpawnDesc sphereDesc{};
 	sphereDesc.name = "Sphere";
-	sphereDesc.transform = source.entities[0].transform;
+	sphereDesc.transform = ToTransformComponent(source.entities[0].transform);
 	const EntityId sphere = world.Spawn(std::move(sphereDesc));
 
 	WorldSpawnDesc hullDesc{};
 	hullDesc.name = "Hull";
-	hullDesc.transform = source.entities[1].transform;
+	hullDesc.transform = ToTransformComponent(source.entities[1].transform);
 	const EntityId hull = world.Spawn(std::move(hullDesc));
 
 	WorldSpawnDesc markerDesc{};
@@ -139,8 +140,8 @@ namespace
 		|| !world.Add<DocumentEntityId>(sphere, DocumentEntityId{ 1 })
 		|| !world.Add<DocumentEntityId>(hull, DocumentEntityId{ 2 })
 		|| !world.Add<DocumentEntityId>(marker, DocumentEntityId{ 3 })
-		|| !source.entities[0].body.has_value() || !world.Add<RigidBody>(sphere, *source.entities[0].body)
-		|| !source.entities[1].body.has_value() || !world.Add<RigidBody>(hull, *source.entities[1].body))
+		|| !source.entities[0].body.has_value() || !world.Add<RigidBody>(sphere, ToRigidBody(*source.entities[0].body))
+		|| !source.entities[1].body.has_value() || !world.Add<RigidBody>(hull, ToRigidBody(*source.entities[1].body)))
 	{
 		return FailRuntime(
 			LogCategory::ECS,
